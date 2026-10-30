@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../brand/brand.dart';
 import 'tokens.dart';
 
-/// Light: forest on cream. Dark: moss on charcoal, a true dark rather than an
-/// inversion. Fraunces for display and headings, Inter for body and UI,
+/// Light: forest on cream. Dark: charcoal with moss fills, a true dark rather
+/// than an inversion; text-sized accents there (links, text buttons, the
+/// selected tab, focus) use sage, because moss on charcoal is too dark to read. Fraunces for display and headings, Inter for body and UI,
 /// JetBrains Mono with tabular figures for numbers.
 ///
 /// The typefaces are bundled assets (tool/fetch-fonts.sh), never fetched at
@@ -63,8 +64,8 @@ abstract final class AppTheme {
 
   static final ColorScheme _darkScheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: Brand.moss,
-    onPrimary: Brand.linen,
+    primary: Brand.sage,
+    onPrimary: Brand.charcoal,
     primaryContainer: Brand.moss.withValues(alpha: 0.4),
     onPrimaryContainer: Brand.linen,
     secondary: Brand.sage,
@@ -99,8 +100,9 @@ abstract final class AppTheme {
     surfaceTint: Colors.transparent,
   );
 
-  /// Amber pulled towards ink so it reads as text on cream.
-  static final Color _darkenedAmber = Color.lerp(Brand.amber, Brand.ink, 0.3)!;
+  /// Amber pulled towards ink so it reads as text on cream and on the field
+  /// fill (4.5:1 on both).
+  static final Color _darkenedAmber = Color.lerp(Brand.amber, Brand.ink, 0.45)!;
 
   /// Numbers and data: mono, tabular figures.
   static TextStyle numeric(BuildContext context, {TextStyle? base}) {
@@ -138,6 +140,10 @@ abstract final class AppTheme {
     );
 
     final hairline = BorderSide(color: colors.hairline, width: 1);
+    // Filled buttons keep the brand's deep green in both themes.
+    final dark = brightness == Brightness.dark;
+    final fill = dark ? Brand.moss : scheme.primary;
+    final onFill = dark ? Brand.linen : scheme.onPrimary;
 
     return base.copyWith(
       scaffoldBackgroundColor: scheme.surface,
@@ -222,14 +228,12 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: scheme.primary,
-          foregroundColor: scheme.onPrimary,
+          backgroundColor: fill,
+          foregroundColor: onFill,
           elevation: 0,
           minimumSize: const Size(64, 52),
           padding: const EdgeInsets.symmetric(horizontal: Space.x6),
-          shape: const RoundedRectangleBorder(
-            borderRadius: Radii.controlRadius,
-          ),
+          shape: const StadiumBorder(),
           textStyle: textTheme.labelLarge,
           animationDuration: Motion.short,
         ),
@@ -240,9 +244,7 @@ abstract final class AppTheme {
           minimumSize: const Size(64, 52),
           padding: const EdgeInsets.symmetric(horizontal: Space.x6),
           side: BorderSide(color: scheme.primary.withValues(alpha: 0.5)),
-          shape: const RoundedRectangleBorder(
-            borderRadius: Radii.controlRadius,
-          ),
+          shape: const StadiumBorder(),
           textStyle: textTheme.labelLarge,
           animationDuration: Motion.short,
         ),
@@ -251,9 +253,7 @@ abstract final class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: scheme.primary,
           minimumSize: const Size(48, 44),
-          shape: const RoundedRectangleBorder(
-            borderRadius: Radii.controlRadius,
-          ),
+          shape: const StadiumBorder(),
           textStyle: textTheme.labelLarge,
           animationDuration: Motion.short,
         ),
@@ -376,9 +376,7 @@ abstract final class AppTheme {
           selectedForegroundColor: scheme.onSurface,
           foregroundColor: scheme.onSurfaceVariant,
           side: BorderSide(color: colors.hairline),
-          shape: const RoundedRectangleBorder(
-            borderRadius: Radii.controlRadius,
-          ),
+          shape: const StadiumBorder(),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -470,29 +468,26 @@ abstract final class AppTheme {
         weight: FontWeight.w600,
       ),
       bodyLarge: sans(base.bodyLarge, 16, height: 1.5),
-      bodyMedium: sans(base.bodyMedium, 14.5, height: 1.5),
+      bodyMedium: sans(base.bodyMedium, 14, height: 1.5),
       bodySmall: sans(base.bodySmall, 13, height: 1.45, color: soft),
       labelLarge: sans(
         base.labelLarge,
         15,
         height: 1.2,
         weight: FontWeight.w600,
-        spacing: 0.1,
       ),
       labelMedium: sans(
         base.labelMedium,
         13,
         height: 1.2,
         weight: FontWeight.w500,
-        spacing: 0.2,
       ),
       labelSmall: sans(
         base.labelSmall,
-        11.5,
-        height: 1.2,
+        12,
+        height: 1.25,
         weight: FontWeight.w500,
         color: soft,
-        spacing: 0.4,
       ),
     );
   }

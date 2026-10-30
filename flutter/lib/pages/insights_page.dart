@@ -131,37 +131,39 @@ class _InsightsPageState extends State<InsightsPage> {
   }
 }
 
-/// Severity chips and the dismissed toggle.
+/// Severity chips and the dismissed toggle, in one row that scrolls sideways
+/// on a narrow phone rather than wrapping into a stack above the list.
 class _Filters extends StatelessWidget {
   const _Filters();
 
   @override
   Widget build(BuildContext context) {
     final insights = context.watch<InsightsProvider>();
-    return Wrap(
-      spacing: Space.x2,
-      runSpacing: Space.x2,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        ChoiceChip(
-          label: const Text('All'),
-          selected: insights.severity == null,
-          showCheckmark: false,
-          onSelected: (_) => insights.setSeverity(null),
-        ),
-        for (final s in InsightSeverity.values)
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        spacing: Space.x2,
+        children: [
           ChoiceChip(
-            label: Text(s.displayName),
-            selected: insights.severity == s,
+            label: const Text('All'),
+            selected: insights.severity == null,
             showCheckmark: false,
-            onSelected: (_) => insights.setSeverity(s),
+            onSelected: (_) => insights.setSeverity(null),
           ),
-        FilterChip(
-          label: const Text('Include dismissed'),
-          selected: insights.includeDismissed,
-          onSelected: insights.setIncludeDismissed,
-        ),
-      ],
+          for (final s in InsightSeverity.values)
+            ChoiceChip(
+              label: Text(s.displayName),
+              selected: insights.severity == s,
+              showCheckmark: false,
+              onSelected: (_) => insights.setSeverity(s),
+            ),
+          FilterChip(
+            label: const Text('Include dismissed'),
+            selected: insights.includeDismissed,
+            onSelected: insights.setIncludeDismissed,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -30,13 +30,24 @@ abstract final class Space {
   static const double maxContentWidth = 720;
 }
 
-/// Motion. Slow easing, nothing bouncy.
+/// Motion. Quick and calm: state changes settle in 150 to 250 ms on a strong
+/// ease-out, nothing bouncy, and exits are shorter than entrances.
 abstract final class Motion {
-  static const Duration short = Duration(milliseconds: 350);
-  static const Duration standard = Duration(milliseconds: 400);
-  static const Duration long = Duration(milliseconds: 450);
-  static const Curve curve = Curves.easeOutCubic;
+  static const Duration short = Duration(milliseconds: 150);
+  static const Duration standard = Duration(milliseconds: 200);
+  static const Duration long = Duration(milliseconds: 250);
+  static const Curve curve = Cubic(0.23, 1, 0.32, 1);
+
+  /// For outgoing children. A switcher plays the exit in reverse, so an
+  /// ease-in curve reads as a fast start.
   static const Curve reverseCurve = Curves.easeInCubic;
+
+  /// The duration for movement, or zero when the system asks for less motion
+  /// so the content simply appears in place.
+  static Duration of(BuildContext context, Duration duration) =>
+      (MediaQuery.maybeDisableAnimationsOf(context) ?? false)
+      ? Duration.zero
+      : duration;
 }
 
 /// Semantic colours that sit beside the Material scheme. Health states never

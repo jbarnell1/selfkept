@@ -9,10 +9,11 @@ import '../utils/metric_format.dart';
 /// Which side of the band is the one worth a second look.
 enum _WorseSide { below, above }
 
-/// Three quiet chips: Sleep, HRV, Resting HR, each saying where last night
-/// sat against the person's own band. The dot is sage when the reading is
-/// inside the band or on its better side, amber on the side worth watching,
-/// and neutral when there is no band yet. Never red.
+/// Sleep, HRV and Resting HR in one quiet panel split by hairlines, each
+/// saying where last night sat against the person's own band. The dot before
+/// the words is sage when the reading is inside the band or on its better
+/// side and amber on the side worth watching; with no band yet there is no
+/// dot. Never red.
 class ReadinessRow extends StatelessWidget {
   final Readiness readiness;
   final int? sleepMinutes;
@@ -34,46 +35,61 @@ class ReadinessRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final sleep = sleepMinutes;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _ReadinessChip(
-            label: 'Sleep',
-            position: readiness.sleep,
-            worse: _WorseSide.below,
-            value: sleep == null ? null : formatSleepMinutes(sleep),
-          ),
+    final divider = VerticalDivider(
+      width: 1,
+      thickness: 1,
+      color: colors.hairline,
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceRaised,
+        borderRadius: Radii.controlRadius,
+        border: Border.all(color: colors.hairline),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _ReadinessCell(
+                label: 'Sleep',
+                position: readiness.sleep,
+                worse: _WorseSide.below,
+                value: sleep == null ? null : formatSleepMinutes(sleep),
+              ),
+            ),
+            divider,
+            Expanded(
+              child: _ReadinessCell(
+                label: 'HRV',
+                position: readiness.hrv,
+                worse: _WorseSide.below,
+              ),
+            ),
+            divider,
+            Expanded(
+              child: _ReadinessCell(
+                label: 'Resting HR',
+                position: readiness.restingHr,
+                worse: _WorseSide.above,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: Space.x2),
-        Expanded(
-          child: _ReadinessChip(
-            label: 'HRV',
-            position: readiness.hrv,
-            worse: _WorseSide.below,
-          ),
-        ),
-        const SizedBox(width: Space.x2),
-        Expanded(
-          child: _ReadinessChip(
-            label: 'Resting HR',
-            position: readiness.restingHr,
-            worse: _WorseSide.above,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _ReadinessChip extends StatelessWidget {
+class _ReadinessCell extends StatelessWidget {
   final String label;
   final BandPosition? position;
   final _WorseSide worse;
   final String? value;
 
-  const _ReadinessChip({
+  const _ReadinessCell({
     required this.label,
     required this.position,
     required this.worse,
@@ -92,36 +108,13 @@ class _ReadinessChip extends StatelessWidget {
     final words = position?.displayName ?? ReadinessRow.noBandText;
     return Semantics(
       label: '$label: ${value == null ? '' : '$value, '}$words',
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Space.x3,
-          vertical: Space.x3,
-        ),
-        decoration: BoxDecoration(
-          color: colors.surfaceRaised,
-          borderRadius: Radii.controlRadius,
-          border: Border.all(color: colors.hairline),
-        ),
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.all(Space.x3),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: Space.x2),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.labelMedium,
-                    maxLines: 2,
-                  ),
-                ),
-              ],
-            ),
+            Text(label, style: theme.textTheme.labelMedium, maxLines: 2),
             if (value != null) ...[
               const SizedBox(height: Space.x1),
               Text(
@@ -133,8 +126,28 @@ class _ReadinessChip extends StatelessWidget {
               ),
             ],
             const SizedBox(height: Space.x1),
-            Text(
-              words,
+            Text.rich(
+              TextSpan(
+                children: [
+                  // No band yet means nothing to colour, so no dot.
+                  if (position != null)
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: Space.x2),
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: dot,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                  TextSpan(text: words),
+                ],
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: position == null
                     ? theme.colorScheme.onSurfaceVariant

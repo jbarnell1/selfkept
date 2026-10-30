@@ -37,7 +37,7 @@ class TodayPage extends StatefulWidget {
       'Sleep, HRV and resting heart rate get a usual range after about two weeks of readings.';
   static const String loadErrorTitle = 'Today did not load.';
 
-  /// Up to this many characters the sentence gets the large display size.
+  /// Up to this many characters the sentence gets the larger statement size.
   static const int shortSentence = 110;
 
   static TextStyle? heroStyle(
@@ -48,12 +48,12 @@ class TodayPage extends StatefulWidget {
     final short = sentence.length <= shortSentence;
     if (wide) {
       return short
-          ? theme.textTheme.displayMedium
-          : theme.textTheme.displaySmall;
+          ? theme.textTheme.headlineLarge
+          : theme.textTheme.headlineMedium;
     }
     return short
-        ? theme.textTheme.displaySmall
-        : theme.textTheme.headlineMedium;
+        ? theme.textTheme.headlineMedium
+        : theme.textTheme.headlineSmall;
   }
 
   static String greetingFor(DateTime now) {
@@ -135,11 +135,9 @@ class _TodayPageState extends State<TodayPage> {
               name.isEmpty
                   ? '$greeting.'
                   : '$greeting, ${name.split(' ').first}.',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: theme.textTheme.displaySmall,
             ),
-            const SizedBox(height: Space.x3),
+            const SizedBox(height: Space.x4),
             const _Hero(),
             const SizedBox(height: Space.x6),
             const _Cards(),

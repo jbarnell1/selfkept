@@ -61,7 +61,7 @@ class _TrendsPageState extends State<TrendsPage> {
       ];
     } else if (trends.metrics.isEmpty) {
       body = [
-        Text(TrendsPage.emptySentence, style: theme.textTheme.headlineLarge),
+        Text(TrendsPage.emptySentence, style: theme.textTheme.headlineSmall),
         const SizedBox(height: Space.x4),
         Text(
           TrendsPage.emptyNote,

@@ -35,8 +35,14 @@ void main() {
       expect(find.textContaining('You slept 7 h 40'), findsOneWidget);
       expect(find.byType(ReadinessRow), findsOneWidget);
       expect(find.text('7 h 40'), findsOneWidget);
-      expect(find.text('below your range'), findsOneWidget);
-      expect(find.text('in your range'), findsNWidgets(2));
+      expect(
+        find.textContaining('below your range', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('in your range', findRichText: true),
+        findsNWidgets(2),
+      );
       expect(find.byType(InsightCard), findsNWidgets(2));
       expect(find.text('Watch'), findsOneWidget);
       expect(find.text('Notice'), findsOneWidget);
@@ -95,7 +101,10 @@ void main() {
       findsOneWidget,
       reason: 'said once, by the sentence',
     );
-    expect(find.text(ReadinessRow.noBandText), findsNWidgets(3));
+    expect(
+      find.text(ReadinessRow.noBandText, findRichText: true),
+      findsNWidgets(3),
+    );
     expect(find.byType(InsightCard), findsNothing);
   });
 
@@ -147,6 +156,7 @@ void main() {
     );
     await tester.pumpWidget(h.wrap(const TodayPage()));
     await tester.pumpAndSettle();
+    await scrollTo(tester, find.text('Helpful').first);
     await tester.tap(find.text('Helpful').first);
     await tester.pumpAndSettle();
     expect(h.api.calls, contains('POST /insights/i1/reaction'));
@@ -267,7 +277,7 @@ void main() {
     final sentence = tester.widget<Text>(
       find.textContaining('You slept 7 h 40'),
     );
-    expect(sentence.style?.fontSize, 40);
+    expect(sentence.style?.fontSize, 28);
     expect(tester.takeException(), isNull);
   });
 

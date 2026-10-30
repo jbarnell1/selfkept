@@ -279,7 +279,7 @@ class _EmptyState extends StatelessWidget {
         children: [
           Text(
             LabsPage.emptySentence,
-            style: theme.textTheme.headlineLarge,
+            style: theme.textTheme.headlineMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: Space.x3),
