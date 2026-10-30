@@ -61,7 +61,7 @@ public sealed class ErrorHandlingMiddleware
 
     if (status >= 500)
     {
-      _logger.LogError(exception, "Unhandled exception. TraceId: {TraceId}", context.TraceIdentifier);
+      _logger.LogError(exception, "Unhandled exception on {Method} {Path}. TraceId: {TraceId}", context.Request.Method, context.Request.Path.Value, context.TraceIdentifier);
     }
     else
     {

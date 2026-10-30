@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../providers/sources_provider.dart';
 import '../services/ingest_service.dart';
 import '../utils/api_error.dart';
+import '../utils/error_reporter.dart';
 import '../utils/safe_notifier.dart';
 import 'outbox_repository.dart';
 
@@ -34,7 +35,10 @@ class SyncEngine extends ChangeNotifier with SafeNotifier {
     required this._sources,
     this._batchSize = defaultOutboxBatchSize,
     DateTime Function()? clock,
+    this._reporter,
   }) : _clock = clock ?? (() => DateTime.now().toUtc());
+
+  final ErrorReporter? _reporter;
 
   /// Rows waiting in the outbox, as of the last count.
   int get pendingCount => _pendingCount;
@@ -122,7 +126,8 @@ class SyncEngine extends ChangeNotifier with SafeNotifier {
         );
         _pendingCount = await _outbox.count();
         notify();
-      } catch (e) {
+      } catch (e, stack) {
+        _reporter?.report(e, stack, kind: 'sync');
         _lastError = describeError(e);
         return false;
       }
