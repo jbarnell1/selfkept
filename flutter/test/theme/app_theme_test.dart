@@ -63,9 +63,13 @@ void main() {
       expect(t.colorScheme.onSurface, Brand.ink);
     });
 
-    test('dark is moss on charcoal, not an inversion', () {
+    test('dark is moss fills on charcoal with sage text accents', () {
       final t = AppTheme.dark;
-      expect(t.colorScheme.primary, Brand.moss);
+      expect(
+        t.filledButtonTheme.style!.backgroundColor!.resolve({}),
+        Brand.moss,
+      );
+      expect(t.colorScheme.primary, Brand.sage);
       expect(t.scaffoldBackgroundColor, Brand.charcoal);
       expect(t.colorScheme.onSurface, Brand.linen);
       expect(t.colorScheme.surfaceContainer, Brand.charcoal2);

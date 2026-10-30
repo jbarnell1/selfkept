@@ -109,7 +109,7 @@ class AppShell extends StatelessWidget {
         child: NavigationBar(
           selectedIndex: navigationShell.currentIndex,
           onDestinationSelected: _select,
-          animationDuration: Motion.standard,
+          animationDuration: Motion.short,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: [
             for (final tab in ShellTab.all)

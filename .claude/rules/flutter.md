@@ -33,7 +33,7 @@ widgets). The tokens:
 | Token | Light | Dark | Use |
 |---|---|---|---|
 | forest | `#1F4D3A` | primary deep green | primary |
-| moss | `#2E6B4F` | dark-mode primary | hover, dark primary |
+| moss | `#2E6B4F` | dark-mode fills | filled buttons in dark; sage carries dark text accents (moss on charcoal is 2.8:1) |
 | sage | `#8FB39A` | | soft accents, bands |
 | cream / cream_2 | `#F7F3EA` / `#EFE9DB` | | light background, light surface 2 |
 | ink / ink_soft | `#1C2321` / `#5C6660` | | light text, secondary text |

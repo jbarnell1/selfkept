@@ -24,8 +24,8 @@ class InsightCard extends StatelessWidget {
     this.animateIn = true,
   });
 
-  /// The key on the left rule, so tests can read its colour.
-  static const Key severityRuleKey = Key('insight-severity-rule');
+  /// The key on the severity dot, so tests can read its colour.
+  static const Key severityDotKey = Key('insight-severity-dot');
 
   /// Sage for notice, amber for watch, terracotta for clinician. Never red.
   static Color colorFor(InsightSeverity severity, AppColors colors) =>
@@ -48,79 +48,73 @@ class InsightCard extends StatelessWidget {
 
     final card = SurfaceCard(
       padding: EdgeInsets.zero,
-      child: DecoratedBox(
-        key: severityRuleKey,
-        decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: tone, width: 2)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          Space.x6,
+          Space.x4,
+          Space.x4,
+          Space.x3,
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.x6,
-            Space.x4,
-            Space.x4,
-            Space.x3,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _Dot(color: tone),
-                  const SizedBox(width: Space.x2),
-                  Text(
-                    insight.severity.displayName,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _Dot(key: severityDotKey, color: tone),
+                const SizedBox(width: Space.x2),
+                Text(
+                  insight.severity.displayName,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  if (dismissed) ...[
-                    const SizedBox(width: Space.x2),
-                    Text('Dismissed', style: theme.textTheme.labelSmall),
-                  ],
-                  const Spacer(),
-                  if (onDismiss != null && !dismissed)
-                    IconButton(
-                      tooltip: 'Dismiss',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: onDismiss,
-                      icon: const Icon(Icons.close, size: 18),
+                ),
+                if (dismissed) ...[
+                  const SizedBox(width: Space.x2),
+                  Text('Dismissed', style: theme.textTheme.labelSmall),
+                ],
+                const Spacer(),
+                if (onDismiss != null && !dismissed)
+                  IconButton(
+                    tooltip: 'Dismiss',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onDismiss,
+                    icon: const Icon(Icons.close, size: 18),
+                  ),
+              ],
+            ),
+            const SizedBox(height: Space.x2),
+            Text(
+              insight.text,
+              style: theme.textTheme.bodyLarge?.copyWith(height: 1.55),
+            ),
+            if (insight.metrics.isNotEmpty) ...[
+              const SizedBox(height: Space.x3),
+              Wrap(
+                spacing: Space.x2,
+                runSpacing: Space.x2,
+                children: [
+                  for (var i = 0; i < insight.metrics.length; i++)
+                    _MetricChip(
+                      insight.nameAt(i) ?? metricLabel(insight.metrics[i]),
                     ),
                 ],
               ),
-              const SizedBox(height: Space.x2),
-              Text(
-                insight.text,
-                style: theme.textTheme.bodyLarge?.copyWith(height: 1.55),
-              ),
-              if (insight.metrics.isNotEmpty) ...[
-                const SizedBox(height: Space.x3),
-                Wrap(
-                  spacing: Space.x2,
-                  runSpacing: Space.x2,
-                  children: [
-                    for (var i = 0; i < insight.metrics.length; i++)
-                      _MetricChip(
-                        insight.nameAt(i) ?? metricLabel(insight.metrics[i]),
-                      ),
-                  ],
-                ),
-              ],
-              if (onReact != null) ...[
-                const SizedBox(height: Space.x3),
-                Wrap(
-                  spacing: Space.x1,
-                  children: [
-                    for (final r in InsightReaction.values)
-                      _ReactionButton(
-                        reaction: r,
-                        selected: insight.reaction == r,
-                        onTap: () => onReact!(r),
-                      ),
-                  ],
-                ),
-              ],
             ],
-          ),
+            if (onReact != null) ...[
+              const SizedBox(height: Space.x3),
+              Wrap(
+                spacing: Space.x1,
+                children: [
+                  for (final r in InsightReaction.values)
+                    _ReactionButton(
+                      reaction: r,
+                      selected: insight.reaction == r,
+                      onTap: () => onReact!(r),
+                    ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -128,7 +122,7 @@ class InsightCard extends StatelessWidget {
     if (!animateIn) return card;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: Motion.standard,
+      duration: Motion.of(context, Motion.standard),
       curve: Motion.curve,
       child: card,
       builder: (context, t, child) => Opacity(
@@ -145,7 +139,7 @@ class InsightCard extends StatelessWidget {
 class _Dot extends StatelessWidget {
   final Color color;
 
-  const _Dot({required this.color});
+  const _Dot({super.key, required this.color});
 
   @override
   Widget build(BuildContext context) => Container(

@@ -73,17 +73,20 @@ void main() {
     await tester.pumpWidget(h.wrap(const Scaffold(body: InsightsPage())));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Clinician'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'Clinician'));
     await tester.pumpAndSettle();
     expect(find.byType(InsightCard), findsOneWidget);
     expect(find.textContaining('Overnight oxygen'), findsOneWidget);
     expect(find.textContaining('January 5'), findsNothing);
 
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Watch'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'Watch'));
     await tester.pumpAndSettle();
     expect(find.byType(InsightCard), findsOneWidget);
     expect(find.textContaining('HRV has sat below'), findsOneWidget);
 
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'All'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'All'));
     await tester.pumpAndSettle();
     expect(find.byType(InsightCard), findsNWidgets(3));
@@ -103,6 +106,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(InsightCard), findsNWidgets(3));
 
+    await tester.ensureVisible(
+      find.widgetWithText(FilterChip, 'Include dismissed'),
+    );
     await tester.tap(find.widgetWithText(FilterChip, 'Include dismissed'));
     await tester.pumpAndSettle();
     expect(h.api.calls.where((c) => c == 'GET /insights').length, 2);
@@ -140,6 +146,7 @@ void main() {
     h.api.on('GET', '/insights', (_) => [archive().last]);
     await tester.pumpWidget(h.wrap(const Scaffold(body: InsightsPage())));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Notice'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'Notice'));
     await tester.pumpAndSettle();
     expect(find.text(InsightsPage.emptyFilteredSentence), findsOneWidget);
