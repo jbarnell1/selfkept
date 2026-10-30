@@ -160,6 +160,7 @@ class _AppState extends State<App> {
       versions: ServerVersionService(system),
       system: system,
       auth: _auth,
+      hasServerUrl: () => client.serverUrl.isNotEmpty,
     );
     _profile = ProfileProvider(service: ProfileService(client), auth: _auth);
     _household = HouseholdProvider(

@@ -14,6 +14,8 @@ class ServerAddressField extends StatefulWidget {
 
   const ServerAddressField({super.key, this.onSaved, this.compact = false});
 
+  static const String example = 'https://box.tailnet.ts.net';
+
   @override
   State<ServerAddressField> createState() => _ServerAddressFieldState();
 }
@@ -67,18 +69,22 @@ class _ServerAddressFieldState extends State<ServerAddressField> {
           onSubmitted: (_) => _save(),
           decoration: InputDecoration(
             labelText: 'Server address',
-            hintText: settings.defaultUrl,
+            hintText: settings.defaultUrl.isEmpty
+                ? ServerAddressField.example
+                : settings.defaultUrl,
             helperText: widget.compact
                 ? null
+                : settings.defaultUrl.isEmpty
+                ? 'A Tailscale name looks like ${ServerAddressField.example}'
                 : 'Leave empty to use ${settings.defaultUrl}. '
-                      'A Tailscale name looks like https://box.tailnet.ts.net',
+                      'A Tailscale name looks like ${ServerAddressField.example}',
             helperMaxLines: 3,
           ),
         ),
         const SizedBox(height: Space.x3),
         Row(
           children: [
-            if (settings.isOverridden)
+            if (settings.isOverridden && settings.defaultUrl.isNotEmpty)
               TextButton(
                 onPressed: _saving ? null : _useDefault,
                 child: const Text('Use default'),

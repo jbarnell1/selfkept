@@ -47,6 +47,21 @@ void main() {
   );
 
   testBothThemes(
+    'first run on a phone: no address yet asks for one without an error',
+    (tester, theme) async {
+      h.api.serverUrl = '';
+      await tester.pumpWidget(h.wrap(const SplashPage(), theme: theme));
+      await pumpFrames(tester);
+      expect(h.startup.phase, StartupPhase.needsAddress);
+      expect(find.text(SplashPage.needsAddressTitle), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Server address'), findsOneWidget);
+      expect(find.textContaining('Not reachable'), findsNothing);
+      expect(h.api.calls, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testBothThemes(
     'error: an unreachable server asks about the tailnet and offers the address field',
     (tester, theme) async {
       h.api.fail('GET', '/system/version', const ApiException.network());

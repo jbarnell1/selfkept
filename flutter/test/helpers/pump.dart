@@ -122,6 +122,7 @@ class TestHarness {
       ),
       system: system,
       auth: auth,
+      hasServerUrl: () => client.serverUrl.isNotEmpty,
     );
     final sources = SourcesProvider(
       service: SourcesService(client),

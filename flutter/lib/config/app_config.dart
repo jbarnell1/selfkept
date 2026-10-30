@@ -1,5 +1,10 @@
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb, visibleForTesting;
+    show
+        TargetPlatform,
+        defaultTargetPlatform,
+        kIsWeb,
+        kReleaseMode,
+        visibleForTesting;
 
 /// Build-time configuration. Everything here is resolved from --dart-define or
 /// from the platform; nothing is read from the network.
@@ -43,7 +48,12 @@ abstract final class AppConfig {
   @visibleForTesting
   static bool? isWebOverride;
 
+  /// Lets tests pretend to be a release build or not.
+  @visibleForTesting
+  static bool? isReleaseOverride;
+
   static bool get _isWeb => isWebOverride ?? kIsWeb;
+  static bool get _isRelease => isReleaseOverride ?? kReleaseMode;
   static TargetPlatform get _platform =>
       platformOverride ?? defaultTargetPlatform;
   static String get _defined => definedServerUrlOverride ?? _definedServerUrl;
@@ -61,8 +71,9 @@ abstract final class AppConfig {
   /// The server origin used when no in-app override is stored.
   ///
   /// Order: the --dart-define (a URL, or same-origin), then on web the origin
-  /// that served the page, then the Android emulator loopback alias, then
-  /// plain localhost.
+  /// that served the page. A release phone build has no server to guess, so it
+  /// is empty and the person types theirs. A development phone build uses the
+  /// Android emulator loopback alias, then plain localhost.
   static String get defaultServerUrl {
     if (_isWeb) {
       if (hasDefinedServerUrl && !isSameOriginBuild) {
@@ -75,6 +86,7 @@ abstract final class AppConfig {
     if (hasDefinedServerUrl && !isSameOriginBuild) {
       return normalizeServerUrl(_defined);
     }
+    if (_isRelease) return '';
     if (_platform == TargetPlatform.android) return 'http://10.0.2.2:5000';
     return 'http://localhost:5000';
   }
@@ -106,5 +118,6 @@ abstract final class AppConfig {
     platformOverride = null;
     definedServerUrlOverride = null;
     isWebOverride = null;
+    isReleaseOverride = null;
   }
 }

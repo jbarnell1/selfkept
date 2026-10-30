@@ -42,6 +42,21 @@ void main() {
       expect(AppConfig.defaultServerUrl, 'http://10.0.2.2:5000');
     });
 
+    test('a release build has no default and asks for the address', () {
+      AppConfig.isReleaseOverride = true;
+      for (final p in [TargetPlatform.android, TargetPlatform.iOS]) {
+        AppConfig.platformOverride = p;
+        expect(AppConfig.defaultServerUrl, isEmpty);
+      }
+    });
+
+    test('a release build still uses an explicit define', () {
+      AppConfig.isReleaseOverride = true;
+      AppConfig.platformOverride = TargetPlatform.android;
+      AppConfig.definedServerUrlOverride = 'https://box.tailnet.ts.net';
+      expect(AppConfig.defaultServerUrl, 'https://box.tailnet.ts.net');
+    });
+
     test('iOS gets localhost', () {
       AppConfig.platformOverride = TargetPlatform.iOS;
       expect(AppConfig.defaultServerUrl, 'http://localhost:5000');
