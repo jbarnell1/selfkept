@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration.Json;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SelfKept.Api.Authentication;
+using SelfKept.Api.Diagnostics;
 using SelfKept.Api.Endpoints;
 using SelfKept.Api.Extensions;
 using SelfKept.Api.Middleware;
@@ -34,7 +35,10 @@ var brand = builder.Configuration.GetSection(BrandOptions.SectionName).Get<Brand
 builder.Services.AddSingleton(brand);
 builder.Services.Configure<BrandOptions>(builder.Configuration.GetSection(BrandOptions.SectionName));
 
-// Console-only logging: a self-hosted container's logs belong to `docker logs`.
+// Console logging: a self-hosted container's logs belong to `docker logs`. Warnings and errors
+// are also kept in memory for the admin's Recent problems list (Diagnostics/RecentProblems.cs).
+var recentProblems = new RecentProblems();
+builder.Services.AddSingleton(recentProblems);
 Log.Logger = new LoggerConfiguration()
   .ReadFrom.Configuration(builder.Configuration)
   .MinimumLevel.Information()
@@ -47,6 +51,7 @@ Log.Logger = new LoggerConfiguration()
   .MinimumLevel.Override("Microsoft.AspNetCore.DataProtection", LogEventLevel.Error)
   .Enrich.FromLogContext()
   .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+  .WriteTo.Sink(recentProblems)
   .CreateLogger();
 builder.Host.UseSerilog();
 

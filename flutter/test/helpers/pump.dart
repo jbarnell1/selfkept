@@ -15,6 +15,7 @@ import 'package:selfkept/providers/labs_provider.dart';
 import 'package:selfkept/providers/oura_app_provider.dart';
 import 'package:selfkept/providers/oura_provider.dart';
 import 'package:selfkept/providers/profile_provider.dart';
+import 'package:selfkept/providers/recent_problems_provider.dart';
 import 'package:selfkept/providers/server_settings.dart';
 import 'package:selfkept/providers/setup_provider.dart';
 import 'package:selfkept/providers/sources_provider.dart';
@@ -27,6 +28,7 @@ import 'package:selfkept/services/export_service.dart';
 import 'package:selfkept/services/household_service.dart';
 import 'package:selfkept/services/ingest_service.dart';
 import 'package:selfkept/services/insights_service.dart';
+import 'package:selfkept/services/diagnostics_service.dart';
 import 'package:selfkept/services/integration_service.dart';
 import 'package:selfkept/services/labs_service.dart';
 import 'package:selfkept/services/oura_service.dart';
@@ -68,6 +70,7 @@ class TestHarness {
   final OuraProvider oura;
   final OuraAppProvider ouraApp;
   final SetupProvider setup;
+  final RecentProblemsProvider recentProblems;
 
   /// Stands in for the browser everywhere a page opens a link.
   final UrlOpener openUrl;
@@ -95,6 +98,7 @@ class TestHarness {
     required this.oura,
     required this.ouraApp,
     required this.setup,
+    required this.recentProblems,
     required this.openUrl,
   });
 
@@ -176,6 +180,10 @@ class TestHarness {
       oura: OuraProvider(OuraService(client), auth: auth, open: openUrl),
       ouraApp: OuraAppProvider(service: IntegrationService(client), auth: auth),
       setup: SetupProvider(service: SetupService(client), auth: auth),
+      recentProblems: RecentProblemsProvider(
+        service: DiagnosticsService(client),
+        auth: auth,
+      ),
       openUrl: openUrl ?? (_) async => true,
     );
   }
@@ -205,6 +213,7 @@ class TestHarness {
         ChangeNotifierProvider.value(value: oura),
         ChangeNotifierProvider.value(value: ouraApp),
         ChangeNotifierProvider.value(value: setup),
+        ChangeNotifierProvider.value(value: recentProblems),
         Provider<UrlOpener>.value(value: openUrl),
       ],
       child: router == null
@@ -217,6 +226,7 @@ class TestHarness {
   }
 
   void dispose() {
+    recentProblems.dispose();
     setup.dispose();
     ouraApp.dispose();
     oura.dispose();

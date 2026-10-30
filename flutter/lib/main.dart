@@ -19,6 +19,7 @@ import 'providers/connect_provider.dart';
 import 'providers/labs_provider.dart';
 import 'providers/oura_app_provider.dart';
 import 'providers/oura_provider.dart';
+import 'providers/recent_problems_provider.dart';
 import 'providers/setup_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/server_settings.dart';
@@ -35,6 +36,7 @@ import 'services/household_service.dart';
 import 'services/ingest_service.dart';
 import 'services/insights_service.dart';
 import 'services/labs_service.dart';
+import 'services/diagnostics_service.dart';
 import 'services/integration_service.dart';
 import 'services/oura_service.dart';
 import 'services/setup_service.dart';
@@ -47,26 +49,13 @@ import 'services/system_service.dart';
 import 'services/today_service.dart';
 import 'services/trends_service.dart';
 import 'theme/app_theme.dart';
+import 'utils/error_reporter.dart';
 import 'utils/open_url.dart';
 import 'widgets/reachability_banner.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
-
-  // A build or layout failure must leave a trace in the browser console or
-  // device log in every build mode; release builds otherwise swallow it.
-  final presentError = FlutterError.onError;
-  FlutterError.onError = (details) {
-    presentError?.call(details);
-    debugPrint('Flutter error: ${details.exceptionAsString()}');
-    if (details.stack != null) debugPrint(details.stack.toString());
-  };
-  PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('Uncaught: $error');
-    debugPrint(stack.toString());
-    return true;
-  };
 
   // The stored server address must be known before the first request.
   final addressStore = SecureServerAddressStore();
@@ -83,6 +72,24 @@ Future<void> main() async {
     initialOverride: override,
   );
 
+  // A build or layout failure must leave a trace in the browser console or
+  // device log in every build mode (release builds otherwise swallow it), and
+  // reach the person's own server so the admin sees it under Recent problems.
+  final reporter = ErrorReporter(DiagnosticsService(client));
+  final presentError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    presentError?.call(details);
+    debugPrint('Flutter error: ${details.exceptionAsString()}');
+    if (details.stack != null) debugPrint(details.stack.toString());
+    reporter.report(details.exception, details.stack, kind: 'flutter');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Uncaught: $error');
+    debugPrint(stack.toString());
+    reporter.report(error, stack, kind: 'uncaught');
+    return true;
+  };
+
   runApp(
     App(
       client: client,
@@ -90,6 +97,7 @@ Future<void> main() async {
       reachability: reachability,
       outbox: openOutboxRepository(),
       collector: createHealthCollector(),
+      reporter: reporter,
     ),
   );
 }
@@ -101,6 +109,7 @@ class App extends StatefulWidget {
   final Reachability reachability;
   final OutboxRepository outbox;
   final HealthCollector collector;
+  final ErrorReporter reporter;
 
   const App({
     super.key,
@@ -109,6 +118,7 @@ class App extends StatefulWidget {
     required this.reachability,
     required this.outbox,
     required this.collector,
+    required this.reporter,
   });
 
   @override
@@ -135,6 +145,7 @@ class _AppState extends State<App> {
   late final OuraProvider _oura;
   late final OuraAppProvider _ouraApp;
   late final SetupProvider _setup;
+  late final RecentProblemsProvider _recentProblems;
   late final AppLifecycleListener _lifecycle;
   late final GoRouter _router;
   bool _collectorStarted = false;
@@ -160,6 +171,7 @@ class _AppState extends State<App> {
       ingest: IngestService(client),
       outbox: widget.outbox,
       sources: _sources,
+      reporter: widget.reporter,
     );
     _collector = CollectorProvider(
       collector: widget.collector,
@@ -167,6 +179,7 @@ class _AppState extends State<App> {
       sources: _sources,
       sync: _sync,
       auth: _auth,
+      reporter: widget.reporter,
     );
     _checkins = CheckinsProvider(service: CheckinsService(client), auth: _auth);
     _insights = InsightsProvider(service: InsightsService(client), auth: _auth);
@@ -188,10 +201,15 @@ class _AppState extends State<App> {
       auth: _auth,
     );
     _setup = SetupProvider(service: SetupService(client), auth: _auth);
+    _recentProblems = RecentProblemsProvider(
+      service: DiagnosticsService(client),
+      auth: _auth,
+    );
     _auth.addListener(_onAuthChanged);
     // A foreground pass every time the app comes back.
     _lifecycle = AppLifecycleListener(onResume: _collector.onResume);
     _router = buildRouter(auth: _auth, startup: _startup);
+    widget.reporter.where = () => _router.state.uri.path;
   }
 
   /// The collector needs a signed-in person (its source belongs to one), so
@@ -210,6 +228,7 @@ class _AppState extends State<App> {
     _lifecycle.dispose();
     _auth.removeListener(_onAuthChanged);
     _router.dispose();
+    _recentProblems.dispose();
     _setup.dispose();
     _ouraApp.dispose();
     _oura.dispose();
@@ -254,6 +273,7 @@ class _AppState extends State<App> {
         ChangeNotifierProvider.value(value: _oura),
         ChangeNotifierProvider.value(value: _ouraApp),
         ChangeNotifierProvider.value(value: _setup),
+        ChangeNotifierProvider.value(value: _recentProblems),
         Provider<UrlOpener>.value(value: openExternalUrl),
       ],
       child: MaterialApp.router(

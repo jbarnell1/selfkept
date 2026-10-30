@@ -28,6 +28,9 @@ public static class RateLimitPolicies
 
   /// <summary>Dynamic client registration is anonymous by protocol: per IP and small.</summary>
   public const string OAuthRegister = "oauth-register";
+
+  /// <summary>The apps' own error reports: anonymous, so per IP and small.</summary>
+  public const string ClientErrors = "client-errors";
 }
 
 /// <summary>Registers the policies in <see cref="RateLimitPolicies"/> and the 429 problem reply.</summary>
@@ -46,6 +49,7 @@ public static class RateLimitingExtensions
       options.AddPolicy(RateLimitPolicies.Pdf, context => PerUserFixed(context, "pdf", 10));
       options.AddPolicy(RateLimitPolicies.Mcp, context => PerUserSliding(context, "mcp", "mcp-anon", 60));
       options.AddPolicy(RateLimitPolicies.OAuthRegister, context => PerIpFixed(context, "oauth-register", 10, TimeSpan.FromHours(1)));
+      options.AddPolicy(RateLimitPolicies.ClientErrors, context => PerIpFixed(context, "client-errors", 30, TimeSpan.FromHours(1)));
 
       options.OnRejected = async (context, cancellationToken) =>
       {

@@ -9,6 +9,7 @@ import '../../providers/startup_provider.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/key_value_row.dart';
 import '../../widgets/page_body.dart';
+import '../../widgets/recent_problems_card.dart';
 import '../../widgets/server_address_field.dart';
 import '../../widgets/surface_card.dart';
 import '../../widgets/dialogs.dart';
@@ -38,6 +39,7 @@ class ServerSection extends StatelessWidget {
     final recomputing = context.select<InsightsProvider, bool>(
       (i) => i.isRecomputing,
     );
+    final isAdmin = context.select<AuthProvider, bool>((a) => a.isAdmin);
     final theme = Theme.of(context);
     final info = startup.versionInfo;
     return Column(
@@ -123,6 +125,7 @@ class ServerSection extends StatelessWidget {
             ],
           ),
         ),
+        if (isAdmin) const RecentProblemsCard(),
       ],
     );
   }
