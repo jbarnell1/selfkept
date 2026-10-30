@@ -176,6 +176,10 @@ are in `docs/sso-design.md`.
 2. In `.env`: `SELFKEPT_SSO_AUTHORITY` (the provider's address), `SELFKEPT_SSO_CLIENT_ID`,
    `SELFKEPT_SSO_CLIENT_SECRET` and `SELFKEPT_SSO_NAME` (what the button says). Then
    `docker compose up -d`.
+   To keep the secret out of `.env`, leave `SELFKEPT_SSO_CLIENT_SECRET` unset and write it to the
+   secrets volume instead (from the install folder; type or paste it, then Ctrl+D):
+   `docker run --rm -i -v selfkept_secrets:/s alpine sh -c 'cat > /s/Sso__ClientSecret'`, then
+   `docker compose up -d`. The same works for `Oura__ClientSecret`.
 3. Each person signs in once with their password and chooses Connect under You, Account. A
    provider that marks emails verified lets people with the same address skip that step.
 
