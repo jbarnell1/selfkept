@@ -63,6 +63,33 @@ public class SecretsDirectoryTests : IDisposable
   }
 
   [Fact]
+  public void Apply_AnEmptyEnvironmentVariable_DoesNotHideASecretFile()
+  {
+    // compose passes every SELFKEPT_* line, set or not: an unset one arrives as an empty variable.
+    File.WriteAllText(Path.Combine(_dir, "Sso__ClientSecret"), "from-secret-file");
+    File.WriteAllText(Path.Combine(_dir, "Oura__ClientSecret"), "from-secret-file");
+    var envName = "SELFKEPT_TEST_" + Guid.NewGuid().ToString("N");
+    Environment.SetEnvironmentVariable(envName + "Sso__ClientSecret", " ");
+    Environment.SetEnvironmentVariable(envName + "Oura__ClientSecret", "from-environment");
+    try
+    {
+      var builder = new ConfigurationManager();
+      builder.AddInMemoryCollection(new Dictionary<string, string?> { [SecretsDirectory.ConfigKey] = _dir });
+      builder.AddEnvironmentVariables(envName);
+
+      SecretsDirectory.Apply(builder, builder);
+
+      builder["Sso:ClientSecret"].Should().Be("from-secret-file");
+      builder["Oura:ClientSecret"].Should().Be("from-environment", "a value in the environment still wins");
+    }
+    finally
+    {
+      Environment.SetEnvironmentVariable(envName + "Sso__ClientSecret", null);
+      Environment.SetEnvironmentVariable(envName + "Oura__ClientSecret", null);
+    }
+  }
+
+  [Fact]
   public void Apply_WithoutSetting_DoesNothing()
   {
     var builder = new ConfigurationManager();
