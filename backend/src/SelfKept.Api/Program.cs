@@ -39,7 +39,7 @@ builder.Services.Configure<BrandOptions>(builder.Configuration.GetSection(BrandO
 // are also kept in memory for the admin's Recent problems list (Diagnostics/RecentProblems.cs).
 var recentProblems = new RecentProblems();
 builder.Services.AddSingleton(recentProblems);
-Log.Logger = new LoggerConfiguration()
+var logger = new LoggerConfiguration()
   .ReadFrom.Configuration(builder.Configuration)
   .MinimumLevel.Information()
   .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
@@ -53,7 +53,9 @@ Log.Logger = new LoggerConfiguration()
   .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
   .WriteTo.Sink(recentProblems)
   .CreateLogger();
-builder.Host.UseSerilog();
+// This host keeps the logger it built; the static Log.Logger is only for the startup lines below.
+Log.Logger = logger;
+builder.Host.UseSerilog(logger);
 
 Log.Information("{ProductName} API {Version} starting ({Environment})", brand.ProductName, AppVersion.Current, builder.Environment.EnvironmentName);
 Log.Information("{Tagline}", brand.Tagline);

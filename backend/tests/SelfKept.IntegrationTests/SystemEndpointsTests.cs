@@ -23,7 +23,7 @@ public class SystemEndpointsTests : IClassFixture<ApiFactory>
 
     response.StatusCode.Should().Be(HttpStatusCode.OK);
     var body = await response.ReadJsonAsync();
-    body.GetProperty("version").GetString().Should().MatchRegex(@"^d+.d+.d+$").And.Be(SelfKept.Api.Extensions.AppVersion.Current, "the version comes from Directory.Build.props");
+    body.GetProperty("version").GetString().Should().MatchRegex(@"^\d+\.\d+\.\d+$").And.Be(SelfKept.Api.Extensions.AppVersion.Current, "the version comes from Directory.Build.props");
     body.GetProperty("minClientVersion").GetString().Should().NotBeNullOrEmpty();
     var brand = body.GetProperty("brand");
     brand.GetProperty("productName").GetString().Should().Be("SelfKept");
