@@ -17,6 +17,7 @@ import '../pages/sources_page.dart';
 import '../pages/today_page.dart';
 import '../pages/welcome/setup_steps_page.dart';
 import '../pages/welcome/welcome_page.dart';
+import '../pages/trend_detail_page.dart';
 import '../pages/trends_page.dart';
 import '../pages/you/you_page.dart';
 import '../providers/auth_provider.dart';
@@ -213,6 +214,15 @@ GoRouter buildRouter({
             routes: [
               GoRoute(
                 path: '/trends',
+                // One metric's chart over the list; back returns to it.
+                routes: [
+                  GoRoute(
+                    path: ':metric',
+                    builder: (context, state) => TrendDetailPage(
+                      metric: state.pathParameters['metric']!,
+                    ),
+                  ),
+                ],
                 builder: (context, state) => const TrendsPage(),
               ),
             ],

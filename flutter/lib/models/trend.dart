@@ -41,6 +41,12 @@ class TrendMetric {
   final BandPosition? band;
   final int baselineDays;
 
+  /// The last 28 days, oldest first, for the row's small line.
+  final List<TrendPoint> recent;
+
+  /// The usual range those days are drawn against; null while learning.
+  final TrendBand? range;
+
   const TrendMetric({
     required this.metric,
     this.unit = '',
@@ -49,7 +55,13 @@ class TrendMetric {
     this.latestDay,
     this.band,
     this.baselineDays = 0,
+    this.recent = const [],
+    this.range,
   });
+
+  /// The latest day sits outside the usual range, on either side.
+  bool get isOutside =>
+      band == BandPosition.below || band == BandPosition.above;
 
   MetricKey? get metricKey => MetricKey.fromString(metric);
 
@@ -59,6 +71,9 @@ class TrendMetric {
 
   factory TrendMetric.fromJson(Map<String, dynamic> json) {
     final r = JsonReader(json);
+    final range = r.object('range');
+    final recent = [for (final p in r.objects('recent')) TrendPoint.fromJson(p)]
+      ..sort((a, b) => a.day.compareTo(b.day));
     return TrendMetric(
       metric: r.string('metric'),
       unit: r.string('unit'),
@@ -67,6 +82,8 @@ class TrendMetric {
       latestDay: r.dateTime('latestDay'),
       band: BandPosition.fromString(r.stringOrNull('band')),
       baselineDays: r.integer('baselineDays'),
+      recent: recent,
+      range: range == null ? null : TrendBand.fromJson(range),
     );
   }
 

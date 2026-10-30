@@ -83,7 +83,7 @@ band = "below" | "inside" | "above"   (against p25_28 to p75_28 of the latest ba
 | POST | `/api/insights/{id}/reaction` | body `{ reaction }`; own cards only; returns the `InsightDto`; 400 on an unknown reaction |
 | POST | `/api/insights/{id}/dismiss` | own cards only; returns the `InsightDto` with `dismissedAt` set; idempotent |
 | POST | `/api/insights/recompute` | body `{ personId?, day? }` (defaults: the caller, yesterday in their zone); the caller may always run themselves, an admin may run a member of their household; returns `{ personId, day, baselines, insights, kinds[] }`; 5 calls a minute per user |
-| GET | `/api/trends?personId?` | `[{ metric, displayName, unit, latestDay?, latestValue?, band: band|null, baselineDays }]` for metrics with `n28 >= 7` in the latest baseline, filtered to the categories the viewer may see |
+| GET | `/api/trends?personId?` | `[{ metric, displayName, unit, latestDay?, latestValue?, band: band|null, baselineDays, recent: [{ day, value }], range: { median28, p25, p75, p10, p90 } | null }]` for metrics with `n28 >= 7` in the latest baseline, filtered to the categories the viewer may see. `recent` is the last 28 days for the row's small line |
 | GET | `/api/trends/{metric}?personId?&days=28|90` | `{ metric, unit, points: [{ day, value, min?, max? }], band: { median28, p25, p75, p10, p90 } | null, baselineDays: n28 }`; the band is the latest baseline and is null below 7 days |
 
 Notes:

@@ -6,8 +6,8 @@ import '../utils/api_error.dart';
 import '../utils/safe_notifier.dart';
 import 'auth_provider.dart';
 
-/// The metric list, the selected metric and its series for 28 or 90 days.
-/// Series are cached per metric and window for the session.
+/// The metric list, the metric whose chart is open and its series for 28 or
+/// 90 days. Series are cached per metric and window for the session.
 class TrendsProvider extends ChangeNotifier with SafeNotifier {
   final TrendsService _service;
   final AuthProvider _auth;
@@ -30,6 +30,21 @@ class TrendsProvider extends ChangeNotifier with SafeNotifier {
   static const List<int> windows = [28, 90];
 
   List<TrendMetric> get metrics => _metrics;
+
+  /// The list as Trends shows it: metrics outside their usual range first,
+  /// then the rest, each group in product order.
+  List<TrendMetric> get ordered => [
+    ..._metrics.where((m) => m.isOutside),
+    ..._metrics.where((m) => !m.isOutside),
+  ];
+
+  TrendMetric? metricFor(String metric) {
+    for (final m in _metrics) {
+      if (m.metric == metric) return m;
+    }
+    return null;
+  }
+
   String? get selected => _selected;
   TrendMetric? get selectedMetric {
     for (final m in _metrics) {
@@ -56,23 +71,23 @@ class TrendsProvider extends ChangeNotifier with SafeNotifier {
     try {
       _metrics = await _service.metrics();
       _hasLoadedMetrics = true;
-      if (_metrics.isEmpty) {
-        _selected = null;
-      } else if (_selected == null ||
-          !_metrics.any((m) => m.metric == _selected)) {
-        _selected = _metrics.first.metric;
-      }
+      if (_selected != null && metricFor(_selected!) == null) _selected = null;
     } catch (e) {
       _error = describeError(e);
     } finally {
       _loadingMetrics = false;
       notify();
     }
+    // A chart that is open stays current after a pull to refresh.
     if (_selected != null && series == null) await _loadSeries();
   }
 
+  /// Opens a metric's chart, fetching its series unless it is cached.
   Future<void> select(String metric) async {
-    if (_selected == metric) return;
+    if (_selected == metric) {
+      if (series == null && !_loadingSeries) await _loadSeries();
+      return;
+    }
     _selected = metric;
     _seriesError = null;
     notify();
