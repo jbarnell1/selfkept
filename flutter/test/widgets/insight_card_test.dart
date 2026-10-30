@@ -12,12 +12,14 @@ void main() {
     Fixtures.insight(severity: severity, reaction: reaction),
   );
 
-  Color ruleColor(WidgetTester tester) {
-    final box = tester.widget<DecoratedBox>(
-      find.byKey(InsightCard.severityRuleKey),
+  Color dotColor(WidgetTester tester) {
+    final dot = tester.widget<Container>(
+      find.descendant(
+        of: find.byKey(InsightCard.severityDotKey),
+        matching: find.byType(Container),
+      ),
     );
-    final decoration = box.decoration as BoxDecoration;
-    return (decoration.border! as Border).left.color;
+    return (dot.decoration! as BoxDecoration).color!;
   }
 
   for (final entry in {
@@ -25,7 +27,7 @@ void main() {
     'watch': (AppColors c) => c.attention,
     'clinician': (AppColors c) => c.clinician,
   }.entries) {
-    testBothThemes('${entry.key} uses its token colour for the rule', (
+    testBothThemes('${entry.key} uses its token colour for the dot', (
       tester,
       theme,
     ) async {
@@ -40,8 +42,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       final colors = theme.extension<AppColors>()!;
-      expect(ruleColor(tester), entry.value(colors));
-      expect(ruleColor(tester), isNot(Colors.red));
+      expect(dotColor(tester), entry.value(colors));
+      expect(dotColor(tester), isNot(Colors.red));
     });
   }
 

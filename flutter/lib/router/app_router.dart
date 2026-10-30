@@ -263,7 +263,7 @@ GoRouter buildRouter({
   );
 }
 
-/// A slow cross-fade between top-level pages.
+/// A short cross-fade between top-level pages.
 CustomTransitionPage<void> _fade(GoRouterState state, Widget child) {
   return CustomTransitionPage<void>(
     key: state.pageKey,
