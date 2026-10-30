@@ -51,6 +51,8 @@ import 'services/trends_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/error_reporter.dart';
 import 'utils/open_url.dart';
+import 'providers/sso_provider.dart';
+import 'services/sso_service.dart';
 import 'widgets/reachability_banner.dart';
 
 Future<void> main() async {
@@ -140,6 +142,7 @@ class _AppState extends State<App> {
   late final LabsService _labsService;
   late final LabsProvider _labs;
   late final ConnectService _connectService;
+  late final SsoProvider _sso;
   late final ExportService _exportService;
   late final ConnectProvider _connect;
   late final OuraProvider _oura;
@@ -168,6 +171,7 @@ class _AppState extends State<App> {
       auth: _auth,
     );
     _sources = SourcesProvider(service: SourcesService(client), auth: _auth);
+    _sso = SsoProvider(service: SsoService(client), auth: _auth);
     _sync = SyncEngine(
       ingest: IngestService(client),
       outbox: widget.outbox,
@@ -275,6 +279,7 @@ class _AppState extends State<App> {
         ChangeNotifierProvider.value(value: _ouraApp),
         ChangeNotifierProvider.value(value: _setup),
         ChangeNotifierProvider.value(value: _recentProblems),
+        ChangeNotifierProvider.value(value: _sso),
         Provider<UrlOpener>.value(value: openExternalUrl),
       ],
       child: MaterialApp.router(

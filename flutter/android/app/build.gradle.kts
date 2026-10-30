@@ -27,6 +27,8 @@ android {
     defaultConfig {
         // Written by scripts/brand-gen from brand/brand.yaml.
         applicationId = "app.selfkept.android"
+        // The app link scheme a provider sign-in returns on (AndroidManifest.xml).
+        manifestPlaceholders["deepLinkScheme"] = "selfkept"
         // Health Connect needs 26; 28 is what Google recommends and what the
         // background-read permission is tested against.
         minSdk = 28

@@ -131,8 +131,13 @@ GoRouter buildRouter({
       ),
       GoRoute(
         path: '/login',
-        pageBuilder: (context, state) =>
-            _fade(state, LoginPage(from: state.uri.queryParameters['from'])),
+        pageBuilder: (context, state) => _fade(
+          state,
+          LoginPage(
+            from: state.uri.queryParameters['from'],
+            ssoResult: state.uri.queryParameters['sso'],
+          ),
+        ),
       ),
       // First-run setup: the questions, then one step per answer. Outside
       // the shell so nothing else competes for attention.
@@ -232,7 +237,8 @@ GoRouter buildRouter({
             routes: [
               GoRoute(
                 path: '/you',
-                builder: (context, state) => const YouPage(),
+                builder: (context, state) =>
+                    YouPage(ssoResult: state.uri.queryParameters['sso']),
               ),
             ],
           ),

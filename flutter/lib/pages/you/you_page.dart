@@ -14,7 +14,10 @@ import 'sources_section.dart';
 
 /// You: profile, household, sharing, server and about.
 class YouPage extends StatefulWidget {
-  const YouPage({super.key});
+  /// The `sso` query a provider trip lands back with (Connect under Account).
+  final String? ssoResult;
+
+  const YouPage({super.key, this.ssoResult});
 
   @override
   State<YouPage> createState() => _YouPageState();
@@ -37,17 +40,17 @@ class _YouPageState extends State<YouPage> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: PageBody(
-        children: const [
-          PageHeading(title: 'You'),
-          ProfileSection(),
-          SourcesSection(),
-          HouseholdSection(),
-          SharingSection(),
-          AssistantsSection(),
-          SharedWithMeSection(),
-          ServerSection(),
-          AccountSection(),
-          AboutSection(),
+        children: [
+          const PageHeading(title: 'You'),
+          const ProfileSection(),
+          const SourcesSection(),
+          const HouseholdSection(),
+          const SharingSection(),
+          const AssistantsSection(),
+          const SharedWithMeSection(),
+          const ServerSection(),
+          AccountSection(ssoResult: widget.ssoResult),
+          const AboutSection(),
         ],
       ),
     );

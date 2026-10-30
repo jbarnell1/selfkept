@@ -49,6 +49,7 @@ dependencies:
   share_plus: ^13.3.1
   # Labs: opens the clinician summary PDF in a new tab on web.
   web: ^1.1.1
+  flutter_web_auth_2: ^5.1.0
 
 dev_dependencies:
   flutter_test:

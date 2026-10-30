@@ -212,10 +212,15 @@ product = brand["product_name"]
 short = brand["short_name"]
 ios_id = brand["ios_bundle_id"]
 android_id = brand["android_application_id"]
+deep_link = brand["deep_link_scheme"]
 
 patch(
     flutter / "android" / "app" / "build.gradle.kts",
-    lambda s: re.sub(r'applicationId\s*=\s*"[^"]*"', f'applicationId = "{android_id}"', s),
+    lambda s: re.sub(
+        r'manifestPlaceholders\["deepLinkScheme"\]\s*=\s*"[^"]*"',
+        f'manifestPlaceholders["deepLinkScheme"] = "{deep_link}"',
+        re.sub(r'applicationId\s*=\s*"[^"]*"', f'applicationId = "{android_id}"', s),
+    ),
 )
 patch(
     flutter / "android" / "app" / "src" / "main" / "AndroidManifest.xml",
