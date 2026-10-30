@@ -245,6 +245,25 @@ The image runs .NET with workstation garbage collection and conservative memory 
 compose file caps the app at 768 MB, the database at 384 MB and Caddy at 96 MB, and tunes Postgres
 for a 4 GB board. Use an SSD and give a Pi a little swap.
 
+## When something goes wrong
+
+Like other self-hosted apps, the server writes its log to Docker and keeps nothing outside your
+house:
+
+- **Recent problems** (You, Server, admin only) lists the latest warnings and errors: the
+  server's own, and errors the phone and web apps hit, which they report to your server and
+  nowhere else. Tap one for its details. The list starts fresh when the server restarts.
+- **The full log:** `docker compose logs --since 1h app` in the install folder. Every unexpected
+  error is logged with its request path and a trace id; the trace id is also in the error the
+  app received, so a reply and its log line can be matched.
+- **Health:** `/api/system/health` answers 200 while the database does. Point Uptime Kuma or Gatus
+  at it to be told when the server is down.
+- **Updates:** the image is published to `ghcr.io/jbarnell1/selfkept` with a `latest` tag and one
+  per version, so Diun or Watchtower can tell you when a new one is out.
+
+When you report a bug, the Recent problems entry (message and details) is usually all that is
+needed. Check it for anything you would rather not share before you paste it.
+
 ## Checking an install
 
 ```bash

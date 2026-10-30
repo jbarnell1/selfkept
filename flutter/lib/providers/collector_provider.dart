@@ -9,6 +9,7 @@ import '../models/source.dart';
 import '../offline/outbox_repository.dart';
 import '../offline/sync_engine.dart';
 import '../utils/api_error.dart';
+import '../utils/error_reporter.dart';
 import '../utils/safe_notifier.dart';
 import 'auth_provider.dart';
 import 'sources_provider.dart';
@@ -75,6 +76,7 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
   final String _appVersion;
   final Duration _backfill;
   final DateTime Function() _clock;
+  final ErrorReporter? _reporter;
 
   /// Guard against a platform that keeps answering hasMore.
   static const int maxPagesPerRun = 200;
@@ -101,6 +103,7 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
     this._appVersion = AppConfig.appVersion,
     this._backfill = const Duration(days: 90),
     DateTime Function()? clock,
+    this._reporter,
   }) : _platformName = platformName ?? _defaultPlatformName(),
        _clock = clock ?? (() => DateTime.now().toUtc()) {
     _auth.addListener(_onAuthChanged);
@@ -196,7 +199,8 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
       notify();
       await collectAndFlush();
       return _error == null;
-    } catch (e) {
+    } catch (e, stack) {
+      _reporter?.report(e, stack, kind: 'collector');
       _fail(describeError(e));
       return false;
     }
@@ -297,7 +301,8 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
       _progress = null;
       _status = CollectorStatus.connected;
       notify();
-    } catch (e) {
+    } catch (e, stack) {
+      _reporter?.report(e, stack, kind: 'collector');
       _fail(describeError(e), CollectorStatus.connected);
     }
   }

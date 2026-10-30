@@ -37,13 +37,16 @@ manages the household (name, invites) and does not thereby gain access to anyone
 
 Nothing, unless you cause it:
 
-- **No telemetry, no analytics, no crash reporting.** The server and the apps include no
-  third-party analytics or tracking SDK and send no usage data anywhere.
-- **No cloud AI.** Insights are computed on your server. The MCP server (a later package) is for
-  an Open WebUI you run yourself; it is a separate authenticated endpoint and it serves your
-  server's data to a client you point at it, nothing more.
+- **No telemetry, no analytics, no outside crash reporting.** The server and the apps include
+  no third-party analytics or tracking SDK and send no usage data anywhere. When the app hits an
+  error it reports it to your own server (the error text, a stack trace, the app version, the
+  platform and the screen it was on; no health values), where it goes into the server log and
+  the admin's Recent problems list. Nothing else receives it.
+- **No cloud AI.** Insights are computed on your server. The MCP server is for an assistant you
+  run yourself, such as Open WebUI; it is a separate authenticated endpoint and it serves your
+  server's data to a client each person allows, nothing more.
 - **No update checks.** The server does not contact the project to ask about new versions. You
-  upgrade with `docker compose pull`.
+  upgrade by running the installer again, or with `docker compose pull`.
 - **Exports are yours.** When you build an export (a later package: a file download, or a share
   with a clinician), the file goes where you send it, and the export is recorded in your
   account's audit log.
