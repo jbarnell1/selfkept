@@ -14,12 +14,21 @@ import 'outbox_repository.dart';
 ///
 /// Rows are deleted only after a 200. Any failure, network or server, leaves
 /// them in place and stops the pass; the next flush picks up where it was.
+/// A 429 is not a failure: the server is pacing a large backfill, so the pass
+/// waits the time it asks for and sends the same batch again.
 class SyncEngine extends ChangeNotifier with SafeNotifier {
   final IngestService _ingest;
   final OutboxRepository _outbox;
   final SourcesProvider _sources;
   final int _batchSize;
   final DateTime Function() _clock;
+  final Future<void> Function(Duration) _wait;
+
+  /// Waits for the server's pace before a pass gives up and reports it.
+  static const int maxRateLimitWaits = 30;
+
+  /// Used when a 429 carries no Retry-After; the server's window is a minute.
+  static const Duration defaultRateLimitWait = Duration(seconds: 15);
 
   int _pendingCount = 0;
   DateTime? _lastFlushAt;
@@ -35,8 +44,10 @@ class SyncEngine extends ChangeNotifier with SafeNotifier {
     required this._sources,
     this._batchSize = defaultOutboxBatchSize,
     DateTime Function()? clock,
+    Future<void> Function(Duration)? wait,
     this._reporter,
-  }) : _clock = clock ?? (() => DateTime.now().toUtc());
+  }) : _clock = clock ?? (() => DateTime.now().toUtc()),
+       _wait = wait ?? Future<void>.delayed;
 
   final ErrorReporter? _reporter;
 
@@ -99,6 +110,7 @@ class SyncEngine extends ChangeNotifier with SafeNotifier {
 
   /// One pass over the outbox. False when a batch failed.
   Future<bool> _drain() async {
+    var rateLimitWaits = 0;
     while (true) {
       final batch = await _outbox.nextBatch(limit: _batchSize);
       if (batch == null || batch.isEmpty) return true;
@@ -127,10 +139,24 @@ class SyncEngine extends ChangeNotifier with SafeNotifier {
         _pendingCount = await _outbox.count();
         notify();
       } catch (e, stack) {
+        if (e is ApiException &&
+            e.isRateLimited &&
+            rateLimitWaits < maxRateLimitWaits) {
+          rateLimitWaits++;
+          await _wait(_paceFor(e));
+          continue;
+        }
         _reporter?.report(e, stack, kind: 'sync');
         _lastError = describeError(e);
         return false;
       }
     }
+  }
+
+  static Duration _paceFor(ApiException e) {
+    final asked = e.retryAfter ?? defaultRateLimitWait;
+    if (asked < const Duration(seconds: 1)) return const Duration(seconds: 1);
+    if (asked > const Duration(minutes: 1)) return const Duration(minutes: 1);
+    return asked;
   }
 }

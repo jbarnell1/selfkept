@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../models/trend.dart';
@@ -9,9 +10,11 @@ import '../utils/metric_format.dart';
 import '../widgets/page_body.dart';
 import '../widgets/status_views.dart';
 import '../widgets/surface_card.dart';
-import '../widgets/trend_chart.dart';
+import '../widgets/trend_sparkline.dart';
 
-/// Trends: one metric at a time against your own 28-day band.
+/// Trends: every metric with a week behind it, one row each, against your own
+/// usual range. The ones outside it come first, in amber; tap a row for its
+/// full chart.
 class TrendsPage extends StatefulWidget {
   const TrendsPage({super.key});
 
@@ -20,6 +23,19 @@ class TrendsPage extends StatefulWidget {
   static const String emptyNote =
       'Connect a source and the first lines appear within a week.';
   static const String noPointsText = 'No days in this window yet.';
+  static const String learningText = 'Still learning your normal';
+  static const String withinText = 'Within your usual range';
+
+  /// The second line of a row: where the latest day sits, in words.
+  static String statusFor(TrendMetric m) {
+    final band = m.band;
+    if (band == null) {
+      return m.baselineDays < 14 ? learningText : 'Latest value';
+    }
+    if (!m.isOutside) return withinText;
+    final words = band.displayName;
+    return '${words[0].toUpperCase()}${words.substring(1)}';
+  }
 
   @override
   State<TrendsPage> createState() => _TrendsPageState();
@@ -71,7 +87,7 @@ class _TrendsPageState extends State<TrendsPage> {
         ),
       ];
     } else {
-      body = const [_MetricPicker(), SizedBox(height: Space.x6), _ChartCard()];
+      body = [_TrendList(metrics: trends.ordered)];
     }
 
     return SafeArea(
@@ -93,26 +109,23 @@ class _TrendsPageState extends State<TrendsPage> {
   }
 }
 
-/// A horizontal row of metric chips in product order.
-class _MetricPicker extends StatelessWidget {
-  const _MetricPicker();
+/// One card, one row per metric, split by hairlines.
+class _TrendList extends StatelessWidget {
+  final List<TrendMetric> metrics;
+
+  const _TrendList({required this.metrics});
 
   @override
   Widget build(BuildContext context) {
-    final trends = context.watch<TrendsProvider>();
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
-      child: Row(
+    final colors = AppColors.of(context);
+    return SurfaceCard(
+      padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          for (final m in trends.metrics) ...[
-            ChoiceChip(
-              label: Text(m.label),
-              selected: m.metric == trends.selected,
-              showCheckmark: false,
-              onSelected: (_) => trends.select(m.metric),
-            ),
-            const SizedBox(width: Space.x2),
+          for (var i = 0; i < metrics.length; i++) ...[
+            if (i > 0)
+              Divider(height: 1, indent: Space.x4, color: colors.hairline),
+            TrendRow(metric: metrics[i]),
           ],
         ],
       ),
@@ -120,128 +133,105 @@ class _MetricPicker extends StatelessWidget {
   }
 }
 
-/// The selected metric's latest value, the window toggle and the chart.
-class _ChartCard extends StatelessWidget {
-  const _ChartCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final trends = context.watch<TrendsProvider>();
-    final theme = Theme.of(context);
-    final metric = trends.selectedMetric;
-    final series = trends.series;
-    if (metric == null) return const SizedBox.shrink();
-    final wide = MediaQuery.sizeOf(context).width >= 600;
-
-    final Widget chart;
-    if (series == null && trends.isLoadingSeries) {
-      chart = const SizedBox(height: 220, child: LoadingView());
-    } else if (series == null) {
-      chart = SizedBox(
-        height: 220,
-        child: ErrorView(
-          title: 'This metric did not load.',
-          detail: trends.seriesError,
-          onRetry: trends.retrySeries,
-        ),
-      );
-    } else if (series.isEmpty) {
-      chart = SizedBox(
-        height: 220,
-        child: Center(
-          child: Text(
-            TrendsPage.noPointsText,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      );
-    } else {
-      chart = TrendChart(
-        key: ValueKey('${series.metric}:${trends.days}'),
-        series: series,
-        days: trends.days,
-        height: wide ? 280 : 220,
-      );
-    }
-
-    return SurfaceCard(
-      padding: const EdgeInsets.fromLTRB(
-        Space.x4,
-        Space.x6,
-        Space.x4,
-        Space.x6,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _Headline(metric: metric),
-          const SizedBox(height: Space.x4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SegmentedButton<int>(
-              segments: [
-                for (final d in TrendsProvider.windows)
-                  ButtonSegment(value: d, label: Text('$d days')),
-              ],
-              selected: {trends.days},
-              showSelectedIcon: false,
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              onSelectionChanged: (v) => trends.setDays(v.first),
-            ),
-          ),
-          const SizedBox(height: Space.x6),
-          AnimatedSwitcher(
-            duration: Motion.short,
-            switchInCurve: Motion.curve,
-            child: chart,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Name, latest value and where it sits, in words.
-class _Headline extends StatelessWidget {
+/// Name and where the latest day sits on the left; the small line and the
+/// latest value on the right. The whole row opens the metric's chart.
+class TrendRow extends StatelessWidget {
   final TrendMetric metric;
 
-  const _Headline({required this.metric});
+  const TrendRow({super.key, required this.metric});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = AppColors.of(context);
+    final outside = metric.isOutside;
     final latest = metric.latestValue;
-    final band = metric.band;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(metric.label, style: theme.textTheme.headlineSmall),
-        const SizedBox(height: Space.x2),
-        Wrap(
-          spacing: Space.x3,
-          crossAxisAlignment: WrapCrossAlignment.end,
-          children: [
-            if (latest != null)
-              Text(
-                formatMetricWithUnit(metric.metric, latest, unit: metric.unit),
-                style: AppTheme.numeric(
-                  context,
-                  base: theme.textTheme.headlineMedium,
-                ),
-              ),
-            Text(
-              band == null
-                  ? (metric.baselineDays < 14
-                        ? 'Still learning your normal.'
-                        : 'Latest value.')
-                  : 'Latest is ${band.displayName}.',
-              style: theme.textTheme.bodySmall,
+    final value = latest == null
+        ? ''
+        : formatMetricWithUnit(metric.metric, latest, unit: metric.unit);
+    final status = TrendsPage.statusFor(metric);
+    return Semantics(
+      button: true,
+      label: '${metric.label}, $value, $status',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () => context.push('/trends/${metric.metric}'),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 68),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.x4,
+              Space.x3,
+              Space.x2,
+              Space.x3,
             ),
-          ],
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(metric.label, style: theme.textTheme.titleSmall),
+                      const SizedBox(height: Space.x1),
+                      Row(
+                        children: [
+                          if (outside) ...[
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: colors.attention,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: Space.x2),
+                          ],
+                          Flexible(
+                            child: Text(
+                              status,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                // The darkened amber reads as text on both
+                                // grounds; the dot carries the brand amber.
+                                color: outside
+                                    ? theme.colorScheme.error
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: Space.x3),
+                TrendSparkline(
+                  points: metric.recent,
+                  range: metric.range,
+                  outside: outside,
+                ),
+                const SizedBox(width: Space.x3),
+                SizedBox(
+                  width: 72,
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.right,
+                    style: AppTheme.numeric(
+                      context,
+                      base: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 }

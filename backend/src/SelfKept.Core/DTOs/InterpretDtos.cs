@@ -51,8 +51,20 @@ public sealed record TrendBandDto(double Median28, double P25, double P75, doubl
 
 public sealed record TrendSeriesDto(string Metric, string Unit, IReadOnlyList<TrendPointDto> Points, TrendBandDto? Band, int BaselineDays);
 
-/// <summary>One row of the Trends list: a metric with enough history, its latest value and where that sits in the band.</summary>
-public sealed record TrendMetricDto(string Metric, string DisplayName, string Unit, DateOnly? LatestDay, double? LatestValue, string? Band, int BaselineDays);
+/// <summary>
+/// One row of the Trends list: a metric with enough history, its latest value and where that sits
+/// in the band, plus the last 28 days (day and value) and the band itself for the row's small line.
+/// </summary>
+public sealed record TrendMetricDto(
+  string Metric,
+  string DisplayName,
+  string Unit,
+  DateOnly? LatestDay,
+  double? LatestValue,
+  string? Band,
+  int BaselineDays,
+  IReadOnlyList<TrendPointDto> Recent,
+  TrendBandDto? Range);
 
 public static class BandPositions
 {

@@ -1,6 +1,7 @@
 # Roadmap and handoff
 
-Status as of 30 October 2026: v0.1.1 is released (image `ghcr.io/jbarnell1/selfkept`, install with
+Status as of 30 October 2026: v0.1.2 is released and v0.1.3 is in review (Android launch and
+Health Connect fixes, single sign-on, docs/sso-design.md). v0.1.1 was the first tag (image `ghcr.io/jbarnell1/selfkept`, install with
 `install.sh` from the latest release). Work goes on a branch with a PR into the open `release/x.y.z`
 branch; a release PR into `main` and a `vX.Y.Z` tag publish it. Read this file first, then
 `CLAUDE.md`, then the design doc for the area you are touching.
@@ -104,9 +105,13 @@ green with it set), Flutter 527. `flutter analyze` and the backend build have ze
 
 - **iOS is uncompiled.** Expect small fixes in `HealthKitCollector.swift` and the hand-edited
   pbxproj on first build.
-- **Real devices are untested.** What the Fitbit app writes to Health Connect for a Pixel Watch 4,
-  and how often HealthKit background delivery fires, are unmeasured. The outbox and foreground
-  sync cover gaps.
+- **Android ran on a real phone from v0.1.3.** A Pixel 10 Pro XL on Android 16 installed the
+  release APK, granted Health Connect access and backfilled about 190,000 readings from the
+  Google Health app (Fitbit's successor, still writing to Health Connect). How often HealthKit
+  background delivery fires on an iPhone is unmeasured. The outbox and foreground sync cover gaps.
+- **Release APK lessons.** R8 full mode stripped constructors that WorkManager and ML Kit create
+  by reflection (now compatibility mode), and from Android 14 Health Connect access is a runtime
+  permission request, not the library's contract intent. Test a release build on a device.
 - **Oura is untried live.** Covered by in-process flow tests that follow Oura's published API.
 - **Open WebUI needs a 16K context.** Tool descriptions are about 2,500 tokens; Ollama's default
   4K context cuts answers off after one word. The homelab uses a `qwen3.5-9b-tools` variant.

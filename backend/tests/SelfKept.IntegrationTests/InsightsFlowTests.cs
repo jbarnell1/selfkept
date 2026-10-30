@@ -222,6 +222,13 @@ public class InsightsFlowTests
     byMetric["hrv_sdnn_ms"].GetProperty("latestValue").GetDouble().Should().Be(30);
     byMetric["steps"].GetProperty("baselineDays").GetInt32().Should().Be(28);
     byMetric["steps"].GetProperty("displayName").GetString().Should().NotBeNullOrEmpty();
+    // The row's small line: the last 28 days and the band, from the same read.
+    var recent = byMetric["hrv_sdnn_ms"].GetProperty("recent");
+    recent.GetArrayLength().Should().Be(28);
+    recent[recent.GetArrayLength() - 1].GetProperty("value").GetDouble().Should().Be(30);
+    recent[0].TryGetProperty("min", out _).Should().BeFalse("the list carries day and value only");
+    var range = byMetric["hrv_sdnn_ms"].GetProperty("range");
+    range.GetProperty("p25").GetDouble().Should().BeLessThan(range.GetProperty("p75").GetDouble());
 
     // Bob: nothing until shared; insights for Today and the archive, each metric's own category for trends.
     (await bob.GetAsync($"/api/today?personId={adaPerson}")).StatusCode.Should().Be(HttpStatusCode.NotFound);

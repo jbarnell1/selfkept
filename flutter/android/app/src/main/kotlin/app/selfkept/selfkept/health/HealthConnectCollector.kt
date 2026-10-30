@@ -82,7 +82,8 @@ import kotlin.reflect.KClass
  * files first, then reads the live delta.
  */
 class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandler,
-    EventChannel.StreamHandler, PluginRegistry.ActivityResultListener {
+    EventChannel.StreamHandler, PluginRegistry.ActivityResultListener,
+    PluginRegistry.RequestPermissionsResultListener {
 
     companion object {
         const val METHOD_CHANNEL = "app.selfkept/health"
@@ -134,6 +135,7 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
         activity = binding.activity
         activityBinding = binding
         binding.addActivityResultListener(this)
+        binding.addRequestPermissionsResultListener(this)
     }
 
     override fun onDetachedFromActivityForConfigChanges() = onDetachedFromActivity()
@@ -143,6 +145,7 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
 
     override fun onDetachedFromActivity() {
         activityBinding?.removeActivityResultListener(this)
+        activityBinding?.removeRequestPermissionsResultListener(this)
         activityBinding = null
         activity = null
     }
@@ -225,15 +228,41 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
                 return@launch
             }
             pendingPermissionResult = result
-            val contract = PermissionController.createRequestPermissionResultContract()
-            val intent: Intent = contract.createIntent(host, wanted)
-            host.startActivityForResult(intent, PERMISSION_REQUEST)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // From Android 14 Health Connect is part of the system and its permissions are
+                // ordinary runtime permissions. The library's contract then returns an intent
+                // that only a ComponentActivity's result registry understands, and a
+                // FlutterActivity has none: launching it crashed the app. Asking directly shows
+                // the same Health Connect screen.
+                host.requestPermissions(wanted.toTypedArray(), PERMISSION_REQUEST)
+            } else {
+                // Android 13 and older: the Health Connect app handles the request intent.
+                val contract = PermissionController.createRequestPermissionResultContract()
+                val intent: Intent = contract.createIntent(host, wanted)
+                host.startActivityForResult(intent, PERMISSION_REQUEST)
+            }
         }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode != PERMISSION_REQUEST) return false
-        val pending = pendingPermissionResult ?: return true
+        finishPermissionRequest()
+        return true
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ): Boolean {
+        if (requestCode != PERMISSION_REQUEST) return false
+        finishPermissionRequest()
+        return true
+    }
+
+    /** Reads back what was granted, whichever way the request was shown, and answers Dart. */
+    private fun finishPermissionRequest() {
+        val pending = pendingPermissionResult ?: return
         pendingPermissionResult = null
         scope.launch {
             val client = HealthConnectClient.getOrCreate(context)
@@ -250,7 +279,6 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
             if (state != "denied") HealthSyncWorker.schedule(context)
             pending.success(state)
         }
-        return true
     }
 
     // ---------------------------------------------------------------- collect

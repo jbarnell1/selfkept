@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import '../brand/brand.dart';
@@ -153,11 +154,13 @@ abstract final class AppTheme {
       // A plain ripple: calmer than the sparkle, and it needs no shader asset.
       splashFactory: InkRipple.splashFactory,
       visualDensity: VisualDensity.standard,
+      // iOS and macOS keep the native slide so a swipe from the left edge goes
+      // back; Android's predictive back works with the fade.
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
           TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
           TargetPlatform.fuchsia: FadeForwardsPageTransitionsBuilder(),

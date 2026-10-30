@@ -366,6 +366,7 @@ abstract final class Fixtures {
     num? latestValue = 460,
     String? band = 'below',
     int baselineDays = 28,
+    bool withRecent = true,
   }) => _case({
     'metric': metric,
     'unit': unit,
@@ -374,7 +375,27 @@ abstract final class Fixtures {
     'latestDay': '2026-10-29',
     'band': band,
     'baselineDays': baselineDays,
+    'recent': [
+      if (withRecent)
+        for (var i = 27; i >= 0; i--)
+          _case({
+            'day': _isoDay(DateTime(2026, 10, 29).subtract(Duration(days: i))),
+            'value': (latestValue ?? 0) + (i % 4) * 3 - (i == 0 ? 0 : 1),
+          }, pascal),
+    ],
+    'range': band == null
+        ? null
+        : _case({
+            'median28': (latestValue ?? 0) + 5,
+            'p25': (latestValue ?? 0) - 2,
+            'p75': (latestValue ?? 0) + 12,
+            'p10': (latestValue ?? 0) - 8,
+            'p90': (latestValue ?? 0) + 20,
+          }, pascal),
   }, pascal);
+
+  static String _isoDay(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   /// `{ metrics: [...] }` in a deliberately unsorted order.
   static Map<String, dynamic> trends({bool pascal = false}) => _case({

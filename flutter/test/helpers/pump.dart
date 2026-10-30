@@ -43,6 +43,9 @@ import 'package:selfkept/services/today_service.dart';
 import 'package:selfkept/services/trends_service.dart';
 import 'package:selfkept/theme/app_theme.dart';
 import 'package:selfkept/utils/open_url.dart';
+import 'package:selfkept/providers/sso_provider.dart';
+import 'package:selfkept/utils/device_time_zone.dart';
+import 'package:selfkept/services/sso_service.dart';
 
 import 'fake_api_client.dart';
 
@@ -71,6 +74,7 @@ class TestHarness {
   final OuraAppProvider ouraApp;
   final SetupProvider setup;
   final RecentProblemsProvider recentProblems;
+  final SsoProvider sso;
 
   /// Stands in for the browser everywhere a page opens a link.
   final UrlOpener openUrl;
@@ -99,17 +103,21 @@ class TestHarness {
     required this.ouraApp,
     required this.setup,
     required this.recentProblems,
+    required this.sso,
     required this.openUrl,
   });
 
   /// [collector] defaults to the no-op one, which is what the web build has.
   ///
   /// [openUrl] stands in for the browser; the Oura provider calls it.
+  /// [ssoBrowser] stands in for the provider sign-in sheet.
   factory TestHarness({
     FakeApiClient? api,
     HealthCollector collector = const NoopHealthCollector(),
     OutboxRepository? outbox,
     Future<bool> Function(Uri uri)? openUrl,
+    SsoBrowser? ssoBrowser,
+    DeviceTimeZone? deviceZone,
   }) {
     final client = api ?? FakeApiClient();
     final auth = AuthProvider(client);
@@ -122,6 +130,7 @@ class TestHarness {
       ),
       system: system,
       auth: auth,
+      hasServerUrl: () => client.serverUrl.isNotEmpty,
     );
     final sources = SourcesProvider(
       service: SourcesService(client),
@@ -147,7 +156,11 @@ class TestHarness {
       startup: startup,
       settings: ServerSettings(store: MemoryServerAddressStore()),
       reachability: Reachability(listenToInterface: false),
-      profile: ProfileProvider(service: ProfileService(client), auth: auth),
+      profile: ProfileProvider(
+        service: ProfileService(client),
+        auth: auth,
+        deviceZone: deviceZone ?? () async => null,
+      ),
       household: HouseholdProvider(
         service: HouseholdService(client),
         auth: auth,
@@ -184,6 +197,12 @@ class TestHarness {
         service: DiagnosticsService(client),
         auth: auth,
       ),
+      sso: SsoProvider(
+        service: SsoService(client),
+        auth: auth,
+        browser: ssoBrowser ?? (_) async => null,
+        client: 'mobile',
+      ),
       openUrl: openUrl ?? (_) async => true,
     );
   }
@@ -214,6 +233,7 @@ class TestHarness {
         ChangeNotifierProvider.value(value: ouraApp),
         ChangeNotifierProvider.value(value: setup),
         ChangeNotifierProvider.value(value: recentProblems),
+        ChangeNotifierProvider.value(value: sso),
         Provider<UrlOpener>.value(value: openUrl),
       ],
       child: router == null
@@ -226,6 +246,7 @@ class TestHarness {
   }
 
   void dispose() {
+    sso.dispose();
     recentProblems.dispose();
     setup.dispose();
     ouraApp.dispose();

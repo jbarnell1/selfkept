@@ -22,6 +22,14 @@ void main() {
     },
   );
 
+  test('with no server address it asks for one and calls nothing', () async {
+    h.api.serverUrl = '';
+    await h.startup.run();
+    expect(h.startup.phase, StartupPhase.needsAddress);
+    expect(h.api.calls, isEmpty);
+    expect(h.startup.isRunning, isFalse);
+  });
+
   test('a compatible server reads setup status and bootstraps auth', () async {
     h.api.on('GET', '/system/version', (_) => Fixtures.version());
     h.api.on(

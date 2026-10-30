@@ -12,7 +12,8 @@ enum StartupPhase {
   ready,
   unreachable,
   serverNeedsUpdate,
-  appNeedsUpdate;
+  appNeedsUpdate,
+  needsAddress;
 
   static StartupPhase fromInt(int value) =>
       value >= 0 && value < values.length ? values[value] : pending;
@@ -31,6 +32,7 @@ enum StartupPhase {
     unreachable => 'Not reachable',
     serverNeedsUpdate => 'Server needs an update',
     appNeedsUpdate => 'App needs an update',
+    needsAddress => 'Needs a server address',
   };
 }
 
@@ -40,6 +42,7 @@ class StartupProvider extends ChangeNotifier with SafeNotifier {
   final ServerVersionService _versions;
   final SystemService _system;
   final AuthProvider _auth;
+  final bool Function() _hasServerUrl;
 
   StartupPhase _phase = StartupPhase.pending;
   VersionCheckResult? _versionResult;
@@ -50,9 +53,12 @@ class StartupProvider extends ChangeNotifier with SafeNotifier {
     required this._versions,
     required this._system,
     required this._auth,
-  }) {
+    bool Function()? hasServerUrl,
+  }) : _hasServerUrl = hasServerUrl ?? _always {
     _auth.addListener(_onAuthChanged);
   }
+
+  static bool _always() => true;
 
   StartupPhase get phase => _phase;
   bool get isReady => _phase == StartupPhase.ready;
@@ -72,6 +78,12 @@ class StartupProvider extends ChangeNotifier with SafeNotifier {
     _phase = StartupPhase.pending;
     notify();
     try {
+      // A phone with no address yet has nothing to ask: go straight to the
+      // address screen instead of a "not reachable" error.
+      if (!_hasServerUrl()) {
+        _phase = StartupPhase.needsAddress;
+        return;
+      }
       final result = await _versions.check();
       _versionResult = result;
       switch (result.compatibility) {

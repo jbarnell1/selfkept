@@ -187,6 +187,19 @@ public sealed class AuthService : IAuthService
     return await CreateSessionAsync(user, role, ct);
   }
 
+  public async Task<AuthSession?> SignInAsync(Guid userId, string method, RequestInfo info, CancellationToken ct = default)
+  {
+    var user = await _users.GetByIdAsync(userId, ct);
+    if (user == null) return null;
+
+    user.LastLoginAt = UtcNow;
+    await _users.UpdateAsync(user, ct);
+
+    var role = await ResolveRoleAsync(user.Id, ct);
+    await _audit.RecordAsync(new AuditEvent(AuditActions.Login, user.Id, user.HouseholdId, "user", user.Id.ToString(), new { method }, info.IpAddress), ct);
+    return await CreateSessionAsync(user, role, ct);
+  }
+
   public async Task<AuthSession?> RefreshAsync(string rawRefreshToken, CancellationToken ct = default)
   {
     var rotated = await _refreshTokens.RotateAsync(rawRefreshToken, ct);

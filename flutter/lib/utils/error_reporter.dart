@@ -36,7 +36,10 @@ class ErrorReporter {
   /// True for failures that are not bugs in the app.
   static bool isExpected(Object error) =>
       error is ApiException &&
-      (error.isNetwork || error.isUnauthorized || error.isForbidden);
+      (error.isNetwork ||
+          error.isUnauthorized ||
+          error.isForbidden ||
+          error.isRateLimited);
 
   /// Reports [error] unless it is expected, repeated or over the session cap.
   /// Never throws and never waits on the network.

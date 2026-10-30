@@ -7,3 +7,8 @@
 -dontwarn com.google.mlkit.vision.text.devanagari.**
 -dontwarn com.google.mlkit.vision.text.japanese.**
 -dontwarn com.google.mlkit.vision.text.korean.**
+
+# WorkManager (background Health Connect sync) keeps its queue in a Room database that Room
+# creates by reflection through the generated class's no-argument constructor. R8 removed that
+# constructor, so the release build crashed at launch before any screen appeared.
+-keep class * extends androidx.room.RoomDatabase { <init>(); }

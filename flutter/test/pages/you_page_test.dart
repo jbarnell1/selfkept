@@ -232,4 +232,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('connections page'), findsOneWidget);
   });
+
+  testBothThemes(
+    'account: connect the sign-in provider, then it shows as connected',
+    (tester, theme) async {
+      await usePhoneSize(tester);
+      stubHousehold();
+      h.api.on(
+        'GET',
+        '/auth/sso/link',
+        (_) => {'enabled': true, 'name': 'Pocket ID', 'linked': false},
+      );
+      await tester.pumpWidget(h.wrap(const YouPage(), theme: theme));
+      await tester.pumpAndSettle();
+      await scrollTo(tester, find.text('Connect Pocket ID'));
+      expect(find.text('Connect Pocket ID'), findsOneWidget);
+
+      h.api.on(
+        'GET',
+        '/auth/sso/link',
+        (_) => {
+          'enabled': true,
+          'name': 'Pocket ID',
+          'linked': true,
+          'email': 'ada@id.example.test',
+        },
+      );
+      await tester.pumpWidget(
+        h.wrap(
+          const YouPage(key: ValueKey('back'), ssoResult: 'linked'),
+          theme: theme,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await scrollTo(tester, find.text('Disconnect Pocket ID'));
+      expect(find.text('Pocket ID (ada@id.example.test)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('account: no provider on the server, no row', (tester) async {
+    await usePhoneSize(tester);
+    stubHousehold();
+    h.api.on(
+      'GET',
+      '/auth/sso/link',
+      (_) => {'enabled': false, 'linked': false},
+    );
+    await tester.pumpWidget(h.wrap(const YouPage()));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Pocket ID'), findsNothing);
+    expect(find.text('Connect Pocket ID'), findsNothing);
+  });
 }

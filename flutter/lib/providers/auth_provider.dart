@@ -117,6 +117,10 @@ class AuthProvider extends ChangeNotifier with SafeNotifier {
     ),
   );
 
+  /// Finishes a sign-in another flow started (provider sign-in on a phone).
+  Future<bool> completeSignIn(Future<AuthResponse> Function() action) =>
+      _attempt(action);
+
   Future<bool> _attempt(Future<AuthResponse> Function() action) async {
     _status = AuthStatus.loading;
     _errorMessage = null;

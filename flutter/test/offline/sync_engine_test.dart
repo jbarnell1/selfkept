@@ -99,6 +99,70 @@ void main() {
     },
   );
 
+  test('a 429 waits the time asked and sends the same batch again', () async {
+    final waits = <Duration>[];
+    final paced = SyncEngine(
+      ingest: IngestService(api),
+      outbox: outbox,
+      sources: sources,
+      batchSize: 2,
+      clock: () => now,
+      wait: (d) async => waits.add(d),
+    );
+    addTearDown(paced.dispose);
+    var calls = 0;
+    api.on('POST', '/ingest/batch', (_) {
+      calls++;
+      if (calls == 2) {
+        throw const ApiException(
+          'Too many requests.',
+          statusCode: 429,
+          retryAfter: Duration(seconds: 12),
+        );
+      }
+      return Fixtures.ingestResult();
+    });
+    await outbox.enqueue(CollectedBatch(sourceId: 's1', samples: hrSamples(3)));
+
+    final clean = await paced.flush();
+
+    expect(clean, isTrue);
+    expect(waits, [const Duration(seconds: 12)]);
+    // First page, the refused second page, and the second page again.
+    expect(calls, 3);
+    expect(await outbox.count(), 0);
+    expect(paced.lastError, isNull);
+  });
+
+  test(
+    'a server that keeps refusing is reported after the wait limit',
+    () async {
+      var waited = 0;
+      final paced = SyncEngine(
+        ingest: IngestService(api),
+        outbox: outbox,
+        sources: sources,
+        batchSize: 2,
+        clock: () => now,
+        wait: (_) async => waited++,
+      );
+      addTearDown(paced.dispose);
+      api.fail(
+        'POST',
+        '/ingest/batch',
+        const ApiException('Too many requests.', statusCode: 429),
+      );
+      await outbox.enqueue(
+        CollectedBatch(sourceId: 's1', samples: hrSamples(2)),
+      );
+
+      expect(await paced.flush(), isFalse);
+      expect(waited, SyncEngine.maxRateLimitWaits);
+      expect(await outbox.count(), 2);
+      expect(paced.lastError, 'Too many requests.');
+    },
+  );
+
   test('a 500 keeps every row and records the error', () async {
     api.fail(
       'POST',

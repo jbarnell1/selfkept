@@ -203,11 +203,13 @@ $product = $brand['product_name']
 $short = $brand['short_name']
 $iosId = $brand['ios_bundle_id']
 $androidId = $brand['android_application_id']
+$deepLink = $brand['deep_link_scheme']
 $tagline = $brand['tagline']
 
 Patch-File (Join-Path $flutter 'android\app\build.gradle.kts') {
     param($s)
-    [regex]::Replace($s, 'applicationId\s*=\s*"[^"]*"', "applicationId = `"$androidId`"")
+    $s = [regex]::Replace($s, 'applicationId\s*=\s*"[^"]*"', "applicationId = `"$androidId`"")
+    [regex]::Replace($s, 'manifestPlaceholders\["deepLinkScheme"\]\s*=\s*"[^"]*"', "manifestPlaceholders[`"deepLinkScheme`"] = `"$deepLink`"")
 }
 Patch-File (Join-Path $flutter 'android\app\src\main\AndroidManifest.xml') {
     param($s)

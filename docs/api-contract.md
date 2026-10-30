@@ -21,6 +21,15 @@ Base path: `/api`. Auth: `Authorization: Bearer <accessToken>` for first-party c
 | POST | `/auth/refresh` | cookie or `{ refreshToken }` | `AuthResponse` |
 | POST | `/auth/logout` | | 204, revokes refresh token |
 | GET | `/auth/me` | bearer | `UserDto` |
+| GET | `/auth/sso` | | `{ enabled, name? }`: whether to show the provider sign-in button |
+| GET | `/auth/sso/start?client=web\|mobile` | | 302 to the provider (or to `/login?sso=<reason>`) |
+| GET | `/auth/sso/callback?code&state` | | 302: web sets the refresh cookie and lands on `/`; a phone gets `<scheme>://sso?code=` |
+| POST | `/auth/sso/exchange` | `{ code }` | `AuthResponse`; the phone's single-use handoff code |
+| GET | `/auth/sso/link` | bearer | `{ enabled, name?, linked, email?, linkedAt? }` |
+| POST | `/auth/sso/link?client=web\|mobile` | bearer | `{ url }` to open for Connect; 404 when provider sign-in is off |
+| DELETE | `/auth/sso/link` | bearer | 204; 404 when nothing was connected |
+
+Provider sign-in is described in `docs/sso-design.md`.
 
 `AuthResponse = { accessToken, accessTokenExpiresAt, refreshToken?, user: UserDto }`
 
