@@ -1,13 +1,14 @@
 # Roadmap and handoff
 
-Status as of 30 October 2026, evening. Everything lives on branch `claude/foundation`, PR #1 into
-`release/0.1.0`. Read this file first, then `CLAUDE.md`, then the design doc for the area you are
-touching.
+Status as of 30 October 2026: v0.1.1 is released (image `ghcr.io/jbarnell1/selfkept`, install with
+`install.sh` from the latest release). Work goes on a branch with a PR into the open `release/x.y.z`
+branch; a release PR into `main` and a `vX.Y.Z` tag publish it. Read this file first, then
+`CLAUDE.md`, then the design doc for the area you are touching.
 
 ## Where things stand
 
-All six packages are built. What is left before `v0.1.0` is mostly the owner's to do on real
-devices and accounts (see "Owner steps to v0.1.0").
+All six packages are built and released. What is left is real-world use on phones, watches and a
+ring, an iOS build, and a signed Android release (see "Owner steps").
 
 | Package | Backend | Flutter | Verified how |
 | --- | --- | --- | --- |
@@ -41,7 +42,7 @@ green with it set), Flutter 527. `flutter analyze` and the backend build have ze
 - **Export**: a redacted Markdown summary for a cloud model (no name, age band, relative days,
   notes off by default, the person picks what goes in) and a full JSON export of their own data.
 
-## Owner steps to v0.1.0
+## Owner steps
 
 1. **Finish the homelab install** (`.dev/homelab.md` has the exact commands): publish Open WebUI
    on the tailnet, create the SelfKept and Open WebUI admin accounts, and turn on the nightly
