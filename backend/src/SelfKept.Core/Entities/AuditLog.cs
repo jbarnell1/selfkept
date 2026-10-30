@@ -27,6 +27,8 @@ public static class AuditActions
 {
   public const string Register = "auth.register";
   public const string Login = "auth.login";
+  public const string SsoLinked = "auth.sso.linked";
+  public const string SsoUnlinked = "auth.sso.unlinked";
   public const string InviteCreated = "invite.created";
   public const string InviteUsed = "invite.used";
   public const string ShareChanged = "share.changed";

@@ -39,6 +39,13 @@ public interface IRefreshTokenService
 }
 
 /// <summary>A signed-in session: the access token plus the refresh token the controller delivers by cookie or body.</summary>
+/// <summary>How a session was started, for the audit log.</summary>
+public static class AuthMethods
+{
+  public const string Password = "password";
+  public const string Sso = "sso";
+}
+
 public sealed record AuthSession(UserDto User, AccessToken Access, string RefreshToken, DateTime RefreshTokenExpiresAt);
 
 public interface IAuthService
@@ -53,6 +60,12 @@ public interface IAuthService
 
   /// <summary>Null when the email is unknown or the password is wrong (the caller answers 401).</summary>
   Task<AuthSession?> LoginAsync(LoginRequest request, RequestInfo info, CancellationToken ct = default);
+
+  /// <summary>
+  /// Starts a session for an account another check already identified (provider sign-in). Null
+  /// when the account no longer exists.
+  /// </summary>
+  Task<AuthSession?> SignInAsync(Guid userId, string method, RequestInfo info, CancellationToken ct = default);
 
   /// <summary>Null when the refresh token is not valid any more.</summary>
   Task<AuthSession?> RefreshAsync(string rawRefreshToken, CancellationToken ct = default);
