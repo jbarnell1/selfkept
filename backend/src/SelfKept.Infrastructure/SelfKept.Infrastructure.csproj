@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <!-- Tests only: Database:Provider=inmemory. Kept here so the provider switch lives in one place. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!-- The model adapter's HttpClient (Ai:BaseUrl); the only outbound HTTP in the app. -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="dbup-postgresql" />
+    <PackageReference Include="QuestPDF" />
+    <PackageReference Include="ModelContextProtocol.Core" />
+    <PackageReference Include="BCrypt.Net-Next" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SelfKept.Core\SelfKept.Core.csproj" />
+  </ItemGroup>
+
+  <!-- SQL-first migrations: forward (*.up.sql) scripts are embedded so DbUp applies them on
+       startup. Paired *.down.sql files are committed for manual, reviewed rollback and are
+       never embedded or auto-run. See Migrations/Sql/README.md. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\Sql\*.up.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SelfKept.UnitTests" />
+    <InternalsVisibleTo Include="SelfKept.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,52 @@
+# Single source of truth for the product identity.
+# Nothing in backend/ or flutter/ may hard-code these values.
+# Run: scripts/brand-gen.sh (or scripts/brand-gen.ps1) after editing.
+#
+# The product name is a working name and may change. Everything below is
+# designed so that a rename is a change to this file plus new store identities.
+
+product_name: SelfKept
+short_name: SelfKept
+tagline: Your health, kept at home.
+codename: selfkept            # lowercase slug used in paths, env prefix, image names
+support_url: https://github.com/jbarnell1/selfkept
+docs_url: https://github.com/jbarnell1/selfkept/tree/main/docs
+privacy_url: https://github.com/jbarnell1/selfkept/blob/main/docs/privacy.md
+from_email: selfkept@localhost
+# Releases: the installer downloads compose.yaml and the rest from <release_url>/latest/download/.
+release_url: https://github.com/jbarnell1/selfkept/releases
+# Phone apps, offered on the setup steps. Empty hides the link. Set it once a release carries an
+# APK signed with the release key (a debug-signed APK cannot be updated by the real one).
+android_app_url: ""
+ios_app_url: ""
+copyright_holder: Jonathan Barnell
+
+# Store and bundle identities. New identities on rename.
+ios_bundle_id: app.selfkept.ios
+android_application_id: app.selfkept.android
+deep_link_scheme: selfkept
+universal_link_host: ""        # empty: Tailscale only, no public host
+
+# Palette tokens (light / dark). Hex, no alpha.
+colors:
+  forest: "#1F4D3A"       # primary deep green
+  moss: "#2E6B4F"         # primary hover / dark-mode primary
+  sage: "#8FB39A"         # soft accents, bands
+  cream: "#F7F3EA"        # light background
+  cream_2: "#EFE9DB"      # light surface 2
+  ink: "#1C2321"          # light text
+  ink_soft: "#5C6660"     # secondary text
+  amber: "#C8912B"        # attention (watch)
+  terracotta: "#B4654A"   # clinician tier, never red
+  charcoal: "#161A18"     # dark background
+  charcoal_2: "#1F2522"   # dark surface 2
+  linen: "#ECE6D8"        # dark text
+
+typography:
+  display: Fraunces
+  ui: Inter
+  mono: JetBrains Mono
+
+# Image names and env prefix derive from codename.
+docker_image: ghcr.io/jbarnell1/selfkept
+env_prefix: SELFKEPT

@@ -1,0 +1,164 @@
+name: Publish self-host image
+
+# Builds the SelfKept self-host image for PCs and Raspberry Pis (linux/amd64 and linux/arm64)
+# from Dockerfile.selfhost and pushes it to GitHub Container Registry, signed with a build
+# provenance attestation. Runs on every v* tag, and by hand:
+#
+#   gh workflow run publish-selfhost-image.yml -f version=0.1.0 -f push=true
+#
+# push=false (the dispatch default) builds both architectures and throws the result away, which
+# is a check that the image still builds. A tag run always pushes and also uploads compose.yaml
+# (without its build blocks), env.example, Caddyfile, install.sh and backup.sh to the GitHub
+# release for that tag, creating it if it does not exist yet. install.sh downloads the others.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, like 0.1.0 (no leading v). Empty reads flutter/pubspec.yaml.'
+        required: false
+        default: ''
+      push:
+        description: 'Push the image to ghcr.io (false = build only, nothing is published).'
+        type: boolean
+        default: false
+      latest:
+        description: 'Also move the "latest" tag to this version (only when pushing).'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-selfhost-image
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: selfkept
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write   # create the release and attach files to it
+      packages: write   # push to ghcr.io
+      id-token: write   # sign the build provenance record (keyless, via GitHub's OIDC)
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Work out the version, tags and whether to push
+        id: meta
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PUSH: ${{ inputs.push }}
+          INPUT_LATEST: ${{ inputs.latest }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "push" ]; then
+            V="${REF_NAME#v}"; PUSH=true; LATEST=true
+          else
+            V="$INPUT_VERSION"; PUSH="$INPUT_PUSH"; LATEST="$INPUT_LATEST"
+            if [ -z "$V" ]; then
+              V=$(grep '^version:' flutter/pubspec.yaml | sed 's/version: *//; s/+.*//' | tr -d '[:space:]')
+            fi
+          fi
+          case "$V" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::version must look like 0.1.0, got '$V'"; exit 1;;
+          esac
+          OWNER_LC=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+          IMAGE="$REGISTRY/$OWNER_LC/$IMAGE_NAME"
+          TAGS="$IMAGE:$V"
+          if [ "$LATEST" = "true" ]; then TAGS="$TAGS"$'\n'"$IMAGE:latest"; fi
+          {
+            echo "version=$V"
+            echo "image=$IMAGE"
+            echo "push=$PUSH"
+            echo "tags<<EOF"
+            echo "$TAGS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Building $IMAGE:$V (push=$PUSH)"
+
+      - name: Set up QEMU (the runtime stage is built once per architecture)
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Log in to GitHub Container Registry
+        if: steps.meta.outputs.push == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (and push) the multi-arch image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          file: Dockerfile.selfhost
+          platforms: linux/amd64,linux/arm64
+          push: ${{ steps.meta.outputs.push == 'true' }}
+          # SBOM and BuildKit provenance are stored next to the image in the registry.
+          sbom: ${{ steps.meta.outputs.push == 'true' }}
+          provenance: mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=selfhost
+          cache-to: type=gha,mode=max,scope=selfhost
+
+      - name: Sign the build provenance
+        if: steps.meta.outputs.push == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.meta.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      # The release copy of compose.yaml has no build: blocks, so it works from an empty folder:
+      # docker compose up -d pulls the published image. install.sh downloads these files.
+      - name: Write the release files
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/assets"
+          bash selfhost/release-files.sh "$OUT"
+          docker compose -f "$OUT/compose.yaml" config -q
+          bash -n "$OUT/install.sh"
+          ls -la "$OUT"
+
+      - name: Attach the release files
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            # A plain release, so releases/latest/download (what install.sh fetches) finds it.
+            # Only a tag with a hyphen (v0.2.0-rc1) is a pre-release.
+            PRE=""; case "$TAG" in *-*) PRE="--prerelease" ;; esac
+            gh release create "$TAG" --repo "$REPO" --title "$TAG" --generate-notes $PRE
+          fi
+          gh release upload "$TAG" "$RUNNER_TEMP/assets/compose.yaml" "$RUNNER_TEMP/assets/env.example" "$RUNNER_TEMP/assets/Caddyfile" "$RUNNER_TEMP/assets/install.sh" "$RUNNER_TEMP/assets/backup.sh" --clobber --repo "$REPO"

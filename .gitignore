@@ -1,0 +1,58 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+appsettings.Production.json
+appsettings.Local.json
+appsettings.*.local.json
+secrets/
+*.p8
+*.p12
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+.claude/settings.local.json
+.dev/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.trx
+
+# Flutter / Dart
+flutter/.dart_tool/
+flutter/.packages
+flutter/build/
+flutter/.flutter-plugins
+flutter/.flutter-plugins-dependencies
+flutter/ios/Pods/
+flutter/ios/.symlinks/
+flutter/ios/Flutter/ephemeral/
+flutter/android/.gradle/
+flutter/android/local.properties
+flutter/android/app/.cxx/
+flutter/coverage/
+flutter/assets/fonts/*.ttf
+flutter/assets/fonts/*.otf
+
+# Node
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+*.log
+flutter/assets/fonts/OFL-*.txt
+
+# The Flutter web build is copied into wwwroot by the image build or for a local check; only the
+# placeholder page is committed.
+backend/src/SelfKept.Api/wwwroot/*
+!backend/src/SelfKept.Api/wwwroot/index.html

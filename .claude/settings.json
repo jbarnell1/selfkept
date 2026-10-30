@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze*)",
+      "Bash(flutter test*)",
+      "Bash(flutter build*)",
+      "Bash(flutter run*)",
+      "Bash(flutter pub*)",
+      "Bash(flutter doctor*)",
+      "Bash(dart format*)",
+      "Bash(dart analyze*)",
+      "Bash(dotnet build*)",
+      "Bash(dotnet test*)",
+      "Bash(dotnet run*)",
+      "Bash(dotnet restore*)",
+      "Bash(dotnet list*)",
+      "Bash(dotnet --version)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr comment*)",
+      "Bash(gh issue*)",
+      "Bash(gh api*)",
+      "Bash(gh run list*)",
+      "Bash(gh run view*)",
+      "Bash(gh run watch*)",
+      "Bash(gh workflow list*)",
+      "Bash(gh workflow view*)",
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git add *)",
+      "Bash(git commit*)",
+      "Bash(git branch*)",
+      "Bash(git stash*)",
+      "Bash(git fetch*)",
+      "Bash(git pull*)",
+      "Bash(git push origin HEAD*)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(scripts/dev-up.sh*)",
+      "Bash(scripts/dev-down.sh*)",
+      "Bash(scripts/smoke.sh*)",
+      "Bash(scripts/brand-gen.sh*)",
+      "Bash(bash scripts/*)",
+      "Bash(bash -n *)",
+      "Bash(docker ps*)",
+      "Bash(docker logs *)",
+      "Bash(docker compose * config*)",
+      "Bash(docker compose * ps*)",
+      "Bash(docker compose * logs*)",
+      "Bash(docker inspect *)",
+      "Bash(docker port *)",
+      "Bash(curl *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(wc *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(sort *)",
+      "Bash(which *)",
+      "Bash(pwd)",
+      "Bash(echo *)",
+      "Bash(python -c *)",
+      "Bash(python3 -c *)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(docker compose * down -v*)",
+      "Bash(docker volume rm*)",
+      "Bash(docker volume prune*)",
+      "Read(./.env)",
+      "Read(./selfhost/.env)",
+      "Read(./.dev/dev.env)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-bash-guard.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # ISO-8601 text keeps milliseconds; the default integer column
+          # would round sample times to whole seconds.
+          store_date_time_values_as_text: true

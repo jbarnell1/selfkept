@@ -1,0 +1,192 @@
+name: CI
+
+# One required check, "CI Complete", on every pull request and on pushes to main and release/**.
+# The backend and Flutter suites run only when their files changed (a docs-only change bills
+# two short jobs and passes). Every action is pinned by commit SHA.
+
+on:
+  pull_request:
+    branches: [main, 'release/**']
+  push:
+    branches: [main, 'release/**']
+  workflow_dispatch:
+
+# Key off the head branch so push and pull_request for the same branch share one group and
+# cancel duplicates instead of running both.
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  FLUTTER_VERSION: '3.44.4'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      flutter: ${{ steps.filter.outputs.flutter }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'brand/brand.yaml'
+              - 'Dockerfile.selfhost'
+              - '.github/workflows/ci.yml'
+            flutter:
+              - 'flutter/**'
+              - 'brand/brand.yaml'
+              - '.github/workflows/ci.yml'
+
+  backend:
+    name: Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Same image family as selfhost/compose.yaml so the vector extension is present in tests.
+        image: pgvector/pgvector:0.8.0-pg16
+        env:
+          POSTGRES_DB: selfkept_test
+          POSTGRES_USER: selfkept
+          POSTGRES_PASSWORD: selfkept
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U selfkept -d selfkept_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore backend/SelfKept.sln
+
+      - name: Vulnerable packages
+        run: |
+          set -o pipefail
+          OUTPUT=$(dotnet list backend/SelfKept.sln package --vulnerable --include-transitive 2>&1) || true
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q "has the following vulnerable packages"; then
+            echo "::error::Vulnerable packages detected; see the list above."
+            exit 1
+          fi
+
+      - name: Build
+        run: dotnet build backend/SelfKept.sln --no-restore --configuration Release
+
+      - name: Test
+        run: |
+          dotnet test backend/SelfKept.sln \
+            --configuration Release --no-build --no-restore \
+            --logger "trx;LogFileName=tests.trx" \
+            --results-directory backend/TestResults \
+            --verbosity minimal
+        env:
+          # Test values only: the self-host image generates real ones at first run.
+          ConnectionStrings__SelfKept: "Host=localhost;Port=5432;Database=selfkept_test;Username=selfkept;Password=selfkept"
+          SELFKEPT_TEST_CONNECTION: "Host=localhost;Port=5432;Database=postgres;Username=selfkept;Password=selfkept"
+          Jwt__Key: "ci-only-jwt-signing-key-that-is-long-enough-for-hmac-sha256-0000"
+          Jwt__Issuer: "SelfKept"
+          Jwt__Audience: "SelfKept-Users"
+          Encryption__Key: "ci-only-encryption-key-32-chars!"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: backend-test-results
+          path: backend/TestResults/**
+          retention-days: 7
+
+  flutter:
+    name: Flutter
+    needs: changes
+    if: needs.changes.outputs.flutter == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Build web
+        run: |
+          flutter build web --release --no-web-resources-cdn \
+            --dart-define=ENVIRONMENT=production \
+            --dart-define=API_BASE_URL=same-origin
+
+  # The one required check. Passes when every suite that ran passed; a suite that was skipped
+  # because its files did not change counts as passed.
+  ci-complete:
+    name: CI Complete
+    needs: [changes, backend, flutter]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check results
+        env:
+          BACKEND: ${{ needs.backend.result }}
+          FLUTTER: ${{ needs.flutter.result }}
+        run: |
+          echo "backend: $BACKEND"
+          echo "flutter: $FLUTTER"
+          for r in "$BACKEND" "$FLUTTER"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::A required suite did not pass ($r)."; exit 1 ;;
+            esac
+          done
+          echo "CI Complete."

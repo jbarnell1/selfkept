@@ -1,0 +1,71 @@
+# Dependabot for SelfKept.
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# One grouped pull request per ecosystem, one open at a time, so updates arrive as a batch
+# instead of a stream. Pull requests target the open release branch, never main
+# (docs/contributing.md): change target-branch when a release ships and the next one opens.
+
+version: 2
+# pub (Dart/Flutter) version updates are still behind this flag; security updates run regardless.
+enable-beta-ecosystems: true
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/backend"
+    target-branch: "release/0.1.0"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Chicago"
+    open-pull-requests-limit: 1
+    labels: ["dependencies", "backend"]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      nuget:
+        patterns: ["*"]
+
+  - package-ecosystem: "pub"
+    directory: "/flutter"
+    target-branch: "release/0.1.0"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Chicago"
+    open-pull-requests-limit: 1
+    labels: ["dependencies", "flutter"]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      pub:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "release/0.1.0"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    labels: ["dependencies", "github-actions"]
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Base images pinned by digest in Dockerfile.selfhost and selfhost/compose.yaml.
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/selfhost"
+    target-branch: "release/0.1.0"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    labels: ["dependencies", "docker"]
+    commit-message:
+      prefix: "chore(docker)"
+    groups:
+      docker:
+        patterns: ["*"]

@@ -1,0 +1,12 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+Dockerfile* text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.p8 binary
+*.p12 binary
+*.jks binary

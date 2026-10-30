@@ -1,0 +1,19 @@
+<Project>
+  <!--
+    One product version for the whole backend. Keep it equal to flutter/pubspec.yaml's X.Y.Z and
+    the release tag vX.Y.Z. Every project under backend/ inherits it, so a running container reports
+    it at GET /api/system/version.
+  -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <!-- Warnings are errors in Release so CI cannot ship them; Debug stays forgiving while editing. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

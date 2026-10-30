@@ -1,0 +1,39 @@
+# Build context for Dockerfile.selfhost (BuildKit reads <Dockerfile>.dockerignore for that
+# Dockerfile only). Keep host build output and tooling out of the image.
+.git
+.github
+.claude
+.dev
+.dev-tools
+docs
+scripts
+selfhost/*
+!selfhost/appsettings.json
+!selfhost/init-secrets.sh
+*.md
+LICENSE
+
+# .NET build output at any depth (obj/ holds Windows paths that break the Linux build)
+backend/**/bin/
+backend/**/obj/
+backend/**/TestResults/
+backend/.vs/
+backend/**/*.user
+backend/**/appsettings.Development.json
+backend/**/appsettings.Local.json
+
+# Flutter host build state; the image runs its own pub get and build
+flutter/.dart_tool/
+flutter/build/
+flutter/.idea/
+flutter/android/.gradle/
+flutter/android/local.properties
+flutter/ios/Pods/
+flutter/ios/Flutter/ephemeral/
+flutter/macos/
+flutter/windows/
+flutter/linux/
+**/node_modules/
+
+.env
+*.log

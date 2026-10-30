@@ -1,0 +1,180 @@
+# SelfKept, self-hosted: the app and its database. Nothing else to install.
+#
+#   cp .env.example .env       # optional: set your Tailscale address
+#   docker compose up -d
+#   open http://127.0.0.1:8080
+#
+# First run creates the database password and the app's keys for you (the "init" service writes
+# them to the "secrets" volume). Nothing in this file is a password. The database is not
+# published on any port: only the app is reachable, and by default only from this machine
+# (127.0.0.1), because the recommended front door is Tailscale Serve. See docs/self-host.md.
+#
+# HTTPS:
+#   - Recommended: Tailscale.  tailscale serve --bg --https=443 http://127.0.0.1:8080
+#   - Or Caddy:  docker compose --profile https up -d   (set SELFKEPT_HOST and SELFKEPT_ORIGIN)
+#
+# Upgrade:  docker compose pull && docker compose up -d
+#
+# To build the image from this checkout instead of pulling it:  docker compose up -d --build
+
+name: selfkept
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # One-shot: creates /secrets/* the first time, keeps them afterwards.
+  init:
+    image: ${SELFKEPT_IMAGE:-ghcr.io/jbarnell1/selfkept}:${SELFKEPT_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: Dockerfile.selfhost
+    entrypoint: ["/usr/local/bin/selfkept-init-secrets"]
+    restart: "no"
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - secrets:/secrets
+    logging: *logging
+
+  db:
+    # pgvector/pgvector 0.8.0 on PostgreSQL 16 (ships the vector extension), pinned by digest (amd64 and arm64)
+    image: pgvector/pgvector:0.8.0-pg16@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: selfkept
+      POSTGRES_USER: selfkept
+      POSTGRES_PASSWORD_FILE: /secrets/db_password
+    # Small-box tuning (a 4 GB Raspberry Pi shares its memory with the app and the system).
+    command:
+      - postgres
+      - -c
+      - shared_buffers=96MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - max_connections=30
+      - -c
+      - wal_compression=on
+      - -c
+      - checkpoint_timeout=15min
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - secrets:/secrets:ro
+    # No "ports:" on purpose. The database is reachable only by the app, on the internal network.
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U selfkept -d selfkept"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    mem_limit: 384m
+    shm_size: 128m
+    logging: *logging
+
+  app:
+    image: ${SELFKEPT_IMAGE:-ghcr.io/jbarnell1/selfkept}:${SELFKEPT_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: Dockerfile.selfhost
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    environment:
+      # The address people type into the browser and into the phone app. Sign-in cookies and
+      # links are issued for it, so set it before anyone signs in.
+      App__BaseUrl: ${SELFKEPT_ORIGIN:-http://127.0.0.1:8080}
+      # Trust X-Forwarded-* only from the proxy in front of the app. Tailscale Serve reaches the
+      # container through the Docker gateway of the "web" network (172.30.0.1 with the bundled
+      # subnet); the https profile adds the Caddy container's fixed address. Add your own proxy
+      # as ForwardedHeaders__TrustedNetworks__2 if you run one elsewhere.
+      ForwardedHeaders__TrustedNetworks__0: ${SELFKEPT_WEB_GATEWAY:-172.30.0.1}/32
+      ForwardedHeaders__TrustedNetworks__1: ${SELFKEPT_CADDY_IP:-172.30.0.250}/32
+      # Insight sentences from a model you run (Ollama or any OpenAI-compatible server). Off by
+      # default: the templated sentences need nothing. From inside Docker, Ollama on the same
+      # machine is http://host.docker.internal:11434/v1.
+      Ai__Enabled: ${SELFKEPT_AI_ENABLED:-false}
+      Ai__BaseUrl: ${SELFKEPT_AI_BASE_URL:-}
+      Ai__Model: ${SELFKEPT_AI_MODEL:-}
+      # Oura: an API application's id and secret from cloud.ouraring.com. Empty keeps Oura off.
+      # The secret can live in the secrets volume as a file named Oura__ClientSecret instead.
+      Oura__ClientId: ${SELFKEPT_OURA_CLIENT_ID:-}
+      Oura__ClientSecret: ${SELFKEPT_OURA_CLIENT_SECRET:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - secrets:/secrets:ro
+      - appdata:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    # 127.0.0.1 is the default: Tailscale Serve (or Caddy) on this machine is the front door,
+    # so the app is not also open on the LAN. Set SELFKEPT_BIND=0.0.0.0 to reach it by LAN address.
+    ports:
+      - "${SELFKEPT_BIND:-127.0.0.1}:${SELFKEPT_PORT:-8080}:8080"
+    networks: [internal, web]
+    mem_limit: 768m
+    logging: *logging
+
+  # Optional HTTPS in front of the app: docker compose --profile https up -d
+  caddy:
+    profiles: ["https"]
+    # caddy:2-alpine, pinned by digest (amd64 and arm64)
+    image: caddy:2-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      SELFKEPT_HOST: ${SELFKEPT_HOST:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # A folder, not a single file: single-file mounts break on some hosts when the file is edited.
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      web:
+        ipv4_address: ${SELFKEPT_CADDY_IP:-172.30.0.250}
+    mem_limit: 96m
+    logging: *logging
+
+volumes:
+  pgdata:
+  appdata:
+  secrets:
+  caddy_data:
+  caddy_config:
+
+networks:
+  # Database traffic only: no route to the internet.
+  internal:
+    internal: true
+  # Fixed subnet so the app can trust X-Forwarded-* from the gateway (Tailscale) and from Caddy's
+  # address, and nothing else. SELFKEPT_WEB_SUBNET, SELFKEPT_WEB_GATEWAY and SELFKEPT_CADDY_IP are
+  # for a second install or a clash ("Pool overlaps" from Docker); otherwise leave them unset.
+  # Keep the Caddy address high (.250): the app gets the first free address, and Caddy needs its own fixed one to still be free.
+  web:
+    ipam:
+      config:
+        - subnet: ${SELFKEPT_WEB_SUBNET:-172.30.0.0/24}

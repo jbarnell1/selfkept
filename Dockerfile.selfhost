@@ -1,0 +1,121 @@
+# SelfKept self-host image: the API and the Flutter web app in ONE process (Kestrel serves both).
+#
+# Build it for a PC or a Raspberry Pi:
+#
+#   docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.selfhost -t selfkept .
+#
+# The Flutter and .NET builds run once on the build machine (their output does not depend on the
+# CPU), and only the small runtime stage is built per architecture, so a multi-arch build does not
+# emulate the compilers. Run it with selfhost/compose.yaml (it also starts Postgres).
+#
+# Build context rules are in Dockerfile.selfhost.dockerignore (BuildKit reads the file named after
+# the Dockerfile), so host build output under flutter/build and backend/**/obj never enters the image.
+
+ARG FLUTTER_VERSION=3.44.4
+
+# =============================================================================
+# Stage 1: Flutter web build (once, on the build machine)
+# =============================================================================
+# debian:bookworm-slim, pinned by digest. Flutter is checked out at the exact tag CI uses
+# (subosito/flutter-action 3.44.4); the cirruslabs images lag behind the patch releases.
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS flutter-build
+ARG FLUTTER_VERSION
+ARG APP_VERSION=dev
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl git unzip xz-utils zip && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV FLUTTER_HOME=/opt/flutter \
+    PATH=/opt/flutter/bin:$PATH \
+    PUB_CACHE=/opt/pub-cache
+RUN git clone --depth 1 --branch "${FLUTTER_VERSION}" https://github.com/flutter/flutter.git "${FLUTTER_HOME}" && \
+    git config --global --add safe.directory "${FLUTTER_HOME}" && \
+    flutter config --no-analytics && \
+    flutter precache --web && \
+    flutter --version
+
+WORKDIR /app/flutter
+COPY flutter/pubspec.yaml flutter/pubspec.lock* ./
+RUN flutter pub get
+COPY flutter/ ./
+
+# Brand typefaces (SIL OFL) are fetched at build time unless already vendored under
+# assets/fonts, so the shipped page bundles them and never asks Google Fonts at runtime.
+RUN bash tool/fetch-fonts.sh
+
+# --no-web-resources-cdn       bundle CanvasKit instead of loading it from gstatic.com: a
+#                              self-hosted page loads nothing from outside its own origin
+# API_BASE_URL=same-origin     talk to whichever address served this page, under /api
+RUN flutter build web --release --no-web-resources-cdn --base-href=/ \
+    --dart-define=ENVIRONMENT=production \
+    --dart-define=API_BASE_URL=same-origin \
+    --dart-define=APP_VERSION=${APP_VERSION}
+
+# =============================================================================
+# Stage 2: backend build (once, on the build machine; the output is portable)
+# =============================================================================
+# dotnet/sdk:10.0, pinned by digest
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS backend-build
+ARG APP_VERSION=dev
+WORKDIR /src
+COPY backend/ ./backend/
+RUN dotnet restore backend/src/SelfKept.Api/SelfKept.Api.csproj
+RUN dotnet publish backend/src/SelfKept.Api/SelfKept.Api.csproj -c Release -o /app/publish \
+    /p:UseAppHost=false /p:InformationalVersion=${APP_VERSION}
+# Developer settings are not for other people's servers. Self-host ships its own baseline instead.
+RUN rm -f /app/publish/appsettings.Development.json /app/publish/appsettings.Local.json /app/publish/*.example && \
+    rm -rf /app/publish/wwwroot
+
+# =============================================================================
+# Stage 3: runtime (the only per-architecture stage)
+# =============================================================================
+# dotnet/aspnet:10.0 (multi-arch index digest: amd64, arm64)
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:de0ee358cdd672f7017a003bed21e9ac9ed48a27c922a59b18175b6e82fa7fee AS final
+WORKDIR /app
+
+# postgresql-client provides pg_dump for the backup taken before a database upgrade.
+# No curl: the health check below needs only bash.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends postgresql-client && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd -r -g 10001 selfkept && \
+    useradd -r -u 10001 -g selfkept -d /tmp -s /usr/sbin/nologin selfkept && \
+    mkdir -p /data/backups /secrets && \
+    chown -R 10001:10001 /data /secrets
+
+COPY --from=backend-build /app/publish ./
+COPY selfhost/appsettings.json ./appsettings.json
+COPY --from=flutter-build /app/flutter/build/web ./wwwroot
+COPY --chmod=0755 selfhost/init-secrets.sh /usr/local/bin/selfkept-init-secrets
+
+# Paths and runtime tuning. Everything here can be overridden from the compose file.
+#  gcServer=0 gcConcurrent=0 GCConserveMemory=5   workstation GC tuned for a 4 GB board; with a
+#                                                 container memory limit .NET also caps its heap
+#                                                 at 75% of it by default
+#  EnableDiagnostics=0                            no diagnostic IPC sockets in /tmp
+ENV SelfKept__SecretsDirectory=/secrets \
+    SelfKept__DataDirectory=/data \
+    ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_gcServer=0 \
+    DOTNET_gcConcurrent=0 \
+    DOTNET_GCConserveMemory=5 \
+    DOTNET_EnableDiagnostics=0 \
+    DOTNET_TieredPGO=0 \
+    HOME=/tmp
+
+LABEL org.opencontainers.image.title="SelfKept" \
+      org.opencontainers.image.description="Self-hosted household health: the API and web app in one container" \
+      org.opencontainers.image.source="https://github.com/jbarnell1/selfkept" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
+
+USER 10001:10001
+VOLUME ["/data"]
+EXPOSE 8080
+
+# Needs the API itself, not just the process: /api/system/health checks the database too.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /api/system/health HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3 && head -n1 <&3 | grep -q " 200 "' || exit 1
+
+ENTRYPOINT ["dotnet", "SelfKept.Api.dll"]

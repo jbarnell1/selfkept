@@ -1,0 +1,16 @@
+# Analyzer configuration. `flutter analyze` must report zero issues.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    # Flags implicit dynamic downcasts that dart2js elides but AOT enforces at runtime.
+    strict-casts: true
+  exclude:
+    - build/**
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    always_declare_return_types: true
+    avoid_print: true
+    unawaited_futures: true

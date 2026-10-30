@@ -1,0 +1,316 @@
+name: Deploy mobile (Play internal + TestFlight)
+
+# Manual only, for now: the owner decides when store builds are made (and when a macOS runner is
+# paid for). Run it against a tag:
+#
+#   gh workflow run deploy-mobile.yml --ref v0.1.0 -f android=true -f ios=false
+#
+# Android: a signed App Bundle uploaded to the Play "internal" track.
+# iOS: App Store Connect API-key cloud signing (the Xcode project uses automatic signing), the
+#   persistent Apple Distribution certificate imported from a secret so xcodebuild does not mint
+#   a new one on every run, then upload to TestFlight. Gated behind the repository variable
+#   SELFKEPT_ENABLE_IOS_DEPLOY == 'true' so it stays dormant until the Apple side exists.
+#
+# Secrets (repository or environment "production"):
+#   SELFKEPT_ANDROID_KEYSTORE_B64, SELFKEPT_ANDROID_KEYSTORE_PASSWORD, SELFKEPT_ANDROID_KEY_PASSWORD,
+#   SELFKEPT_ANDROID_KEY_ALIAS, SELFKEPT_PLAY_SERVICE_ACCOUNT_JSON,
+#   SELFKEPT_APP_STORE_CONNECT_KEY_ID, SELFKEPT_APP_STORE_CONNECT_ISSUER_ID,
+#   SELFKEPT_APP_STORE_CONNECT_API_KEY_P8, SELFKEPT_IOS_DIST_CERT_P12, SELFKEPT_IOS_DIST_CERT_PASSWORD,
+#   SELFKEPT_APPLE_TEAM_ID
+# Identities come from brand/brand.yaml: android_application_id app.selfkept.android,
+# ios_bundle_id app.selfkept.ios. A rename means new store identities and new values here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      android:
+        description: 'Build and upload Android to the Play internal track'
+        type: boolean
+        default: true
+      ios:
+        description: 'Build and upload iOS to TestFlight (macOS runner)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-mobile-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.44.4'
+  ANDROID_APPLICATION_ID: app.selfkept.android
+  IOS_BUNDLE_ID: app.selfkept.ios
+
+jobs:
+  android-play:
+    name: Android to Play (internal)
+    if: ${{ inputs.android }}
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The stock runner starts with about 14 GB free; the Flutter SDK, pub, the Gradle home and
+      # build/ can fill it. Android SDK and NDK are untouched.
+      - name: Free runner disk space
+        working-directory: /
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/local/lib/node_modules "$AGENT_TOOLSDIRECTORY/CodeQL" || true
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          df -h / | tail -1
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Restore Gradle cache
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('flutter/android/**/*.gradle*', 'flutter/android/gradle/wrapper/gradle-wrapper.properties', 'flutter/pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Configure release signing
+        env:
+          KEYSTORE_B64: ${{ secrets.SELFKEPT_ANDROID_KEYSTORE_B64 }}
+          STORE_PW: ${{ secrets.SELFKEPT_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PW: ${{ secrets.SELFKEPT_ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SELFKEPT_ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          [ -n "$KEYSTORE_B64" ] || { echo "::error::SELFKEPT_ANDROID_KEYSTORE_B64 is not set."; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storePassword=$STORE_PW"
+            echo "keyPassword=$KEY_PW"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+          } > android/key.properties
+
+      # GitHub-hosted runners have about 7 GB of RAM. A gradle.properties tuned for a dev box can
+      # overcommit and get the build SIGTERMed at the R8 peak. No-op when the lines are absent.
+      - name: Cap Gradle memory for the CI runner
+        run: |
+          sed -i -E 's/^org\.gradle\.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' android/gradle.properties || true
+          sed -i -E 's/^org\.gradle\.daemon=.*/org.gradle.daemon=false/' android/gradle.properties || true
+          grep -E 'jvmargs|daemon' android/gradle.properties || true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Derive app version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V=$(grep '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//' | tr -d '[:space:]')
+          fi
+          echo "APP_VERSION=$V" >> "$GITHUB_ENV"
+          echo "APP_VERSION=$V"
+
+      - name: Build signed App Bundle
+        run: |
+          flutter build appbundle --release \
+            --split-debug-info=build/debug-info \
+            --dart-define=ENVIRONMENT=production \
+            --dart-define=APP_VERSION=${APP_VERSION}
+
+      - name: Upload to Play (internal track)
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.SELFKEPT_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.ANDROID_APPLICATION_ID }}
+          releaseFiles: flutter/build/app/outputs/bundle/release/app-release.aab
+          tracks: internal
+          status: completed
+
+      - name: Keep the Dart symbols with the run
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: android-debug-info-${{ env.APP_VERSION }}
+          path: flutter/build/debug-info
+          retention-days: 90
+          if-no-files-found: ignore
+
+  ios-testflight:
+    name: iOS to TestFlight
+    # Pinned image, not macos-latest: GitHub's macOS image migrations change the Xcode and iOS SDK.
+    runs-on: macos-15
+    environment: production
+    timeout-minutes: 45
+    if: ${{ inputs.ios && vars.SELFKEPT_ENABLE_IOS_DEPLOY == 'true' }}
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache CocoaPods
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            flutter/ios/Pods
+            ~/.cocoapods
+          key: pods-${{ runner.os }}-${{ hashFiles('flutter/ios/Podfile.lock') }}
+          restore-keys: pods-${{ runner.os }}-
+
+      - name: Install App Store Connect API key
+        env:
+          KEY_ID: ${{ secrets.SELFKEPT_APP_STORE_CONNECT_KEY_ID }}
+          API_KEY_P8: ${{ secrets.SELFKEPT_APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          [ -n "$KEY_ID" ] || { echo "::error::SELFKEPT_APP_STORE_CONNECT_KEY_ID is not set."; exit 1; }
+          # xcodebuild discovers the key here and uses it for cloud-managed (automatic) signing.
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$API_KEY_P8" > "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+
+      - name: Get dependencies and pods
+        run: flutter pub get && (cd ios && pod install)
+
+      - name: Derive app version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V=$(grep '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//' | tr -d '[:space:]')
+          fi
+          echo "APP_VERSION=$V" >> "$GITHUB_ENV"
+          echo "APP_VERSION=$V"
+
+      # Compile the Dart side without signing. This bakes the dart-defines into
+      # ios/Flutter/Generated.xcconfig so the xcodebuild archive below picks them up.
+      - name: Compile Flutter (no codesign)
+        run: |
+          flutter build ios --release --no-codesign \
+            --split-debug-info=build/debug-info \
+            --dart-define=ENVIRONMENT=production \
+            --dart-define=APP_VERSION=${APP_VERSION}
+
+      # Import the persistent Apple Distribution certificate into a throwaway keychain before the
+      # archive. Without a certificate on the runner keychain, automatic signing mints a new one
+      # on every run until Apple's certificate cap is hit. Profiles stay auto-managed via the API key.
+      - name: Import Apple Distribution certificate
+        env:
+          P12_B64: ${{ secrets.SELFKEPT_IOS_DIST_CERT_P12 }}
+          P12_PW: ${{ secrets.SELFKEPT_IOS_DIST_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KPW="$(openssl rand -base64 18)"
+          security create-keychain -p "$KPW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPW" "$KEYCHAIN"
+          printf '%s' "$P12_B64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$KEYCHAIN" -P "$P12_PW" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KPW" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security default-keychain -s "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/dist.p12"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      # Archive and export with xcodebuild directly so the App Store Connect API key can be
+      # handed over (flutter build ipa never passes it, and archive-time signing then fails
+      # with "No Accounts"). The export options are written here so the Flutter project does
+      # not need to carry a plist.
+      - name: Archive and export IPA (API-key cloud signing)
+        env:
+          KEY_ID: ${{ secrets.SELFKEPT_APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.SELFKEPT_APP_STORE_CONNECT_ISSUER_ID }}
+          TEAM_ID: ${{ secrets.SELFKEPT_APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          [ -n "$TEAM_ID" ] || { echo "::error::SELFKEPT_APPLE_TEAM_ID is not set."; exit 1; }
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+          ARCHIVE="$RUNNER_TEMP/Runner.xcarchive"
+          EXPORT_PLIST="$RUNNER_TEMP/ExportOptions.plist"
+          cat > "$EXPORT_PLIST" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath "$ARCHIVE" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$IOS_BUNDLE_ID" \
+            CODE_SIGN_STYLE=Automatic
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE" \
+            -exportPath "$RUNNER_TEMP/ipa" \
+            -exportOptionsPlist "$EXPORT_PLIST" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
+          # upload-testflight-build takes an exact path, so normalize the exported file name.
+          mv "$RUNNER_TEMP/ipa/"*.ipa "$RUNNER_TEMP/app.ipa"
+          ls -la "$RUNNER_TEMP/app.ipa"
+
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@155ea93be9ee6d5186c71f660a612f5eddb14510 # v5
+        with:
+          app-path: ${{ runner.temp }}/app.ipa
+          issuer-id: ${{ secrets.SELFKEPT_APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.SELFKEPT_APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.SELFKEPT_APP_STORE_CONNECT_API_KEY_P8 }}
+
+      - name: Keep the symbols with the run
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ios-symbols-${{ env.APP_VERSION }}
+          path: |
+            flutter/build/debug-info
+            ${{ runner.temp }}/Runner.xcarchive/dSYMs
+          retention-days: 90
+          if-no-files-found: ignore

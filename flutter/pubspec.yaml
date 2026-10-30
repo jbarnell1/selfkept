@@ -1,0 +1,85 @@
+name: selfkept
+description: "Self-hosted household health client. The product name lives in brand/brand.yaml."
+publish_to: 'none'
+
+# Build name and number. The build name is what the server's minClientVersion is compared against.
+version: 0.1.0+1
+
+environment:
+  # Pinned to the Dart shipped with the installed Flutter 3.44.4.
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # usePathUrlStrategy on web so deep links are clean paths. No-op on mobile.
+  flutter_web_plugins:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # HTTP client with interceptors (bearer token, refresh and retry).
+  dio: ^5.11.1
+  # Keychain / Keystore storage for tokens and the server address override.
+  flutter_secure_storage: ^11.2.0
+  # State management: Provider + ChangeNotifier only.
+  provider: ^6.1.5+1
+  # Routing with an auth redirect guard.
+  go_router: ^17.5.0
+  # Interface state for the reachability banner.
+  connectivity_plus: ^7.3.2
+  # Date formatting on the You page.
+  intl: ^0.20.3
+  # Opens the support, docs and privacy links from About.
+  url_launcher: ^6.3.3
+  # Local outbox for collected health samples (lib/offline). Rows wait here
+  # until the server has accepted them.
+  drift: ^2.35.3
+  # SQLite itself. Version 3 ships the native library through Dart native
+  # assets, so sqlite3_flutter_libs (now end of life) is not needed.
+  sqlite3: ^3.5.2
+  # Where the outbox database file lives on a phone.
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  # Labs: a photo or screenshot of a panel.
+  image_picker: ^1.2.4
+  # Labs: on-device text recognition, no network.
+  google_mlkit_text_recognition: ^0.17.1
+  # Labs: hands the clinician summary PDF to the share sheet on a phone.
+  share_plus: ^13.3.1
+  # Labs: opens the clinician summary PDF in a new tab on web.
+  web: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # dart run build_runner build --delete-conflicting-outputs regenerates
+  # lib/offline/outbox_database.g.dart, which is committed.
+  drift_dev: ^2.35.2
+  build_runner: ^2.15.1
+
+flutter:
+  uses-material-design: true
+
+  # Brand typefaces, bundled so the web app loads nothing cross-origin.
+  # The files are not in the repo. Run tool/fetch-fonts.sh (or .ps1) once:
+  # it downloads the OFL variable fonts from the google/fonts repository
+  # into assets/fonts and removes the "#FONTS# " prefix from the lines below.
+  # Until then the app falls back to the platform font.
+  #FONTS# fonts:
+  #FONTS#   - family: Fraunces
+  #FONTS#     fonts:
+  #FONTS#       - asset: assets/fonts/Fraunces.ttf
+  #FONTS#       - asset: assets/fonts/Fraunces-Italic.ttf
+  #FONTS#         style: italic
+  #FONTS#   - family: Inter
+  #FONTS#     fonts:
+  #FONTS#       - asset: assets/fonts/Inter.ttf
+  #FONTS#       - asset: assets/fonts/Inter-Italic.ttf
+  #FONTS#         style: italic
+  #FONTS#   - family: JetBrains Mono
+  #FONTS#     fonts:
+  #FONTS#       - asset: assets/fonts/JetBrainsMono.ttf
+  #FONTS#       - asset: assets/fonts/JetBrainsMono-Italic.ttf
+  #FONTS#         style: italic
