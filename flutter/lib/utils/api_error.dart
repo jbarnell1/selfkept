@@ -14,23 +14,29 @@ class ApiException implements Exception {
   /// RFC 7807 `type` when the server sent one.
   final String? problemType;
 
+  /// How long the server asked the client to wait, on a 429.
+  final Duration? retryAfter;
+
   const ApiException(
     this.message, {
     this.statusCode,
     this.isNetwork = false,
     this.problemType,
+    this.retryAfter,
   });
 
   const ApiException.network([
     this.message = 'The server could not be reached.',
   ]) : statusCode = null,
        isNetwork = true,
-       problemType = null;
+       problemType = null,
+       retryAfter = null;
 
   bool get isUnauthorized => statusCode == 401;
   bool get isForbidden => statusCode == 403;
   bool get isNotFound => statusCode == 404;
   bool get isConflict => statusCode == 409;
+  bool get isRateLimited => statusCode == 429;
 
   /// Builds from a Dio failure, reading problem+json when present.
   factory ApiException.fromDio(DioException error) {
@@ -41,6 +47,9 @@ class ApiException implements Exception {
     final status = response.statusCode;
     String? message;
     String? type;
+    int? retrySeconds = int.tryParse(
+      response.headers.value('retry-after') ?? '',
+    );
     final data = response.data;
     if (data is Map) {
       final r = JsonReader(Map<String, dynamic>.from(data));
@@ -50,6 +59,8 @@ class ApiException implements Exception {
           r.stringOrNull('message') ??
           r.stringOrNull('error');
       type = r.stringOrNull('type');
+      final asked = r.integer('retryAfterSeconds');
+      if (asked > 0) retrySeconds ??= asked;
       final errors = r.object('errors');
       if (message == null && errors != null && errors.isNotEmpty) {
         final first = errors.values.first;
@@ -62,6 +73,7 @@ class ApiException implements Exception {
       message ?? _defaultMessage(status),
       statusCode: status,
       problemType: type,
+      retryAfter: retrySeconds == null ? null : Duration(seconds: retrySeconds),
     );
   }
 
