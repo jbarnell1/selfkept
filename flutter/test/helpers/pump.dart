@@ -44,6 +44,7 @@ import 'package:selfkept/services/trends_service.dart';
 import 'package:selfkept/theme/app_theme.dart';
 import 'package:selfkept/utils/open_url.dart';
 import 'package:selfkept/providers/sso_provider.dart';
+import 'package:selfkept/utils/device_time_zone.dart';
 import 'package:selfkept/services/sso_service.dart';
 
 import 'fake_api_client.dart';
@@ -116,6 +117,7 @@ class TestHarness {
     OutboxRepository? outbox,
     Future<bool> Function(Uri uri)? openUrl,
     SsoBrowser? ssoBrowser,
+    DeviceTimeZone? deviceZone,
   }) {
     final client = api ?? FakeApiClient();
     final auth = AuthProvider(client);
@@ -154,7 +156,11 @@ class TestHarness {
       startup: startup,
       settings: ServerSettings(store: MemoryServerAddressStore()),
       reachability: Reachability(listenToInterface: false),
-      profile: ProfileProvider(service: ProfileService(client), auth: auth),
+      profile: ProfileProvider(
+        service: ProfileService(client),
+        auth: auth,
+        deviceZone: deviceZone ?? () async => null,
+      ),
       household: HouseholdProvider(
         service: HouseholdService(client),
         auth: auth,
