@@ -9,7 +9,8 @@ namespace SelfKept.Infrastructure.Configuration;
 /// sets /secrets); every file in it is a setting named by the file, with "__" standing for ":"
 /// (so <c>Jwt__Key</c> sets <c>Jwt:Key</c>). The source is inserted just below environment
 /// variables, so appsettings files are overridden by a secret file and a secret file is overridden
-/// by an environment variable.
+/// by an environment variable with a value. An empty environment variable does not hide a secret
+/// file: compose passes every <c>SELFKEPT_*</c> line, so an unset one arrives as an empty variable.
 /// </summary>
 public static class SecretsDirectory
 {
@@ -24,10 +25,15 @@ public static class SecretsDirectory
     var secrets = ReadSecretFiles(dir);
     if (secrets.Count == 0) return Directory.Exists(dir) ? dir : null;
 
+    // Read before the secrets are added: a key that is blank here is blank in the environment
+    // (or not set anywhere), and the secret file should answer for it.
+    var blank = secrets.Where(kv => string.IsNullOrWhiteSpace(current[kv.Key])).ToDictionary(StringComparer.OrdinalIgnoreCase);
+
     var source = new MemoryConfigurationSource { InitialData = secrets };
     var envIndex = IndexOfFirstEnvironmentSource(builder);
     if (envIndex >= 0) builder.Sources.Insert(envIndex, source);
     else builder.Sources.Add(source);
+    if (blank.Count > 0) builder.Sources.Add(new MemoryConfigurationSource { InitialData = blank });
     return dir;
   }
 
