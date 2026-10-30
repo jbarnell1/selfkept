@@ -2,9 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:selfkept/pages/trend_detail_page.dart';
 import 'package:selfkept/pages/trends_page.dart';
+import 'package:selfkept/theme/tokens.dart';
 import 'package:selfkept/utils/api_error.dart';
 import 'package:selfkept/widgets/trend_chart.dart';
+import 'package:selfkept/widgets/trend_sparkline.dart';
 
 import '../helpers/fake_api_client.dart';
 import '../helpers/pump.dart';
@@ -29,85 +33,104 @@ void main() {
   });
   tearDown(() => h.dispose());
 
-  testBothThemes('data: picker in order, headline, toggle and chart', (
+  GoRouter router() => GoRouter(
+    initialLocation: '/trends',
+    routes: [
+      GoRoute(
+        path: '/trends',
+        builder: (_, _) => const Scaffold(body: TrendsPage()),
+        routes: [
+          GoRoute(
+            path: ':metric',
+            builder: (_, state) =>
+                TrendDetailPage(metric: state.pathParameters['metric']!),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  /// Steps above its range, so it should jump ahead of resting heart rate.
+  Map<String, dynamic> withStepsOutside() => {
+    'metrics': [
+      Fixtures.trendMetric(),
+      Fixtures.trendMetric(
+        metric: 'resting_hr_bpm',
+        unit: 'bpm',
+        displayName: 'Resting heart rate',
+        latestValue: 58,
+        band: 'inside',
+      ),
+      Fixtures.trendMetric(
+        metric: 'steps',
+        unit: 'count',
+        displayName: 'Steps',
+        latestValue: 14210,
+        band: 'above',
+      ),
+    ],
+  };
+
+  testBothThemes('data: one row per metric, outside first, in amber', (
     tester,
     theme,
   ) async {
     await usePhoneSize(tester);
+    h.api.on('GET', '/trends', (_) => withStepsOutside());
     await tester.pumpWidget(
       h.wrap(const Scaffold(body: TrendsPage()), theme: theme),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('Trends'), findsOneWidget);
-    expect(find.widgetWithText(ChoiceChip, 'Sleep'), findsOneWidget);
-    expect(
-      find.widgetWithText(ChoiceChip, 'Resting heart rate'),
-      findsOneWidget,
-    );
-    expect(find.widgetWithText(ChoiceChip, 'Steps'), findsOneWidget);
-    final sleepX = tester
-        .getTopLeft(find.widgetWithText(ChoiceChip, 'Sleep'))
-        .dx;
-    final stepsX = tester
-        .getTopLeft(find.widgetWithText(ChoiceChip, 'Steps'))
-        .dx;
-    expect(sleepX, lessThan(stepsX));
+    expect(find.byType(TrendRow), findsNWidgets(3));
+    expect(find.byType(TrendSparkline), findsNWidgets(3));
+    double y(String text) => tester.getTopLeft(find.text(text)).dy;
+    expect(y('Sleep'), lessThan(y('Steps')));
+    expect(y('Steps'), lessThan(y('Resting heart rate')));
 
     expect(find.text('7 h 40'), findsOneWidget);
-    expect(find.text('Latest is below your range.'), findsOneWidget);
-    expect(find.text('28 days'), findsOneWidget);
-    expect(find.text('90 days'), findsOneWidget);
-    expect(find.byType(TrendChart), findsOneWidget);
-    expect(find.textContaining('Your usual range is'), findsOneWidget);
+    expect(find.text('Below your range'), findsOneWidget);
+    expect(find.text('Above your range'), findsOneWidget);
+    expect(find.text(TrendsPage.withinText), findsOneWidget);
+    // No chart on the list; it opens on its own screen.
+    expect(find.byType(TrendChart), findsNothing);
+    expect(h.api.calls, isNot(contains('GET /trends/sleep_stage')));
+
+    final outside = tester.widget<Text>(find.text('Above your range'));
+    final inside = tester.widget<Text>(find.text(TrendsPage.withinText));
+    expect(outside.style?.color, theme.colorScheme.error);
+    expect(inside.style?.color, theme.colorScheme.onSurfaceVariant);
+    final sparks = tester
+        .widgetList<TrendSparkline>(find.byType(TrendSparkline))
+        .toList();
+    expect(sparks.where((s) => s.outside), hasLength(2));
+    expect(sparks.first.points, hasLength(28));
+    expect(sparks.first.range, isNotNull);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the 90 day toggle fetches the wider window', (tester) async {
+  testWidgets('a row opens its chart, and back returns to the list', (
+    tester,
+  ) async {
     await usePhoneSize(tester);
-    await tester.pumpWidget(h.wrap(const Scaffold(body: TrendsPage())));
+    await tester.pumpWidget(h.wrap(const SizedBox(), router: router()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('90 days'));
+
+    await tester.tap(find.text('Sleep'));
     await tester.pumpAndSettle();
-    final queries = [
-      for (var i = 0; i < h.api.calls.length; i++)
-        if (h.api.calls[i] == 'GET /trends/sleep_stage')
-          (h.api.bodies[i] as Map)['days'],
-    ];
-    expect(queries, [28, 90]);
-    expect(h.trends.series!.points, hasLength(90));
+    expect(find.byType(TrendDetailPage), findsOneWidget);
     expect(find.byType(TrendChart), findsOneWidget);
+    expect(find.text('Latest is below your range.'), findsOneWidget);
+    expect(h.api.calls, contains('GET /trends/sleep_stage'));
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(TrendDetailPage), findsNothing);
+    expect(find.byType(TrendRow), findsNWidgets(3));
   });
 
-  testWidgets('picking another metric fetches and shows it', (tester) async {
-    await usePhoneSize(tester);
-    await tester.pumpWidget(h.wrap(const Scaffold(body: TrendsPage())));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Steps'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Steps'));
-    await tester.pumpAndSettle();
-    expect(h.api.calls, contains('GET /trends/steps'));
-    expect(find.text('8,421'), findsOneWidget);
-    expect(find.text('Latest is in your range.'), findsOneWidget);
-  });
-
-  testWidgets('tapping the chart shows the day in the caption', (tester) async {
-    await usePhoneSize(tester);
-    await tester.pumpWidget(h.wrap(const Scaffold(body: TrendsPage())));
-    await tester.pumpAndSettle();
-    await scrollTo(tester, find.byType(TrendChart));
-    final chart = find.byType(CustomPaint).last;
-    final rect = tester.getRect(find.byType(TrendChart));
-    // The plot's right edge is the last day in the series.
-    await tester.tapAt(Offset(rect.right - 12, rect.top + 100));
-    await tester.pumpAndSettle();
-    expect(chart, findsOneWidget);
-    expect(find.textContaining('Oct 29'), findsWidgets);
-    expect(find.textContaining('low 6 h 50'), findsOneWidget);
-  });
-
-  testWidgets('learning: a series without a band says so', (tester) async {
+  testWidgets('learning: a metric without a band says so', (tester) async {
     await usePhoneSize(tester);
     h.api.on(
       'GET',
@@ -116,15 +139,12 @@ void main() {
         'metrics': [Fixtures.trendMetric(band: null, baselineDays: 9)],
       },
     );
-    h.api.on(
-      'GET',
-      '/trends/sleep_stage',
-      (_) => Fixtures.trendSeries(withBand: false),
-    );
     await tester.pumpWidget(h.wrap(const Scaffold(body: TrendsPage())));
     await tester.pumpAndSettle();
-    expect(find.text('Still learning your normal.'), findsOneWidget);
-    expect(find.text(TrendChart.learningText), findsOneWidget);
+    expect(find.text(TrendsPage.learningText), findsOneWidget);
+    final spark = tester.widget<TrendSparkline>(find.byType(TrendSparkline));
+    expect(spark.range, isNull);
+    expect(spark.outside, isFalse);
   });
 
   testWidgets('empty: a calm sentence when no metric has a week yet', (
@@ -135,14 +155,16 @@ void main() {
     await tester.pumpWidget(h.wrap(const Scaffold(body: TrendsPage())));
     await tester.pumpAndSettle();
     expect(find.text(TrendsPage.emptySentence), findsOneWidget);
-    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.byType(TrendRow), findsNothing);
   });
 
-  testWidgets('loading then error with a retry', (tester) async {
+  testBothThemes('loading then error with a retry', (tester, theme) async {
     await usePhoneSize(tester);
     final completer = Completer<Map<String, dynamic>>();
     h.api.on('GET', '/trends', (_) => completer.future);
-    await tester.pumpWidget(h.wrap(const Scaffold(body: TrendsPage())));
+    await tester.pumpWidget(
+      h.wrap(const Scaffold(body: TrendsPage()), theme: theme),
+    );
     await pumpFrames(tester);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
@@ -155,16 +177,27 @@ void main() {
     h.api.on('GET', '/trends', (_) => Fixtures.trends());
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
-    expect(find.byType(TrendChart), findsOneWidget);
+    expect(find.byType(TrendRow), findsNWidgets(3));
   });
 
-  testWidgets('renders at laptop width without overflow', (tester) async {
+  testWidgets('rows are at least a thumb tall, and laptop width fits', (
+    tester,
+  ) async {
+    await usePhoneSize(tester);
+    await tester.pumpWidget(h.wrap(const Scaffold(body: TrendsPage())));
+    await tester.pumpAndSettle();
+    for (final row in tester.widgetList<TrendRow>(find.byType(TrendRow))) {
+      expect(
+        tester.getSize(find.byWidget(row)).height,
+        greaterThanOrEqualTo(48),
+      );
+    }
+
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(h.wrap(const Scaffold(body: TrendsPage())));
     await tester.pumpAndSettle();
-    expect(find.byType(TrendChart), findsOneWidget);
     expect(tester.takeException(), isNull);
+    expect(Space.x4, 16);
   });
 }

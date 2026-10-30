@@ -45,6 +45,9 @@ public class SelfKeptDbContext : DbContext
   public DbSet<AiMemory> AiMemories => Set<AiMemory>();
   public DbSet<OuraConnection> OuraConnections => Set<OuraConnection>();
   public DbSet<OuraAuthState> OuraAuthStates => Set<OuraAuthState>();
+  public DbSet<UserIdentity> UserIdentities => Set<UserIdentity>();
+  public DbSet<SsoAuthState> SsoAuthStates => Set<SsoAuthState>();
+  public DbSet<SsoHandoff> SsoHandoffs => Set<SsoHandoff>();
   public DbSet<ServerSetting> ServerSettings => Set<ServerSetting>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -53,6 +56,7 @@ public class SelfKeptDbContext : DbContext
     ConfigureInterpret(modelBuilder);
     ConfigureLabs(modelBuilder);
     ConfigureConnect(modelBuilder);
+    ConfigureSso(modelBuilder);
 
     modelBuilder.Entity<User>(e =>
     {
@@ -371,6 +375,41 @@ public class SelfKeptDbContext : DbContext
       e.Property(x => x.StateHash).HasMaxLength(64);
       e.Property(x => x.VerifierCipher).IsRequired();
       e.Property(x => x.ReturnPath).HasMaxLength(32);
+      e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+    });
+  }
+
+  private static void ConfigureSso(ModelBuilder modelBuilder)
+  {
+    modelBuilder.Entity<UserIdentity>(e =>
+    {
+      e.ToTable("user_identity");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Issuer).HasMaxLength(500).IsRequired();
+      e.Property(x => x.Subject).HasMaxLength(255).IsRequired();
+      e.Property(x => x.Email).HasMaxLength(254);
+      e.HasIndex(x => new { x.Issuer, x.Subject }).IsUnique();
+      e.HasIndex(x => new { x.UserId, x.Issuer }).IsUnique();
+      e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<SsoAuthState>(e =>
+    {
+      e.ToTable("sso_auth_state");
+      e.HasKey(x => x.StateHash);
+      e.Property(x => x.StateHash).HasMaxLength(64);
+      e.Property(x => x.Nonce).HasMaxLength(100).IsRequired();
+      e.Property(x => x.VerifierCipher).IsRequired();
+      e.Property(x => x.Intent).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Client).HasMaxLength(16).IsRequired();
+      e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<SsoHandoff>(e =>
+    {
+      e.ToTable("sso_handoff");
+      e.HasKey(x => x.CodeHash);
+      e.Property(x => x.CodeHash).HasMaxLength(64);
       e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     });
   }

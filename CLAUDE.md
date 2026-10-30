@@ -18,7 +18,7 @@ Self-hosted household health app. C# .NET 10 API, Flutter 3.44 clients (iOS, And
 | --- | --- |
 | Start here: status, environment, next packages | `docs/roadmap.md` |
 | API contract | `docs/api-contract.md`, `docs/ingest-contract.md` |
-| Package designs | `docs/setup-design.md`, `docs/insights-design.md`, `docs/labs-design.md`, `docs/connect-design.md`, `docs/lab-ranges.md` |
+| Package designs | `docs/setup-design.md`, `docs/sso-design.md`, `docs/insights-design.md`, `docs/labs-design.md`, `docs/connect-design.md`, `docs/lab-ranges.md` |
 | Backend conventions | `.claude/rules/backend.md` |
 | Flutter conventions | `.claude/rules/flutter.md` |
 | Testing | `.claude/rules/testing.md` |

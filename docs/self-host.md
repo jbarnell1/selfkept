@@ -164,6 +164,36 @@ walks through it and shows the exact addresses to paste.
 
 An active Oura membership is needed for Oura's API to answer.
 
+## Single sign-on (optional)
+
+If you run Pocket ID, Authelia, Authentik or another OpenID Connect provider, people can sign in
+with it (a passkey, say) instead of a password. Passwords keep working. The rules and the trip
+are in `docs/sso-design.md`.
+
+1. At the provider, add an OIDC client for this server: confidential (it gets a secret),
+   callback URL `<SELFKEPT_ORIGIN>/api/auth/sso/callback`. In Pocket ID: Settings, OIDC
+   Clients, Add.
+2. In `.env`: `SELFKEPT_SSO_AUTHORITY` (the provider's address), `SELFKEPT_SSO_CLIENT_ID`,
+   `SELFKEPT_SSO_CLIENT_SECRET` and `SELFKEPT_SSO_NAME` (what the button says). Then
+   `docker compose up -d`.
+3. Each person signs in once with their password and chooses Connect under You, Account. A
+   provider that marks emails verified lets people with the same address skip that step.
+
+When the provider runs on the same machine behind Tailscale Serve, this server may not reach it
+at its public address. Put both on one Docker network and set `SELFKEPT_SSO_INTERNAL_URL` to the
+provider's address on it, for example `http://pocket-id:1411`, with a `compose.override.yaml` next
+to `compose.yaml`:
+
+```yaml
+services:
+  app:
+    networks: [pocket-id]
+networks:
+  pocket-id:
+    name: pocket-id_default
+    external: true
+```
+
 ## Where your data lives, and backups
 
 | Volume | What is in it | Back it up? |

@@ -116,6 +116,14 @@ services:
       # The secret can live in the secrets volume as a file named Oura__ClientSecret instead.
       Oura__ClientId: ${SELFKEPT_OURA_CLIENT_ID:-}
       Oura__ClientSecret: ${SELFKEPT_OURA_CLIENT_SECRET:-}
+      # Sign in through your own OpenID Connect provider (Pocket ID, Authelia, Authentik).
+      # Empty keeps it off. The secret can live in the secrets volume as a file named
+      # Sso__ClientSecret instead. docs/self-host.md, "Single sign-on".
+      Sso__Authority: ${SELFKEPT_SSO_AUTHORITY:-}
+      Sso__ClientId: ${SELFKEPT_SSO_CLIENT_ID:-}
+      Sso__ClientSecret: ${SELFKEPT_SSO_CLIENT_SECRET:-}
+      Sso__Name: ${SELFKEPT_SSO_NAME:-}
+      Sso__InternalUrl: ${SELFKEPT_SSO_INTERNAL_URL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

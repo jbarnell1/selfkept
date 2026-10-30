@@ -7,15 +7,15 @@ using SelfKept.Infrastructure.Data;
 namespace SelfKept.Infrastructure.Services;
 
 /// <summary>What one housekeeping pass removed.</summary>
-public sealed record HousekeepingResult(int RefreshTokens, int OAuthRequests, int OAuthRefreshTokens, int Invites, int OuraStates)
+public sealed record HousekeepingResult(int RefreshTokens, int OAuthRequests, int OAuthRefreshTokens, int Invites, int OuraStates, int SsoStates)
 {
-  public int Total => RefreshTokens + OAuthRequests + OAuthRefreshTokens + Invites + OuraStates;
+  public int Total => RefreshTokens + OAuthRequests + OAuthRefreshTokens + Invites + OuraStates + SsoStates;
 }
 
 /// <summary>
 /// Removes rows nobody can use any more: expired refresh tokens (first-party and OAuth), expired
 /// OAuth authorize requests (anyone can start one, so they must not pile up), invites that
-/// expired unused a month ago, and abandoned Oura sign-ins. A token is kept a day past its expiry,
+/// expired unused a month ago, and abandoned Oura and provider sign-ins. A token is kept a day past its expiry,
 /// longer than any reuse check looks back; health data is never touched here.
 /// </summary>
 public sealed class Housekeeping
@@ -43,7 +43,9 @@ public sealed class Housekeeping
       await DeleteAsync(context, context.OAuthAuthorizationRequests.Where(r => r.ExpiresAt < cutoff), ct),
       await DeleteAsync(context, context.OAuthRefreshTokens.Where(t => t.ExpiresAt < cutoff), ct),
       await DeleteAsync(context, context.HouseholdInvites.Where(i => i.UsedAt == null && i.ExpiresAt < inviteCutoff), ct),
-      await DeleteAsync(context, context.OuraAuthStates.Where(s => s.ExpiresAt < cutoff), ct));
+      await DeleteAsync(context, context.OuraAuthStates.Where(s => s.ExpiresAt < cutoff), ct),
+      await DeleteAsync(context, context.SsoAuthStates.Where(s => s.ExpiresAt < cutoff), ct)
+        + await DeleteAsync(context, context.SsoHandoffs.Where(h => h.ExpiresAt < cutoff), ct));
   }
 
   /// <summary>One statement on Postgres; the InMemory provider used by tests has no bulk delete.</summary>

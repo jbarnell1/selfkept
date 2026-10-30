@@ -25,7 +25,7 @@ void main() {
   tearDown(() => h.dispose());
 
   test(
-    'loadMetrics sorts by priority, selects the first and fetches it',
+    'loadMetrics sorts by priority and fetches no series until one is opened',
     () async {
       await h.trends.loadMetrics();
       expect(h.trends.hasLoadedMetrics, isTrue);
@@ -34,16 +34,47 @@ void main() {
         'resting_hr_bpm',
         'steps',
       ]);
-      expect(h.trends.selected, 'sleep_stage');
+      expect(h.trends.selected, isNull);
+      expect(h.api.calls, isNot(contains('GET /trends/sleep_stage')));
+
+      await h.trends.select('sleep_stage');
       expect(h.trends.selectedMetric?.label, 'Sleep');
       expect(h.trends.days, 28);
-      expect(h.trends.series, isNotNull);
       expect(h.trends.series!.points, hasLength(28));
       final query =
           h.api.bodies[h.api.calls.indexOf('GET /trends/sleep_stage')] as Map;
       expect(query['days'], 28);
     },
   );
+
+  test('ordered puts metrics outside their range first', () async {
+    h.api.on(
+      'GET',
+      '/trends',
+      (_) => {
+        'metrics': [
+          Fixtures.trendMetric(band: 'inside'),
+          Fixtures.trendMetric(
+            metric: 'steps',
+            displayName: 'Steps',
+            band: 'above',
+          ),
+          Fixtures.trendMetric(
+            metric: 'resting_hr_bpm',
+            displayName: 'Resting heart rate',
+            band: null,
+          ),
+        ],
+      },
+    );
+    await h.trends.loadMetrics();
+    expect(h.trends.ordered.map((m) => m.metric), [
+      'steps',
+      'sleep_stage',
+      'resting_hr_bpm',
+    ]);
+    expect(h.trends.metricFor('steps')!.recent, hasLength(28));
+  });
 
   test('select switches the metric and caches each series', () async {
     await h.trends.loadMetrics();
@@ -57,6 +88,7 @@ void main() {
 
   test('setDays fetches the 90 day window once and keeps 28 cached', () async {
     await h.trends.loadMetrics();
+    await h.trends.select('sleep_stage');
     await h.trends.setDays(90);
     expect(h.trends.days, 90);
     expect(h.trends.series!.points, hasLength(90));
@@ -102,6 +134,7 @@ void main() {
       );
       await h.trends.loadMetrics();
       expect(h.trends.hasLoadedMetrics, isTrue);
+      await h.trends.select('sleep_stage');
       expect(h.trends.series, isNull);
       expect(h.trends.seriesError, 'The server could not be reached.');
 
@@ -112,8 +145,9 @@ void main() {
     },
   );
 
-  test('refresh drops the cache and fetches again', () async {
+  test('refresh drops the cache and fetches the open chart again', () async {
     await h.trends.loadMetrics();
+    await h.trends.select('sleep_stage');
     await h.trends.refresh();
     expect(h.api.calls.where((c) => c == 'GET /trends').length, 2);
     expect(h.api.calls.where((c) => c == 'GET /trends/sleep_stage').length, 2);

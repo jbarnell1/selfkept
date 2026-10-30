@@ -3,18 +3,23 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/sso_provider.dart';
 import '../../theme/tokens.dart';
 import '../../utils/return_path.dart';
 import '../../widgets/public_scaffold.dart';
 import '../../widgets/status_views.dart';
 
-/// Sign in with email and password.
+/// Sign in with email and password, or with the household's sign-in
+/// provider when the server has one.
 class LoginPage extends StatefulWidget {
   /// Where to go after signing in: the `from` query value. Only in-app
   /// locations starting with a slash are used.
   final String? from;
 
-  const LoginPage({super.key, this.from});
+  /// The `sso` query a failed web provider trip lands back with.
+  final String? ssoResult;
+
+  const LoginPage({super.key, this.from, this.ssoResult});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -30,13 +35,16 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       if (context.read<AuthProvider>().consumeSessionExpired()) {
         setState(
           () => _notice = 'Your session ended. Sign in again to continue.',
         );
       }
+      final sso = context.read<SsoProvider>();
+      await sso.loadInfo();
+      sso.showReturn(widget.ssoResult);
     });
   }
 
@@ -57,9 +65,19 @@ class _LoginPageState extends State<LoginPage> {
     if (auth.isAuthenticated && target != null) router?.go(target);
   }
 
+  Future<void> _signInWithProvider() async {
+    setState(() => _notice = null);
+    final auth = context.read<AuthProvider>();
+    final router = GoRouter.maybeOf(context);
+    final target = safeReturnPath(widget.from);
+    await context.read<SsoProvider>().signIn();
+    if (auth.isAuthenticated && target != null) router?.go(target);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final sso = context.watch<SsoProvider>();
     final theme = Theme.of(context);
     return PublicScaffold(
       title: 'Welcome back.',
@@ -137,6 +155,17 @@ class _LoginPageState extends State<LoginPage> {
                 )
               : const Text('Sign in'),
         ),
+        if (sso.info.enabled) ...[
+          const SizedBox(height: Space.x3),
+          OutlinedButton.icon(
+            onPressed: auth.isLoading || sso.isBusy
+                ? null
+                : _signInWithProvider,
+            icon: const Icon(Icons.key_outlined),
+            label: Text('Sign in with ${sso.info.displayName}'),
+          ),
+        ],
+        if (sso.error != null) AttentionLine(sso.error!),
       ],
     );
   }

@@ -13,6 +13,7 @@ using SelfKept.Infrastructure.Security;
 using SelfKept.Infrastructure.Services.Collect;
 using SelfKept.Infrastructure.Services.Connect;
 using SelfKept.Infrastructure.Services.Export;
+using SelfKept.Infrastructure.Services.Sso;
 using SelfKept.Infrastructure.Services.Interpret.Ai;
 using SelfKept.Infrastructure.Services.Interpret;
 using SelfKept.Infrastructure.Services.Labs;
@@ -179,6 +180,14 @@ public static class DependencyInjection
     services.AddScoped<IOuraApi, OuraApi>();
     services.AddScoped<IOuraService, OuraService>();
     services.AddScoped<IExportService, ExportService>();
+
+    // Provider sign-in (Pocket ID and the like): off until Sso:Authority, Sso:ClientId and
+    // Sso:ClientSecret are set. The provider client is a singleton so it can cache the
+    // discovery document and signing keys.
+    services.AddSingleton(SsoSettings.From(configuration));
+    services.AddHttpClient(SsoProvider.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(15));
+    services.AddSingleton<ISsoProvider, SsoProvider>();
+    services.AddScoped<ISsoService, SsoService>();
 
     // Scheduled jobs: only the copy holding the Postgres job lock runs them (see BackgroundJobLock.cs).
     services.AddBackgroundJobLock(inMemory ? null : connectionString);

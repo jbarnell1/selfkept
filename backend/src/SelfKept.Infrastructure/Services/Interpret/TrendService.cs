@@ -70,7 +70,9 @@ public sealed class TrendService : ITrendService
         latest?.Day,
         latest?.Value,
         latest == null ? null : BandPositions.Of(latest.Value, baseline.P25_28, baseline.P75_28),
-        baseline.N28));
+        baseline.N28,
+        recent?.Select(s => new TrendPointDto(s.Day, s.Value, null, null)).ToList() ?? [],
+        BandOf(baseline)));
     }
     return result;
   }

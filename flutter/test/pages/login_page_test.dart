@@ -64,7 +64,8 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
     expect(h.auth.isAuthenticated, isTrue);
-    expect((h.api.bodies.single as Map)['email'], 'ada@example.test');
+    final login = h.api.bodies[h.api.calls.indexOf('POST /auth/login')];
+    expect((login as Map)['email'], 'ada@example.test');
   });
 
   testWidgets(
@@ -140,5 +141,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.auth.isAuthenticated, isTrue);
     expect(find.text('Welcome back.'), findsOneWidget);
+  });
+
+  testBothThemes('the provider button shows when the server has one', (
+    tester,
+    theme,
+  ) async {
+    await usePhoneSize(tester);
+    h.api.on('GET', '/auth/sso', (_) => {'enabled': true, 'name': 'Pocket ID'});
+    await tester.pumpWidget(h.wrap(const LoginPage(), theme: theme));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in with Pocket ID'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('no provider, no button', (tester) async {
+    await usePhoneSize(tester);
+    h.api.on('GET', '/auth/sso', (_) => {'enabled': false});
+    await tester.pumpWidget(h.wrap(const LoginPage()));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Sign in with'), findsNothing);
+  });
+
+  testWidgets('a web trip that came back refused says why', (tester) async {
+    await usePhoneSize(tester);
+    h.api.on('GET', '/auth/sso', (_) => {'enabled': true, 'name': 'Pocket ID'});
+    await tester.pumpWidget(h.wrap(const LoginPage(ssoResult: 'not_linked')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No account here is connected'), findsOneWidget);
   });
 }

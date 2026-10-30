@@ -15,6 +15,11 @@ import '../../widgets/status_views.dart';
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
+  static const String needsAddressTitle = 'Where is your server?';
+  static const String needsAddressLead =
+      'Type the address of the server your household runs. With Tailscale it '
+      'is the name of the computer it runs on.';
+
   @override
   State<SplashPage> createState() => _SplashPageState();
 }
@@ -53,6 +58,16 @@ class _SplashPageState extends State<SplashPage> {
               ),
             ),
           ),
+        );
+      case StartupPhase.needsAddress:
+        return PublicScaffold(
+          title: SplashPage.needsAddressTitle,
+          lead: SplashPage.needsAddressLead,
+          children: [
+            ServerAddressField(
+              onSaved: () => context.read<StartupProvider>().run(),
+            ),
+          ],
         );
       case StartupPhase.unreachable:
         return PublicScaffold(

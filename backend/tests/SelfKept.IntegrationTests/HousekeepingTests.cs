@@ -41,6 +41,8 @@ public class HousekeepingTests
       db.HouseholdInvites.Add(new HouseholdInvite { Id = Guid.NewGuid(), HouseholdId = householdId, CodeHash = "recent", CreatedByUserId = user.Id, CreatedAt = now.AddDays(-3), ExpiresAt = now.AddDays(-1) });
       db.HouseholdInvites.Add(new HouseholdInvite { Id = Guid.NewGuid(), HouseholdId = householdId, CodeHash = "used", CreatedByUserId = user.Id, CreatedAt = now.AddDays(-40), ExpiresAt = now.AddDays(-33), UsedByUserId = user.Id, UsedAt = now.AddDays(-39) });
       db.OuraAuthStates.Add(new OuraAuthState { StateHash = "old-state", UserId = user.Id, PersonId = user.PersonId, VerifierCipher = "x", CreatedAt = old, ExpiresAt = old });
+      db.SsoAuthStates.Add(new SsoAuthState { StateHash = "old-sso-state", Nonce = "n", VerifierCipher = "x", CreatedAt = old, ExpiresAt = old });
+      db.SsoHandoffs.Add(new SsoHandoff { CodeHash = "old-handoff", UserId = user.Id, CreatedAt = old, ExpiresAt = old });
       await db.SaveChangesAsync();
     }
 
@@ -48,7 +50,7 @@ public class HousekeepingTests
     await using (var scope = factory.Services.CreateAsyncScope())
       result = await scope.ServiceProvider.GetRequiredService<Housekeeping>().RunAsync();
 
-    result.Should().Be(new HousekeepingResult(RefreshTokens: 1, OAuthRequests: 1, OAuthRefreshTokens: 1, Invites: 1, OuraStates: 1));
+    result.Should().Be(new HousekeepingResult(RefreshTokens: 1, OAuthRequests: 1, OAuthRefreshTokens: 1, Invites: 1, OuraStates: 1, SsoStates: 2));
 
     await using (var scope = factory.Services.CreateAsyncScope())
     {
