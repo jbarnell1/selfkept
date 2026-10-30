@@ -3,7 +3,7 @@ description: "Self-hosted household health client. The product name lives in bra
 publish_to: 'none'
 
 # Build name and number. The build name is what the server's minClientVersion is compared against.
-version: 0.1.2+3
+version: 0.1.3+4
 
 environment:
   # Pinned to the Dart shipped with the installed Flutter 3.44.4.

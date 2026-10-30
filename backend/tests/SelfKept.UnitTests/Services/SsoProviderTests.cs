@@ -26,6 +26,7 @@ public class SsoProviderTests
     public string IdToken { get; set; } = string.Empty;
     public HttpStatusCode TokenStatus { get; set; } = HttpStatusCode.OK;
     public List<string> Requests { get; } = [];
+    public List<string> Hosts { get; } = [];
     public string? TokenRequestAuthorization { get; private set; }
     public string? TokenRequestBody { get; private set; }
 
@@ -33,6 +34,7 @@ public class SsoProviderTests
     {
       var path = request.RequestUri!.AbsolutePath;
       Requests.Add(path);
+      Hosts.Add(request.RequestUri.GetLeftPart(UriPartial.Authority));
       return path switch
       {
         "/.well-known/openid-configuration" => Json(new
@@ -95,12 +97,13 @@ public class SsoProviderTests
     });
   }
 
-  private static (SsoProvider Provider, FakeIdp Idp) Create()
+  private static (SsoProvider Provider, FakeIdp Idp) Create(string? internalUrl = null)
   {
     var idp = new FakeIdp();
     var settings = new SsoSettings
     {
       Authority = Authority,
+      InternalUrl = internalUrl,
       ClientId = "selfkept",
       ClientSecret = "s3cret:with/odd chars",
       RedirectUri = "https://box.example.test/api/auth/sso/callback",
@@ -182,6 +185,21 @@ public class SsoProviderTests
 
     identity.Subject.Should().Be("sub-ada");
     idp.Requests.Count(r => r == "/.well-known/jwks.json").Should().Be(2);
+  }
+
+  [Fact]
+  public async Task InternalUrl_CarriesTheServersOwnCalls_WhileTheBrowserKeepsThePublicAddress()
+  {
+    var (provider, idp) = Create(internalUrl: "http://pocket-id:1411");
+    idp.IdToken = Token(idp.Key);
+
+    var authorize = await provider.AuthorizeUrlAsync("s", "nonce-1", "c", default);
+    var identity = await provider.RedeemAsync("c", "v", "nonce-1", default);
+
+    authorize.Should().StartWith($"{Authority}/authorize?");
+    identity.Issuer.Should().Be(Authority, "the issuer is still the public address");
+    idp.Hosts.Should().OnlyContain(h => h == "http://pocket-id:1411");
+    idp.Requests.Should().Contain(["/.well-known/openid-configuration", "/.well-known/jwks.json", "/api/oidc/token"]);
   }
 
   [Fact]

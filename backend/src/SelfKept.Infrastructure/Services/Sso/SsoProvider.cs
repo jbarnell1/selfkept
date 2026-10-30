@@ -11,12 +11,17 @@ namespace SelfKept.Infrastructure.Services.Sso;
 /// Provider sign-in settings. Off until <c>Sso:Authority</c> (the provider's issuer URL),
 /// <c>Sso:ClientId</c> and <c>Sso:ClientSecret</c> are all set. The owner registers this server
 /// at the provider with the callback below. <c>Sso:Name</c> is what the sign-in button says.
+/// <c>Sso:InternalUrl</c>, when set, is where this server itself reaches the provider (a Docker
+/// network name, say) while browsers keep using the public address: the discovery document is
+/// read from it, and the token and key addresses it lists under the public address are reached
+/// through it.
 /// </summary>
 public sealed class SsoSettings
 {
   public string? Authority { get; init; }
   public string? ClientId { get; init; }
   public string? ClientSecret { get; init; }
+  public string? InternalUrl { get; init; }
   public string Name { get; init; } = DefaultName;
   public string? RedirectUri { get; init; }
   public string? AppBaseUrl { get; init; }
@@ -41,6 +46,7 @@ public sealed class SsoSettings
       Authority = Url(configuration["Sso:Authority"]),
       ClientId = Text(configuration["Sso:ClientId"]),
       ClientSecret = Text(configuration["Sso:ClientSecret"]),
+      InternalUrl = Url(configuration["Sso:InternalUrl"]),
       Name = Text(configuration["Sso:Name"]) ?? DefaultName,
       RedirectUri = origin == null ? null : $"{origin}/api/auth/sso/callback",
       AppBaseUrl = origin,
@@ -82,6 +88,12 @@ public sealed class SsoProvider(IHttpClientFactory httpClients, SsoSettings sett
   private Metadata? _metadata;
 
   private HttpClient Client() => httpClients.CreateClient(HttpClientName);
+
+  /// <summary>The address this server uses for a provider URL: the internal one when set.</summary>
+  private string Backchannel(string url) =>
+    settings.InternalUrl != null && url.StartsWith(settings.Authority!, StringComparison.OrdinalIgnoreCase)
+      ? settings.InternalUrl + url[settings.Authority!.Length..]
+      : url;
 
   public async Task<string> AuthorizeUrlAsync(string state, string nonce, string codeChallenge, CancellationToken ct)
   {
@@ -200,7 +212,8 @@ public sealed class SsoProvider(IHttpClientFactory httpClients, SsoSettings sett
     try
     {
       var client = Client();
-      using var discovery = JsonDocument.Parse(await client.GetStringAsync($"{settings.Authority}/.well-known/openid-configuration", ct));
+      var discoveryUrl = $"{settings.InternalUrl ?? settings.Authority}/.well-known/openid-configuration";
+      using var discovery = JsonDocument.Parse(await client.GetStringAsync(discoveryUrl, ct));
       var root = discovery.RootElement;
       string Required(string name) =>
         root.TryGetProperty(name, out var value) && value.GetString() is { Length: > 0 } text
@@ -212,8 +225,9 @@ public sealed class SsoProvider(IHttpClientFactory httpClients, SsoSettings sett
       if (!string.Equals(issuer.TrimEnd('/'), settings.Authority, StringComparison.Ordinal))
         throw new SsoProviderException($"The provider calls itself {issuer}, not {settings.Authority}.");
 
-      var keys = new JsonWebKeySet(await client.GetStringAsync(Required("jwks_uri"), ct));
-      return new Metadata(issuer, Required("authorization_endpoint"), Required("token_endpoint"), keys, clock.GetUtcNow());
+      var keys = new JsonWebKeySet(await client.GetStringAsync(Backchannel(Required("jwks_uri")), ct));
+      // The authorize address is for the browser and stays public; the token address is ours.
+      return new Metadata(issuer, Required("authorization_endpoint"), Backchannel(Required("token_endpoint")), keys, clock.GetUtcNow());
     }
     catch (Exception ex) when (ex is HttpRequestException or JsonException or ArgumentException
                                   || (ex is TaskCanceledException && !ct.IsCancellationRequested))
