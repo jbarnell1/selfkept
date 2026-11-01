@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -77,9 +78,9 @@ import kotlin.reflect.KClass
  * store is empty (a reinstall), the cursor seeds the local tokens.
  *
  * Background: see [HealthSyncWorker]. It runs every 15 minutes, reads with the
- * same [HealthReader], writes a JSON file under files/health_pending/, and
- * posts a change on [HealthChangeBus]. The next `collectSince` drains those
- * files first, then reads the live delta.
+ * same [HealthReader], stages the rows in [PendingStore] (files/health_pending/),
+ * and posts a change on [HealthChangeBus]. The next `collectSince` drains up to
+ * one page of those rows first, then reads the live delta with what is left.
  */
 class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandler,
     EventChannel.StreamHandler, PluginRegistry.ActivityResultListener,
@@ -89,6 +90,7 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
         const val METHOD_CHANNEL = "app.selfkept/health"
         const val EVENT_CHANNEL = "app.selfkept/health/changes"
         private const val PERMISSION_REQUEST = 0x4845
+        const val TAG = "SelfKeptHealth"
     }
 
     private lateinit var context: Context
@@ -295,23 +297,31 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
                     reader.seedTokensFromCursor(cursor)
                     val from = backfillFrom?.let { HealthReader.parseInstant(it) }
                         ?: Instant.now().minus(Duration.ofDays(90))
-                    // Rows the worker left behind go first; they are already mapped.
-                    val staged = PendingFiles.drain(context)
-                    val remaining = (limit - staged.samples.length()).coerceAtLeast(0)
-                    val live = reader.collect(from, remaining)
-                    val samples = JSONArray()
-                    for (i in 0 until staged.samples.length()) samples.put(staged.samples.get(i))
-                    for (i in 0 until live.samples.length()) samples.put(live.samples.get(i))
-                    val workouts = JSONArray()
-                    for (i in 0 until staged.workouts.length()) workouts.put(staged.workouts.get(i))
-                    for (i in 0 until live.workouts.length()) workouts.put(live.workouts.get(i))
-                    JSONObject()
-                        .put("samples", samples)
-                        .put("workouts", workouts)
-                        .put("cursor", reader.cursor())
-                        .put("hasMore", live.hasMore)
+                    // Rows the worker left behind go first; they are already
+                    // mapped. The drain is bounded by the same page limit, so a
+                    // large backlog arrives over several calls instead of all
+                    // at once (it once exhausted the heap on every launch).
+                    val store = PendingStore.of(context)
+                    val staged = store.drain(limit)
+                    if (staged.size > 0 || staged.moreLeft) {
+                        val left = store.stats()
+                        Log.i(TAG, "Pending rows: took ${staged.size}, ${left.files} files (${left.bytes / 1024} KB) left")
+                    }
+                    val remaining = (limit - staged.size).coerceAtLeast(0)
+                    val live = reader.collect(from, remaining, maxRows = remaining)
+                    @Suppress("UNCHECKED_CAST")
+                    val liveSamples = JsonBridge.toFlutter(live.samples) as List<Any?>
+                    @Suppress("UNCHECKED_CAST")
+                    val liveWorkouts = JsonBridge.toFlutter(live.workouts) as List<Any?>
+                    mapOf(
+                        "samples" to staged.samples + liveSamples,
+                        "workouts" to staged.workouts + liveWorkouts,
+                        "cursor" to reader.cursor(),
+                        // More staged files, or more in Health Connect: Dart asks again.
+                        "hasMore" to (live.hasMore || staged.moreLeft),
+                    )
                 }
-                result.success(JsonBridge.toFlutter(payload))
+                result.success(payload)
             } catch (e: Exception) {
                 result.error("collect_failed", e.message ?: e.javaClass.simpleName, null)
             }
@@ -335,51 +345,6 @@ object HealthChangeBus {
 
     @Synchronized
     fun notifyChanged() { listeners.toList().forEach { it() } }
-}
-
-/**
- * Rows the worker collected while Dart was not running. One file per worker
- * run under files/health_pending/, each a JSON object { samples, workouts }.
- * Files are deleted as they are drained; Dart writes the rows to its outbox
- * before anything is sent, so a crash between the two costs one re-read of
- * the same records, which the server deduplicates on sourceUid.
- */
-object PendingFiles {
-    private const val DIR = "health_pending"
-
-    class Drained(val samples: JSONArray, val workouts: JSONArray)
-
-    fun dir(context: Context): File = File(context.filesDir, DIR).also { it.mkdirs() }
-
-    fun write(context: Context, samples: JSONArray, workouts: JSONArray) {
-        if (samples.length() == 0 && workouts.length() == 0) return
-        val file = File(dir(context), "${System.currentTimeMillis()}.json")
-        val body = JSONObject().put("samples", samples).put("workouts", workouts)
-        File(file.path + ".tmp").apply {
-            writeText(body.toString())
-            renameTo(file)
-        }
-    }
-
-    @Synchronized
-    fun drain(context: Context): Drained {
-        val samples = JSONArray()
-        val workouts = JSONArray()
-        val files = dir(context).listFiles { f -> f.name.endsWith(".json") }?.sortedBy { it.name } ?: emptyList()
-        for (file in files) {
-            try {
-                val body = JSONObject(file.readText())
-                val s = body.optJSONArray("samples") ?: JSONArray()
-                val w = body.optJSONArray("workouts") ?: JSONArray()
-                for (i in 0 until s.length()) samples.put(s.get(i))
-                for (i in 0 until w.length()) workouts.put(w.get(i))
-            } catch (_: Exception) {
-                // A damaged file is dropped rather than blocking every sync.
-            }
-            file.delete()
-        }
-        return Drained(samples, workouts)
-    }
 }
 
 /** org.json to the plain maps and lists Flutter's StandardMessageCodec accepts. */
@@ -471,6 +436,12 @@ class HealthReader(private val context: Context) {
         prefs.edit().putString(KEY_STATE, state.toString()).apply()
     }
 
+    /**
+     * Persists the tokens a `collect(commit = false)` advanced, once the
+     * caller has put the rows somewhere safe.
+     */
+    fun commit() = save()
+
     /** A reinstall: Dart hands back the cursor the server kept and we adopt it if we have nothing. */
     fun seedTokensFromCursor(cursor: String?) {
         if (cursor.isNullOrBlank() || state.length() > 0) return
@@ -489,20 +460,35 @@ class HealthReader(private val context: Context) {
         state.optJSONObject(name) ?: JSONObject().also { state.put(name, it) }
 
     /**
-     * Reads at most [limit] rows across all types. Each type is either in
+     * Reads at most [limit] records across all types. Each type is either in
      * backfill (reads one page from [backfillFrom]) or steady state (reads the
      * changes since its token). The first visit to a type gets a changes token
      * before its backfill starts, so nothing written during the backfill is lost.
+     *
+     * One record can map to many rows (a heart rate record holds every reading
+     * in it), so [maxRows] also bounds the mapped rows: no further page is read
+     * once it is reached. A page already read is always returned whole, since
+     * its token has moved past it.
+     *
+     * With [commit] false the advanced tokens stay in memory until [commit] is
+     * called, so a caller that fails to keep the rows reads them again.
      */
-    suspend fun collect(backfillFrom: Instant, limit: Int): Page {
+    suspend fun collect(
+        backfillFrom: Instant,
+        limit: Int,
+        maxRows: Int = Int.MAX_VALUE,
+        commit: Boolean = true,
+    ): Page {
         val client = HealthConnectClient.getOrCreate(context)
         val samples = JSONArray()
         val workouts = JSONArray()
         var hasMore = false
         var budget = limit
 
+        fun rows() = samples.length() + workouts.length()
+
         for (m in mappings) {
-            if (budget <= 0) {
+            if (budget <= 0 || rows() >= maxRows) {
                 hasMore = true
                 break
             }
@@ -511,8 +497,6 @@ class HealthReader(private val context: Context) {
                 e.put("token", client.getChangesToken(ChangesTokenRequest(setOf(m.type))))
                 e.put("done", false)
             }
-            val records = mutableListOf<Record>()
-
             if (!e.optBoolean("done", false)) {
                 // Backfill page. The cast only widens the KClass projection so
                 // the request's type parameter can be inferred.
@@ -527,7 +511,8 @@ class HealthReader(private val context: Context) {
                         pageToken = pageToken,
                     )
                 )
-                records.addAll(response.records)
+                for (r in response.records) RecordMapper.map(r, samples, workouts)
+                budget -= response.records.size
                 val next = response.pageToken
                 if (next.isNullOrEmpty()) {
                     e.remove("page")
@@ -540,6 +525,8 @@ class HealthReader(private val context: Context) {
                 // Steady state: changes since the token.
                 var token = e.getString("token")
                 var pages = 0
+                var read = 0
+                var more = false
                 do {
                     val changes = try {
                         client.getChanges(token)
@@ -559,19 +546,22 @@ class HealthReader(private val context: Context) {
                         break
                     }
                     for (c in changes.changes) {
-                        if (c is UpsertionChange) records.add(c.record)
+                        if (c is UpsertionChange) {
+                            RecordMapper.map(c.record, samples, workouts)
+                            read += 1
+                        }
                     }
                     token = changes.nextChangesToken
                     e.put("token", token)
                     pages += 1
-                } while (changes.hasMore && records.size < budget && pages < 20)
-                if (records.size >= budget) hasMore = true
+                    more = changes.hasMore
+                } while (more && read < budget && rows() < maxRows && pages < 20)
+                // Changes left behind (any of the limits stopped the loop): ask again.
+                if (more) hasMore = true
+                budget -= read
             }
-
-            for (r in records) RecordMapper.map(r, samples, workouts)
-            budget -= records.size
         }
-        save()
+        if (commit) save()
         return Page(samples, workouts, hasMore)
     }
 }

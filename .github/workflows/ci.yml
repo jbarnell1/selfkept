@@ -134,7 +134,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.flutter == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: flutter
@@ -160,6 +160,13 @@ jobs:
 
       - name: Test
         run: flutter test
+
+      # JVM unit tests for the Android side (health/PendingStore.kt). The config-only build
+      # writes the Gradle wrapper and local.properties, which are not committed.
+      - name: Android unit tests
+        run: |
+          flutter build apk --config-only
+          cd android && ./gradlew :app:testDebugUnitTest --console=plain
 
       - name: Build web
         run: |

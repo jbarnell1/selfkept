@@ -72,4 +72,10 @@ dependencies {
     // Periodic background collection every 15 minutes.
     implementation("androidx.work:work-runtime-ktx:2.10.5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // Streaming JSON for the staged background rows (health/PendingStore.kt): a
+    // pure-JVM reader, so a large file is read in slices and the store is unit
+    // tested without a device. Only com.google.gson.stream is used, no reflection.
+    implementation("com.google.code.gson:gson:2.13.2")
+
+    testImplementation("junit:junit:4.13.2")
 }
