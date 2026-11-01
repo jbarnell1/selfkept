@@ -2,6 +2,7 @@ package app.selfkept.selfkept.health
 
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -34,7 +35,11 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
 
     companion object {
         const val UNIQUE_NAME = "app.selfkept.health.sync"
-        private const val PAGE = 1500
+        /** Records per run; a heart rate record can hold hundreds of readings. */
+        private const val PAGE = 500
+
+        /** Mapped rows per run, so one staged batch stays a few hundred KB. */
+        private const val MAX_ROWS = 5000
 
         /** Idempotent: re-scheduling keeps the existing periodic request. */
         fun schedule(context: Context) {
@@ -70,13 +75,32 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
         // a worker; try again next period rather than fail loudly.
         if (!granted.contains(HealthReader.BACKGROUND)) return Result.success()
 
+        val store = PendingStore.of(applicationContext)
+        if (store.isFull()) {
+            // The app has not drained what is already staged. Read nothing, so
+            // the Health Connect tokens stay put and the foreground pass (or a
+            // later run) reads these changes instead: nothing is skipped, and
+            // the folder cannot grow without bound while the app is closed.
+            val s = store.stats()
+            Log.i(HealthConnectCollector.TAG, "Pending folder full (${s.files} files, ${s.bytes / 1024} KB); not reading")
+            return Result.success()
+        }
+
         return try {
             val reader = HealthReader(applicationContext)
             // The worker never backfills more than one page; the foreground
-            // pass carries the bulk of the first 90 days.
-            val page = reader.collect(Instant.now().minus(Duration.ofDays(90)), PAGE)
-            PendingFiles.write(applicationContext, page.samples, page.workouts)
-            if (page.samples.length() > 0 || page.workouts.length() > 0) {
+            // pass carries the bulk of the first 90 days. Tokens are saved only
+            // after the rows are on disk.
+            val page = reader.collect(
+                Instant.now().minus(Duration.ofDays(90)), PAGE, maxRows = MAX_ROWS, commit = false,
+            )
+            @Suppress("UNCHECKED_CAST")
+            val samples = JsonBridge.toFlutter(page.samples) as List<Any?>
+            @Suppress("UNCHECKED_CAST")
+            val workouts = JsonBridge.toFlutter(page.workouts) as List<Any?>
+            if (!store.write(samples, workouts)) return Result.retry()
+            reader.commit()
+            if (samples.isNotEmpty() || workouts.isNotEmpty()) {
                 HealthChangeBus.notifyChanged()
             }
             Result.success()
