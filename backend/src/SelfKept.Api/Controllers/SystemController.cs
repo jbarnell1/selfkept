@@ -15,7 +15,7 @@ public sealed class SystemController : BaseController
 {
   /// <summary>What this server can do, so the client hides what would only fail.</summary>
   private static readonly string[] Features =
-    ["auth.password", "household.invites", "household.sharing", "ingest.batch", "checkins", "data.daily", "data.samples", "insights.rules", "labs.reports", "labs.pdf", "setup.guided", "sources.oura"];
+    ["auth.password", "household.invites", "household.sharing", "ingest.batch", "checkins", "data.daily", "data.samples", "insights.rules", "labs.reports", "labs.pdf", "setup.guided", "sources.oura", "data.retention"];
 
   /// <summary>Added when a local model is configured (Ai:Enabled with a base URL and a model name).</summary>
   private const string ModelFeature = "insights.model";

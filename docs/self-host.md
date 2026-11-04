@@ -108,6 +108,7 @@ All optional, in `.env`:
 | `SELFKEPT_WEB_SUBNET`, `SELFKEPT_WEB_GATEWAY`, `SELFKEPT_CADDY_IP` | `172.30.0.0/24`, `.1`, `.250` | Only if Docker reports "Pool overlaps". |
 | `SELFKEPT_AI_ENABLED`, `SELFKEPT_AI_BASE_URL`, `SELFKEPT_AI_MODEL` | off | A model you run (Ollama) rewrites the Today sentence and insight cards in plain words. See below. |
 | `SELFKEPT_OURA_CLIENT_ID`, `SELFKEPT_OURA_CLIENT_SECRET` | empty | Turns on Oura. See below. |
+| `SELFKEPT_RETENTION_MONTHS` | empty (the admin's choice in the app, 12) | Months of heart rate kept reading by reading. See "How much disk it uses". |
 
 Anything else the app reads can be set under the `app` service's `environment:` in `compose.yaml`.
 A double underscore stands for a colon, so `Jwt__ExpiryInMinutes` sets `Jwt:ExpiryInMinutes`.
@@ -244,6 +245,24 @@ docker run --rm -i -v selfkept_secrets:/secrets alpine sh -c 'tar xzf - -C /secr
 ```
 
 Compose warns that the volume "was not created by Docker Compose"; that is expected.
+
+## How much disk it uses
+
+A watch that measures heart rate every couple of seconds writes about 600 MB of database a month
+for one person; everything else together is a few megabytes. So the server keeps heart rate
+reading by reading for 12 months, and after that keeps each older month as one reading a minute
+(average, lowest and highest), about a hundredth of the size. Daily values, sleep, HRV, resting
+heart rate, workouts, labs and check-ins are always kept in full, and Today, Trends, Insights and
+the exports read the daily values, so nothing you see changes.
+
+The household admin picks the window in the app under You, Server, Readings kept (4 months to 5
+years, or for ever), or sets `SELFKEPT_RETENTION_MONTHS` in `.env`, which then wins. It runs
+every night at about 04:00 in the admin's time zone; "Fold old months now" runs it at once. Each
+folded month is in the audit log. The design is in [retention-design.md](retention-design.md).
+
+The database gives the space back to the machine's filesystem after a month is folded. On Windows,
+WSL 2 and Docker Desktop keep that filesystem in a virtual disk file that does not shrink by
+itself; see [selfhost/README.md](../selfhost/README.md#disk-space-on-windows-wsl-2).
 
 ## Stopping, upgrading, removing
 

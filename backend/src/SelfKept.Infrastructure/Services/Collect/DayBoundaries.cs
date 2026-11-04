@@ -21,6 +21,9 @@ public static class DayBoundaries
 
   public static DateOnly MonthStart(DateTime utc) => new(utc.Year, utc.Month, 1);
 
+  /// <summary>00:00 UTC on the first of the month, the lower bound of its sample partition.</summary>
+  public static DateTime MonthStartUtc(DateOnly month) => new(month.Year, month.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
   public static DateTime AsUtc(DateTime value) => value.Kind switch
   {
     DateTimeKind.Utc => value,
