@@ -69,19 +69,19 @@ flutter:
   # it downloads the OFL variable fonts from the google/fonts repository
   # into assets/fonts and removes the "#FONTS# " prefix from the lines below.
   # Until then the app falls back to the platform font.
-  fonts:
-    - family: Fraunces
-      fonts:
-        - asset: assets/fonts/Fraunces.ttf
-        - asset: assets/fonts/Fraunces-Italic.ttf
-          style: italic
-    - family: Inter
-      fonts:
-        - asset: assets/fonts/Inter.ttf
-        - asset: assets/fonts/Inter-Italic.ttf
-          style: italic
-    - family: JetBrains Mono
-      fonts:
-        - asset: assets/fonts/JetBrainsMono.ttf
-        - asset: assets/fonts/JetBrainsMono-Italic.ttf
-          style: italic
+  #FONTS# fonts:
+  #FONTS#   - family: Fraunces
+  #FONTS#     fonts:
+  #FONTS#       - asset: assets/fonts/Fraunces.ttf
+  #FONTS#       - asset: assets/fonts/Fraunces-Italic.ttf
+  #FONTS#         style: italic
+  #FONTS#   - family: Inter
+  #FONTS#     fonts:
+  #FONTS#       - asset: assets/fonts/Inter.ttf
+  #FONTS#       - asset: assets/fonts/Inter-Italic.ttf
+  #FONTS#         style: italic
+  #FONTS#   - family: JetBrains Mono
+  #FONTS#     fonts:
+  #FONTS#       - asset: assets/fonts/JetBrainsMono.ttf
+  #FONTS#       - asset: assets/fonts/JetBrainsMono-Italic.ttf
+  #FONTS#         style: italic
