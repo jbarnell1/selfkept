@@ -8,7 +8,8 @@
 # Restore: docker compose exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean' < FILE.dump
 set -euo pipefail
 
-dir="$HOME/selfkept"
+# A systemd service has no HOME, so it is read only when --dir is not given.
+dir=""
 keep=14
 dest=""
 while [ $# -gt 0 ]; do
@@ -20,6 +21,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$dest" ] || { echo "backup: say where to write, for example: backup.sh /srv/backup/selfkept" >&2; exit 1; }
+[ -n "$dir" ] || dir="${HOME:?backup: no HOME here, pass --dir with the install folder}/selfkept"
 
 umask 077
 mkdir -p "$dest"
