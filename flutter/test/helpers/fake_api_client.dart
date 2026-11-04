@@ -331,6 +331,8 @@ abstract final class Fixtures {
     String? hrv = 'inside',
     String? restingHr = 'inside',
     String? sleep = 'below',
+    String? hrvLastDay,
+    bool hrvGap = false,
   }) => _case({
     'day': '2026-10-29',
     'sentence': sentence,
@@ -340,6 +342,11 @@ abstract final class Fixtures {
       'hrv': hrv,
       'restingHr': restingHr,
       'sleep': sleep,
+      'gaps': _case({
+        'hrv': hrvGap ? _case({'lastDay': hrvLastDay}, pascal) : null,
+        'restingHr': null,
+        'sleep': null,
+      }, pascal),
     }, pascal),
     'cards':
         cards ??

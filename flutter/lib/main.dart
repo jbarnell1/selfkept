@@ -1,10 +1,12 @@
-import 'dart:ui' show PlatformDispatcher;
+import 'dart:ui' show DartPluginRegistrant, PlatformDispatcher;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'background/background_upload.dart';
 import 'brand/brand.dart';
 import 'collectors/health_collector.dart';
 import 'offline/open_outbox.dart';
@@ -102,6 +104,42 @@ Future<void> main() async {
       reporter: reporter,
     ),
   );
+}
+
+/// Where the Android worker's headless engine starts (see
+/// BackgroundUpload.kt). Sends what the phone collected while the app was
+/// closed, then tells the worker it is done so the engine can be destroyed.
+@pragma('vm:entry-point')
+Future<void> backgroundUpload() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  DartPluginRegistrant.ensureInitialized();
+  const channel = MethodChannel('app.selfkept/background');
+  var sent = false;
+  try {
+    final store = SecureServerAddressStore();
+    final address =
+        await ServerSettings.readStoredOverride(store) ??
+        ServerSettings(store: store).defaultUrl;
+    if (address.isNotEmpty) {
+      final client = DioApiClient(serverUrl: address);
+      final outbox = openOutboxRepository();
+      try {
+        sent = await BackgroundUpload(
+          client: client,
+          outbox: outbox,
+          collector: createHealthCollector(),
+          reporter: ErrorReporter(DiagnosticsService(client)),
+        ).run();
+      } finally {
+        await outbox.close();
+      }
+    }
+  } catch (e, stack) {
+    debugPrint('Background upload failed: $e');
+    debugPrint(stack.toString());
+  } finally {
+    await channel.invokeMethod<void>('done', sent);
+  }
 }
 
 /// Composition root: services, providers, router and theme.

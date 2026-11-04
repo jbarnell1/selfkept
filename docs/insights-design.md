@@ -50,6 +50,8 @@ Rules never use the word diagnosis. Clinician-tier cards always name what to bri
 
 Composed on request (cached per person per hour) from: last night's sleep, the HRV and resting HR position versus baseline, any active cards, and the most recent check-in. The sentence is one or two lines in the calm voice. Templated version first; if a model is configured, the model is asked to rewrite the templated facts into one paragraph without adding any number that is not in the input.
 
+The readiness row under it shows where last night sat in each band. A metric whose range is ready but has no reading for last night (a watch left off or flat, a phone that has not sent yet) carries a gap with the last day it did have one in the past 14 days, so the row says "no reading since Sat" rather than "no range yet". Missing nights are never filled in: baselines use the days that exist, and a rule that needs consecutive nights only fires on nights that are present.
+
 ## Model adapter
 
 `IChatModel.CompleteAsync(system, user, options)` with one implementation, `OpenAiCompatibleChatModel`, pointed at `Ai:BaseUrl` (default `http://host.docker.internal:11434/v1` for Ollama), `Ai:Model` (pinned, no default), `Ai:TimeoutSeconds` (default 20), `Ai:Enabled` (default false until a model is configured). Prompt and completion are logged to `ai_call (person_id, purpose, prompt_hash, tokens, latency_ms, ok)` without the text, so the audit shows that a call happened and how long it took. The system prompt forbids new numbers, advice beyond the input, and diagnostic language, and the output is validated: every number in the output must appear in the input, otherwise the templated sentence is used.
@@ -78,7 +80,7 @@ band = "below" | "inside" | "above"   (against p25_28 to p75_28 of the latest ba
 
 | Method | Path | Shape |
 | --- | --- | --- |
-| GET | `/api/today?personId?` | `{ day, sentence, generated: bool, sleepMinutes?, readiness: { hrv: band|null, restingHr: band|null, sleep: band|null }, cards: InsightDto[] (max 2), lastCheckin: CheckinDto|null, learning: bool }` |
+| GET | `/api/today?personId?` | `{ day, sentence, generated: bool, sleepMinutes?, readiness: { hrv: band|null, restingHr: band|null, sleep: band|null, gaps: { hrv, restingHr, sleep: { lastDay: date|null }|null } }, cards: InsightDto[] (max 2), lastCheckin: CheckinDto|null, learning: bool }` |
 | GET | `/api/insights?personId?&from?&to?&includeDismissed?` | `InsightDto[]` newest first; default the last 30 days, at most 366; dismissed cards hidden unless `includeDismissed=true` |
 | POST | `/api/insights/{id}/reaction` | body `{ reaction }`; own cards only; returns the `InsightDto`; 400 on an unknown reaction |
 | POST | `/api/insights/{id}/dismiss` | own cards only; returns the `InsightDto` with `dismissedAt` set; idempotent |

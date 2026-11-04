@@ -18,17 +18,15 @@ import java.util.concurrent.TimeUnit
  * Periodic background collection, every 15 minutes (the WorkManager minimum)
  * with a network constraint, as the contract asks.
  *
- * Why a file hand-off rather than a headless Flutter engine: the worker has
- * no Dart side. Starting a FlutterEngine from a worker costs a few hundred
- * milliseconds of CPU and tens of megabytes every 15 minutes, needs a
- * registered Dart entry point and callback dispatcher, and makes the sync
- * engine run in two isolates that both own the outbox. Writing the mapped rows
- * to a file and letting the normal app ingest them keeps one owner of the
- * outbox, one sync engine, and a worker that finishes in well under a second.
- * The cost is latency: rows wait until the app is next opened (or resumed by
- * the user); the contract's 15-minute cadence is met for collection, and the
- * send happens on the next foreground. When the app process is alive the
- * worker also posts on [HealthChangeBus], so an open app syncs at once.
+ * Each run reads the delta with the same [HealthReader] the plugin uses and
+ * writes the mapped rows to a file under files/health_pending/; the plugin's
+ * next `collectSince` drains those files first. Then:
+ *
+ * - When the app's engine is alive in this process, a change is posted on
+ *   [HealthChangeBus] and the open app syncs at once.
+ * - When the app is closed, [BackgroundUpload] starts a headless engine that
+ *   sends the files, at most once an hour so the phone is not woken into a
+ *   full engine every 15 minutes.
  */
 class HealthSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
@@ -78,6 +76,14 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
             PendingFiles.write(applicationContext, page.samples, page.workouts)
             if (page.samples.length() > 0 || page.workouts.length() > 0) {
                 HealthChangeBus.notifyChanged()
+            }
+            // With the app closed nothing else would send these until it is
+            // next opened.
+            if (!BackgroundUpload.foregroundAlive &&
+                PendingFiles.hasAny(applicationContext) &&
+                BackgroundUpload.isDue(applicationContext)
+            ) {
+                BackgroundUpload.run(applicationContext)
             }
             Result.success()
         } catch (_: Exception) {

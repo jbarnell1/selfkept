@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/band_position.dart';
 import '../models/today.dart';
@@ -12,7 +13,7 @@ enum _WorseSide { below, above }
 /// Sleep, HRV and Resting HR in one quiet panel split by hairlines, each
 /// saying where last night sat against the person's own band. The dot before
 /// the words is sage when the reading is inside the band or on its better
-/// side and amber on the side worth watching; with no band yet there is no
+/// side and amber on the side worth watching; with no band yet, or no reading, there is no
 /// dot. Never red.
 class ReadinessRow extends StatelessWidget {
   final Readiness readiness;
@@ -21,6 +22,23 @@ class ReadinessRow extends StatelessWidget {
   const ReadinessRow({super.key, required this.readiness, this.sleepMinutes});
 
   static const String noBandText = 'no range yet';
+  static const String noRecentReadingText = 'no recent reading';
+
+  /// What a cell says when there is no position: a missing reading when the
+  /// range is ready ("no reading since Sat"), else that the range is still
+  /// being learned.
+  static String missingText(ReadingGap? gap, {DateTime? now}) {
+    if (gap == null) return noBandText;
+    final last = gap.lastDay;
+    if (last == null) return noRecentReadingText;
+    final today = DateUtils.dateOnly(now ?? DateTime.now());
+    final day = DateUtils.dateOnly(last);
+    final days = today.difference(day).inDays;
+    final when = days < 7
+        ? DateFormat.E().format(day)
+        : DateFormat.MMMd().format(day);
+    return 'no reading since $when';
+  }
 
   /// Exposed for tests: the dot colour for a position on a given metric.
   static Color dotColor(
@@ -56,6 +74,7 @@ class ReadinessRow extends StatelessWidget {
               child: _ReadinessCell(
                 label: 'Sleep',
                 position: readiness.sleep,
+                gap: readiness.sleepGap,
                 worse: _WorseSide.below,
                 value: sleep == null ? null : formatSleepMinutes(sleep),
               ),
@@ -65,6 +84,7 @@ class ReadinessRow extends StatelessWidget {
               child: _ReadinessCell(
                 label: 'HRV',
                 position: readiness.hrv,
+                gap: readiness.hrvGap,
                 worse: _WorseSide.below,
               ),
             ),
@@ -73,6 +93,7 @@ class ReadinessRow extends StatelessWidget {
               child: _ReadinessCell(
                 label: 'Resting HR',
                 position: readiness.restingHr,
+                gap: readiness.restingHrGap,
                 worse: _WorseSide.above,
               ),
             ),
@@ -86,12 +107,14 @@ class ReadinessRow extends StatelessWidget {
 class _ReadinessCell extends StatelessWidget {
   final String label;
   final BandPosition? position;
+  final ReadingGap? gap;
   final _WorseSide worse;
   final String? value;
 
   const _ReadinessCell({
     required this.label,
     required this.position,
+    this.gap,
     required this.worse,
     this.value,
   });
@@ -105,7 +128,7 @@ class _ReadinessCell extends StatelessWidget {
       colors,
       lowerIsWorse: worse == _WorseSide.below,
     );
-    final words = position?.displayName ?? ReadinessRow.noBandText;
+    final words = position?.displayName ?? ReadinessRow.missingText(gap);
     return Semantics(
       label: '$label: ${value == null ? '' : '$value, '}$words',
       excludeSemantics: true,
@@ -129,7 +152,7 @@ class _ReadinessCell extends StatelessWidget {
             Text.rich(
               TextSpan(
                 children: [
-                  // No band yet means nothing to colour, so no dot.
+                  // No band or no reading means nothing to colour, so no dot.
                   if (position != null)
                     WidgetSpan(
                       alignment: PlaceholderAlignment.middle,

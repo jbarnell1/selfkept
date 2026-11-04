@@ -91,7 +91,7 @@ Lab markers live in the same catalogue with a `lab.` prefix (for example `lab.ap
 ## Client behaviour
 
 - **iOS**: `HKObserverQuery` with `enableBackgroundDelivery` for each type, `HKAnchoredObjectQuery` to pull deltas, anchor persisted locally and mirrored to `cursor`. On every foreground, run a full delta pass. Respect that iOS may wake the app roughly hourly.
-- **Android**: Health Connect `getChangesToken` per record type, `WorkManager` periodic job every 15 minutes with network constraint, plus a foreground pass. Request `READ_HEALTH_DATA_IN_BACKGROUND` and `READ_HEALTH_DATA_HISTORY`.
+- **Android**: Health Connect `getChangesToken` per record type, `WorkManager` periodic job every 15 minutes with network constraint, plus a foreground pass. The job stages rows on the phone; while the app is closed it starts a headless engine at most once an hour to send them (the app's own collector and outbox, stopped if the app opens). Request `READ_HEALTH_DATA_IN_BACKGROUND` and `READ_HEALTH_DATA_HISTORY`.
 - Both: write to the Drift outbox first, flush in batches of up to 2,000, mark sent on 200, keep on any failure. Show the last successful flush on the Sources screen.
 - Initial backfill: 90 days on first connect, paged, lowest priority, so the first sync does not take an hour of battery.
 
