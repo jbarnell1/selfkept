@@ -22,7 +22,16 @@ public sealed record InsightDto(
   IReadOnlyList<string> MetricNames);
 
 /// <summary>Where last night's value sits against the person's 28-day band: below, inside or above. Null without enough data.</summary>
-public sealed record ReadinessDto(string? Hrv, string? RestingHr, string? Sleep);
+public sealed record ReadinessDto(string? Hrv, string? RestingHr, string? Sleep, ReadinessGapsDto? Gaps = null);
+
+/// <summary>
+/// Per readiness metric whose range is ready but had no reading last night (a watch left off or
+/// flat, a phone that has not sent yet): the last day with a reading in the past two weeks, or a
+/// null day for none. A null entry means there is a reading, or no range yet.
+/// </summary>
+public sealed record ReadinessGapsDto(ReadinessGapDto? Hrv, ReadinessGapDto? RestingHr, ReadinessGapDto? Sleep);
+
+public sealed record ReadinessGapDto(DateOnly? LastDay);
 
 public sealed record TodayDto(
   DateOnly Day,

@@ -79,7 +79,8 @@ import kotlin.reflect.KClass
  * Background: see [HealthSyncWorker]. It runs every 15 minutes, reads with the
  * same [HealthReader], writes a JSON file under files/health_pending/, and
  * posts a change on [HealthChangeBus]. The next `collectSince` drains those
- * files first, then reads the live delta.
+ * files first, then reads the live delta. With the app closed, the worker
+ * starts [BackgroundUpload], whose headless engine registers this plugin too.
  */
 class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandler,
     EventChannel.StreamHandler, PluginRegistry.ActivityResultListener,
@@ -320,8 +321,8 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
 }
 
 /**
- * Lets the worker, which has no Flutter engine of its own, poke the plugin
- * when it is alive in the same process. Listeners are invoked on the calling
+ * Lets the worker poke the plugin when an engine is alive in the same
+ * process. Listeners are invoked on the calling
  * thread; the plugin hops to main.
  */
 object HealthChangeBus {
@@ -360,6 +361,9 @@ object PendingFiles {
             renameTo(file)
         }
     }
+
+    fun hasAny(context: Context): Boolean =
+        dir(context).listFiles { f -> f.name.endsWith(".json") }?.isNotEmpty() == true
 
     @Synchronized
     fun drain(context: Context): Drained {

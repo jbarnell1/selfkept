@@ -138,8 +138,9 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
   int get lastCollected => _lastCollected;
 
   /// Checks the platform and restores a saved connection. Call once after
-  /// sign-in; safe to call again.
-  Future<void> init() async {
+  /// sign-in; safe to call again. [collect] false leaves the first pass to
+  /// the caller (the background upload awaits it).
+  Future<void> init({bool collect = true}) async {
     final available = await _collector.isAvailable();
     if (!available) {
       _status = CollectorStatus.unavailable;
@@ -152,7 +153,7 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
         ? CollectorStatus.disconnected
         : CollectorStatus.connected;
     notify();
-    if (_sourceId != null) unawaited(collectAndFlush());
+    if (collect && _sourceId != null) unawaited(collectAndFlush());
   }
 
   /// Asks for permissions, registers the source and runs the first collect
