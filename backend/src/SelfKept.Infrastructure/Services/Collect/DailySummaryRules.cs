@@ -58,12 +58,31 @@ public static class DailySummaryRules
   }
 
   /// <summary>
-  /// Derives the row for one (metric, day) from the samples that fall on it. Null means no row
-  /// (nothing on the day, or nothing that counts), so the caller deletes any stale row.
+  /// Derives the row for one (metric, day) from the samples that fall on it, and for a dense metric
+  /// the minutes retention folded out of them. Null means no row (nothing on the day, or nothing
+  /// that counts), so the caller deletes any stale row.
   /// </summary>
-  public static DailySummary? Derive(Guid personId, string metricKey, DateOnly day, IReadOnlyList<Sample> samples, DateTime computedAtUtc)
+  public static DailySummary? Derive(Guid personId, string metricKey, DateOnly day, IReadOnlyList<Sample> samples, DateTime computedAtUtc, IReadOnlyList<SampleMinute>? minutes = null)
   {
-    if (RuleFor(metricKey) is not { } rule || samples.Count == 0) return null;
+    minutes ??= [];
+    if (RuleFor(metricKey) is not { } rule || (samples.Count == 0 && minutes.Count == 0)) return null;
+
+    // Only averaged metrics are ever folded (DenseMetrics). A minute is its count of readings at
+    // its mean, so the day's mean, min, max and count come out as if every reading were still here.
+    if (rule == SummaryRule.Average && minutes.Count > 0)
+    {
+      var count = samples.Count + minutes.Sum(m => m.Count);
+      var total = samples.Sum(s => s.Value) + minutes.Sum(m => m.Avg * m.Count);
+      return new DailySummary
+      {
+        PersonId = personId, MetricKey = metricKey, Day = day,
+        Value = total / count,
+        Min = Math.Min(samples.Count > 0 ? samples.Min(s => s.Value) : double.MaxValue, minutes.Min(m => m.Min)),
+        Max = Math.Max(samples.Count > 0 ? samples.Max(s => s.Value) : double.MinValue, minutes.Max(m => m.Max)),
+        Count = count, ComputedAt = computedAtUtc,
+      };
+    }
+    if (samples.Count == 0) return null;
 
     switch (rule)
     {

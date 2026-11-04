@@ -94,6 +94,9 @@ public static class DependencyInjection
     services.AddScoped<IIngestService, IngestService>();
     services.AddScoped<ICheckinService, CheckinService>();
     services.AddScoped<IDataService, DataService>();
+    services.AddScoped<RetentionPolicy>();
+    services.AddScoped<SampleRetention>();
+    services.AddScoped<IRetentionService, RetentionService>();
 
     // Package 3 (Interpret). The model adapter is the app's only outbound HTTP, to the host the
     // user configured under Ai:, and only when Ai:Enabled is true.

@@ -10,6 +10,7 @@ import '../../theme/tokens.dart';
 import '../../widgets/key_value_row.dart';
 import '../../widgets/page_body.dart';
 import '../../widgets/recent_problems_card.dart';
+import '../../widgets/retention_card.dart';
 import '../../widgets/server_address_field.dart';
 import '../../widgets/surface_card.dart';
 import '../../widgets/dialogs.dart';
@@ -125,6 +126,8 @@ class ServerSection extends StatelessWidget {
             ],
           ),
         ),
+        if (isAdmin && (info?.hasFeature(RetentionCard.feature) ?? false))
+          const RetentionCard(),
         if (isAdmin) const RecentProblemsCard(),
       ],
     );

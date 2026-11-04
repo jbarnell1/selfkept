@@ -27,6 +27,8 @@ public static class InterpretSchedule
 /// Job-locked hosted service: every 15 minutes, finds the persons past 03:30 in their zone whose
 /// yesterday has not been interpreted and runs them. Idempotent per (person, day): a day already
 /// holding baselines or insights is skipped, and a set in memory saves the lookups between ticks.
+/// Once a day after the people it also runs sample retention (<see cref="SampleRetention"/>), from
+/// 04:00 in the zone of the server's first person.
 /// </summary>
 public sealed class InterpretNightlyJob : BackgroundService
 {
@@ -37,6 +39,7 @@ public sealed class InterpretNightlyJob : BackgroundService
   private readonly TimeProvider _clock;
   private readonly ILogger<InterpretNightlyJob> _logger;
   private readonly HashSet<(Guid PersonId, DateOnly Day)> _done = [];
+  private DateOnly? _retentionDoneOn;
 
   public InterpretNightlyJob(IServiceScopeFactory scopes, TimeProvider clock, ILogger<InterpretNightlyJob> logger)
   {
@@ -82,7 +85,8 @@ public sealed class InterpretNightlyJob : BackgroundService
     var runner = scope.ServiceProvider.GetRequiredService<IInterpretRunner>();
     var now = _clock.GetUtcNow().UtcDateTime;
 
-    foreach (var person in await persons.ListAllAsync(ct))
+    var everyone = await persons.ListAllAsync(ct);
+    foreach (var person in everyone)
     {
       var zone = DayBoundaries.Resolve(person.TimeZone);
       if (InterpretSchedule.DueDay(now, zone) is not { } day) continue;
@@ -107,5 +111,28 @@ public sealed class InterpretNightlyJob : BackgroundService
 
     // Forget runs older than three days so the set does not grow for ever.
     _done.RemoveWhere(d => d.Day < DateOnly.FromDateTime(now).AddDays(-3));
+
+    await RunRetentionIfDueAsync(scope.ServiceProvider, everyone, now, ct);
+  }
+
+  /// <summary>Retention once a day. A failure, or another run holding the lock, is retried next tick.</summary>
+  private async Task RunRetentionIfDueAsync(IServiceProvider services, IReadOnlyList<Core.Entities.Person> everyone, DateTime now, CancellationToken ct)
+  {
+    // ListAllAsync is oldest first: the first person is the admin who installed the server.
+    var zone = everyone.Count == 0 ? TimeZoneInfo.Utc : DayBoundaries.Resolve(everyone[0].TimeZone);
+    if (RetentionSchedule.DueDay(now, zone) is not { } day || day == _retentionDoneOn) return;
+    try
+    {
+      var result = await services.GetRequiredService<SampleRetention>().RunAsync(null, null, null, ct);
+      if (!result.AlreadyRunning) _retentionDoneOn = day;
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+      throw;
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Sample retention failed; will retry next tick");
+    }
   }
 }

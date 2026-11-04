@@ -124,6 +124,9 @@ services:
       Sso__ClientSecret: ${SELFKEPT_SSO_CLIENT_SECRET:-}
       Sso__Name: ${SELFKEPT_SSO_NAME:-}
       Sso__InternalUrl: ${SELFKEPT_SSO_INTERNAL_URL:-}
+      # Months of raw heart rate to keep before older months are folded into one row a minute.
+      # Empty lets the admin choose in the app (12 by default). 0 keeps raw for ever; else 4 to 600.
+      Retention__RawMonths: ${SELFKEPT_RETENTION_MONTHS:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

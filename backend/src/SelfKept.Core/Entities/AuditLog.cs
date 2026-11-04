@@ -54,4 +54,6 @@ public static class AuditActions
   public const string ExportBundle = "export.bundle";
   public const string ExportFull = "export.full";
   public const string IntegrationChanged = "integration.changed";
+  public const string RetentionRollup = "retention.rollup";
+  public const string RetentionChanged = "retention.changed";
 }

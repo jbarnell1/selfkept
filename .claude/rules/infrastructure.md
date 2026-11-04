@@ -39,8 +39,8 @@ laptop (Tailscale) ──┘                                                    
 
 ## Settings and secrets
 - `SELFKEPT_X` in `selfhost/.env` is mapped by compose to a `Section__Key` environment variable.
-  The code never reads `SELFKEPT_*` directly. Current map: `SELFKEPT_ORIGIN` to `App__BaseUrl`;
-  `SELFKEPT_PORT`, `SELFKEPT_BIND`, `SELFKEPT_VERSION`, `SELFKEPT_IMAGE` are compose-only.
+  The code never reads `SELFKEPT_*` directly. Current map: `SELFKEPT_ORIGIN` to `App__BaseUrl`,
+  `SELFKEPT_RETENTION_MONTHS` to `Retention__RawMonths`; `SELFKEPT_PORT`, `SELFKEPT_BIND`, `SELFKEPT_VERSION`, `SELFKEPT_IMAGE` are compose-only.
 - `selfhost/init-secrets.sh` writes one file per setting into the `secrets` volume:
   `db_password`, `ConnectionStrings__SelfKept`, `Jwt__Key`, `Encryption__Key`. The app reads the
   folder named by `SelfKept:SecretsDirectory`. Nothing in the repo is a secret.

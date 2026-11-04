@@ -87,12 +87,19 @@ public sealed class SampleRepository : ISampleRepository
     }
 
     // One round trip for the whole batch: unnest the columns and let the unique index drop the
-    // readings this source already sent. Rows affected = genuinely new samples.
+    // readings this source already sent. A dense reading whose source already has a folded minute
+    // there is a resend of a reading retention folded (the unique index no longer sees it), so it
+    // is left out too. Rows affected = genuinely new samples.
     const string sql = """
       INSERT INTO sample (id, person_id, source_id, source_uid, metric_key, start_at, end_at, "value", unit, meta, created_at)
       SELECT t.id, t.person_id, t.source_id, t.source_uid, t.metric_key, t.start_at, t.end_at, t.value, t.unit, t.meta::jsonb, t.created_at
       FROM unnest(@ids, @person_ids, @source_ids, @source_uids, @metric_keys, @start_ats, @end_ats, @values, @units, @metas, @created_ats)
         AS t(id, person_id, source_id, source_uid, metric_key, start_at, end_at, "value", unit, meta, created_at)
+      WHERE t.metric_key <> ALL (@dense_keys)
+        OR NOT EXISTS (
+          SELECT 1 FROM sample_minute m
+          WHERE m.person_id = t.person_id AND m.metric_key = t.metric_key
+            AND m.minute_at = date_trunc('minute', t.start_at, 'UTC') AND m.source_id = t.source_id)
       ON CONFLICT (source_id, source_uid, start_at) DO NOTHING
       """;
 
@@ -109,6 +116,7 @@ public sealed class SampleRepository : ISampleRepository
       new NpgsqlParameter("units", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = samples.Select(s => s.Unit).ToArray() },
       new NpgsqlParameter("metas", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = samples.Select(s => s.Meta).ToArray() },
       new NpgsqlParameter("created_ats", NpgsqlDbType.Array | NpgsqlDbType.TimestampTz) { Value = samples.Select(s => s.CreatedAt).ToArray() },
+      new NpgsqlParameter("dense_keys", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = DenseMetrics.Keys.ToArray() },
     }, ct);
 
     return new BulkInsertResult(accepted, samples.Count - accepted);
@@ -126,7 +134,24 @@ public sealed class SampleRepository : ISampleRepository
       .Select(x => (x.SourceId, x.SourceUid))
       .ToHashSet();
 
-    var fresh = samples.Where(s => !existing.Contains((s.SourceId, s.SourceUid))).ToList();
+    var folded = new HashSet<(Guid, string, DateTime)>();
+    var dense = samples.Where(s => DenseMetrics.Contains(s.MetricKey)).ToList();
+    if (dense.Count > 0)
+    {
+      var personIds = dense.Select(s => s.PersonId).Distinct().ToList();
+      var minutes = dense.Select(s => SampleMinutes.MinuteOf(s.StartAt)).Distinct().ToList();
+      folded = (await _context.SampleMinutes.AsNoTracking()
+          .Where(m => personIds.Contains(m.PersonId) && sourceIds.Contains(m.SourceId) && minutes.Contains(m.MinuteAt))
+          .Select(m => new { m.SourceId, m.MetricKey, m.MinuteAt })
+          .ToListAsync(ct))
+        .Select(m => (m.SourceId, m.MetricKey, m.MinuteAt))
+        .ToHashSet();
+    }
+
+    var fresh = samples
+      .Where(s => !existing.Contains((s.SourceId, s.SourceUid)))
+      .Where(s => !DenseMetrics.Contains(s.MetricKey) || !folded.Contains((s.SourceId, s.MetricKey, SampleMinutes.MinuteOf(s.StartAt))))
+      .ToList();
     _context.Samples.AddRange(fresh);
     await _context.SaveChangesAsync(ct);
     return new BulkInsertResult(fresh.Count, samples.Count - fresh.Count);
@@ -161,6 +186,12 @@ public sealed class SampleRepository : ISampleRepository
     return await query.OrderBy(s => s.StartAt).ToListAsync(ct);
   }
 
+  public async Task<IReadOnlyList<SampleMinute>> GetOwnMinutesInWindowAsync(Guid personId, string metricKey, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default) =>
+    await _context.SampleMinutes.AsNoTracking()
+      .Where(m => m.PersonId == personId && m.MetricKey == metricKey && m.MinuteAt >= fromUtc && m.MinuteAt < toUtc)
+      .OrderBy(m => m.MinuteAt)
+      .ToListAsync(ct);
+
   public async Task<SamplePage?> GetPageAsync(Guid viewerPersonId, Guid targetPersonId, string metricKey, DateTime? fromUtc, DateTime? toUtc, int limit, SampleCursor? after, CancellationToken ct = default)
   {
     var metric = _catalogue.Find(metricKey);
@@ -181,6 +212,30 @@ public sealed class SampleRepository : ISampleRepository
       .Take(limit + 1)
       .ToListAsync(ct);
 
+    if (DenseMetrics.Contains(metric.Key))
+    {
+      // Folded minutes page with the same keyset. The two lists are merged in the database's uuid
+      // order (the hex text), so a cursor taken from either kind of row stays valid.
+      var minutes = _context.SampleMinutes.AsNoTracking().Where(m => m.PersonId == targetPersonId && m.MetricKey == metric.Key);
+      if (fromUtc is { } minuteFrom) minutes = minutes.Where(m => m.MinuteAt >= minuteFrom);
+      if (toUtc is { } minuteTo) minutes = minutes.Where(m => m.MinuteAt < minuteTo);
+      if (after is { } minuteCursor)
+      {
+        minutes = minutes.Where(m => m.MinuteAt < minuteCursor.StartAt || (m.MinuteAt == minuteCursor.StartAt && m.Id.CompareTo(minuteCursor.Id) < 0));
+      }
+      var folded = await minutes
+        .OrderByDescending(m => m.MinuteAt).ThenByDescending(m => m.Id)
+        .Take(limit + 1)
+        .ToListAsync(ct);
+      if (folded.Count > 0)
+      {
+        rows = rows.Concat(folded.Select(m => SampleMinutes.AsSample(m, metric.Unit)))
+          .OrderByDescending(s => s.StartAt).ThenByDescending(s => s.Id.ToString("N"), StringComparer.Ordinal)
+          .Take(limit + 1)
+          .ToList();
+      }
+    }
+
     SampleCursor? next = null;
     if (rows.Count > limit)
     {
@@ -200,23 +255,41 @@ public sealed class SampleRepository : ISampleRepository
     }
     if (allowed.Count == 0) return null;
 
-    var groups = await _context.Samples.AsNoTracking()
-      .Where(s => s.PersonId == targetPersonId)
-      .GroupBy(s => s.MetricKey)
-      .Select(g => new { MetricKey = g.Key, FirstAt = g.Min(s => s.StartAt), LastAt = g.Max(s => s.StartAt), Count = g.LongCount() })
-      .ToListAsync(ct);
+    var raw = (await _context.Samples.AsNoTracking()
+        .Where(s => s.PersonId == targetPersonId)
+        .GroupBy(s => s.MetricKey)
+        .Select(g => new { MetricKey = g.Key, FirstAt = g.Min(s => s.StartAt), LastAt = g.Max(s => s.StartAt), Count = g.LongCount() })
+        .ToListAsync(ct))
+      .ToDictionary(g => g.MetricKey, g => (g.FirstAt, g.LastAt, g.Count), StringComparer.Ordinal);
+    // Folded minutes count as the readings they stand for, so history does not seem to start at the window.
+    var folded = (await _context.SampleMinutes.AsNoTracking()
+        .Where(m => m.PersonId == targetPersonId)
+        .GroupBy(m => m.MetricKey)
+        .Select(g => new { MetricKey = g.Key, FirstAt = g.Min(m => m.MinuteAt), LastAt = g.Max(m => m.MinuteAt), Count = g.Sum(m => (long)m.Count) })
+        .ToListAsync(ct))
+      .ToDictionary(g => g.MetricKey, g => (g.FirstAt, g.LastAt, g.Count), StringComparer.Ordinal);
 
     var result = new List<MetricOverview>();
-    foreach (var g in groups.OrderBy(g => g.MetricKey, StringComparer.Ordinal))
+    foreach (var key in raw.Keys.Union(folded.Keys).OrderBy(k => k, StringComparer.Ordinal))
     {
-      var metric = _catalogue.Find(g.MetricKey);
+      var metric = _catalogue.Find(key);
       if (metric == null || !allowed.Contains(metric.Category)) continue;
-      var lastValue = await _context.Samples.AsNoTracking()
-        .Where(s => s.PersonId == targetPersonId && s.MetricKey == g.MetricKey)
-        .OrderByDescending(s => s.StartAt).ThenByDescending(s => s.Id)
-        .Select(s => s.Value)
-        .FirstAsync(ct);
-      result.Add(new MetricOverview(g.MetricKey, g.FirstAt, g.LastAt, g.Count, lastValue));
+      var hasRaw = raw.TryGetValue(key, out var r);
+      var hasFolded = folded.TryGetValue(key, out var f);
+      var firstAt = !hasFolded || (hasRaw && r.FirstAt <= f.FirstAt) ? r.FirstAt : f.FirstAt;
+      var lastAt = !hasFolded || (hasRaw && r.LastAt >= f.LastAt) ? r.LastAt : f.LastAt;
+      var lastValue = hasRaw && r.LastAt == lastAt
+        ? await _context.Samples.AsNoTracking()
+            .Where(s => s.PersonId == targetPersonId && s.MetricKey == key)
+            .OrderByDescending(s => s.StartAt).ThenByDescending(s => s.Id)
+            .Select(s => s.Value)
+            .FirstAsync(ct)
+        : await _context.SampleMinutes.AsNoTracking()
+            .Where(m => m.PersonId == targetPersonId && m.MetricKey == key)
+            .OrderByDescending(m => m.MinuteAt)
+            .Select(m => m.Avg)
+            .FirstAsync(ct);
+      result.Add(new MetricOverview(key, firstAt, lastAt, (hasRaw ? r.Count : 0) + (hasFolded ? f.Count : 0), lastValue));
     }
     return result;
   }

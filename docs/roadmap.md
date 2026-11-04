@@ -42,6 +42,9 @@ green with it set), Flutter 527. `flutter analyze` and the backend build have ze
   themself and sees only what they may see. Every tool call is audited.
 - **Export**: a redacted Markdown summary for a cloud model (no name, age band, relative days,
   notes off by default, the person picks what goes in) and a full JSON export of their own data.
+- **Retention**: heart rate is kept reading by reading for 12 months (the admin's choice, 4 months
+  to for ever), then one row a minute, so a watch adds about 6 MB a month instead of 600 MB.
+  Nightly, audited, `docs/retention-design.md`.
 
 ## Owner steps
 
