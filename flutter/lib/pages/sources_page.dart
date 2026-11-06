@@ -216,12 +216,45 @@ class _SyncCard extends StatelessWidget {
           ),
           _ProgressLine(collector.progress),
           AttentionLine(error ?? ''),
+          if (collector.backgroundLimited)
+            _BackgroundLimitedLine(collector: collector),
         ],
       ),
     );
   }
 
   static String _rows(int n) => n == 1 ? 'reading' : 'readings';
+}
+
+/// Android holds the closed-app send for an app it thinks is seldom used.
+/// Unrestricted battery usage lifts that.
+class _BackgroundLimitedLine extends StatelessWidget {
+  final CollectorProvider collector;
+
+  const _BackgroundLimitedLine({required this.collector});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.x4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Android may hold readings until you open the app. To send them '
+            'while it is closed, set App battery usage to Unrestricted.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: Space.x2),
+          TextButton(
+            onPressed: collector.openBatterySettings,
+            child: const Text('Open battery settings'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProgressLine extends StatelessWidget {

@@ -16,6 +16,8 @@ class FakeHealthCollector implements HealthCollector {
   final List<String?> cursorsSeen = [];
   final List<DateTime?> backfillsSeen = [];
   Set<MetricKey>? requested;
+  bool limited = false;
+  int batterySettingsOpened = 0;
   Object? collectError;
   final StreamController<void> _changes = StreamController<void>.broadcast();
 
@@ -55,6 +57,12 @@ class FakeHealthCollector implements HealthCollector {
 
   @override
   Future<String> deviceName() async => 'Test phone';
+
+  @override
+  Future<bool> backgroundLimited() async => limited;
+
+  @override
+  Future<void> openBatterySettings() async => batterySettingsOpened++;
 
   Future<void> close() => _changes.close();
 }
