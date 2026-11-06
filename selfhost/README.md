@@ -46,3 +46,33 @@ docker compose -f selfhost/compose.yaml config          # the file parses and th
 bash -n selfhost/init-secrets.sh
 scripts/smoke.sh http://127.0.0.1:8080                  # version and health against a running stack
 ```
+
+## Disk space on Windows (WSL 2)
+
+Sample retention (`docs/retention-design.md`) folds old heart rate into one row a minute and then
+rewrites the month's partition with `VACUUM FULL`, so Postgres really does return the space to
+the filesystem it runs on. On Windows that filesystem lives in a virtual disk file: `ext4.vhdx`
+for a WSL distro (under `%LOCALAPPDATA%\Packages\<distro>\LocalState\` or wherever it was
+imported), `docker_data.vhdx` for Docker Desktop (under `%LOCALAPPDATA%\Docker\wsl\disk\`). A
+virtual disk grows as it fills but does not shrink by itself when files inside it get smaller,
+so Windows' free space does not come back until the disk is compacted.
+
+Either once, with WSL 2.0 or later, mark the disk sparse so freed space goes back on its own:
+
+```powershell
+wsl --shutdown
+wsl --manage Ubuntu --set-sparse true
+```
+
+Or compact it by hand after a large fold. Inside the distro run `sudo fstrim -av`, then from an
+elevated PowerShell:
+
+```powershell
+wsl --shutdown
+Optimize-VHD -Path "$env:LOCALAPPDATA\Packages\<distro>\LocalState\ext4.vhdx" -Mode Full
+```
+
+`Optimize-VHD` needs the Hyper-V tools; without them, `diskpart` does the same with
+`select vdisk file="<path to the vhdx>"`, `attach vdisk readonly`, `compact vdisk`,
+`detach vdisk`. Stop the stack first (`docker compose stop`). On Linux and macOS hosts there is
+nothing to do.

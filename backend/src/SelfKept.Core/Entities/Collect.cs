@@ -159,6 +159,50 @@ public class Sample
   public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>
+/// The intraday metrics whose old raw rows are folded into one row per minute per source
+/// (docs/retention-design.md). Each must be an instant metric with an averaged daily summary, so
+/// the daily row can be rebuilt exactly from minutes.
+/// </summary>
+public static class DenseMetrics
+{
+  public static readonly IReadOnlyList<string> Keys = [MetricKeys.HeartRateBpm];
+
+  public static bool Contains(string metricKey) => Keys.Contains(metricKey, StringComparer.Ordinal);
+}
+
+/// <summary>
+/// The readings of one dense metric from one source in one UTC minute, folded out of the raw
+/// sample table once the month is older than the retention window. Written only by SampleRetention.
+/// </summary>
+public class SampleMinute
+{
+  public Guid Id { get; set; }
+  public Guid PersonId { get; set; }
+  public Guid SourceId { get; set; }
+  public string MetricKey { get; set; } = string.Empty;
+  public DateTime MinuteAt { get; set; }
+  public double Avg { get; set; }
+  public double Min { get; set; }
+  public double Max { get; set; }
+  public int Count { get; set; }
+}
+
+/// <summary>One folded month (its first day, UTC) and when its partition was last rewritten.</summary>
+public class SampleRollupMonth
+{
+  public DateOnly Month { get; set; }
+  public DateTime RolledAt { get; set; }
+
+  /// <summary>Raw rows folded into this month over every run that touched it.</summary>
+  public long RawRows { get; set; }
+
+  /// <summary>Minute rows the month holds in sample_minute.</summary>
+  public long MinuteRows { get; set; }
+
+  public DateTime? CompactedAt { get; set; }
+}
+
 public class Workout
 {
   public Guid Id { get; set; }

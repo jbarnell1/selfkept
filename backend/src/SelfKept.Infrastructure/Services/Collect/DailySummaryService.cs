@@ -5,7 +5,8 @@ namespace SelfKept.Infrastructure.Services.Collect;
 
 /// <summary>
 /// Recomputes each touched (metric, day) from the samples in the database rather than adding
-/// deltas, so a resent batch, a deleted check-in or a late sample all leave the row correct.
+/// deltas, so a resent batch, a deleted check-in or a late sample all leave the row correct. For a
+/// dense metric the folded minutes of the day count too (docs/retention-design.md).
 /// </summary>
 public sealed class DailySummaryService : IDailySummaryService
 {
@@ -32,7 +33,11 @@ public sealed class DailySummaryService : IDailySummaryService
       if (!DailySummaryRules.HasRule(metricKey)) continue;
       var (fromUtc, toUtc) = DayBoundaries.UtcWindow(day, zone);
       var samples = await _samples.GetOwnInWindowAsync(personId, metricKey, fromUtc, toUtc, DailySummaryRules.AttributesByEnd(metricKey), ct);
-      var row = DailySummaryRules.Derive(personId, metricKey, day, samples, now);
+      // A late reading for a folded day must not replace the day with just itself.
+      var minutes = DenseMetrics.Contains(metricKey)
+        ? await _samples.GetOwnMinutesInWindowAsync(personId, metricKey, fromUtc, toUtc, ct)
+        : [];
+      var row = DailySummaryRules.Derive(personId, metricKey, day, samples, now, minutes);
       if (row == null)
       {
         await _summaries.DeleteAsync(personId, metricKey, day, ct);

@@ -16,6 +16,7 @@ import 'package:selfkept/providers/oura_app_provider.dart';
 import 'package:selfkept/providers/oura_provider.dart';
 import 'package:selfkept/providers/profile_provider.dart';
 import 'package:selfkept/providers/recent_problems_provider.dart';
+import 'package:selfkept/providers/retention_provider.dart';
 import 'package:selfkept/providers/server_settings.dart';
 import 'package:selfkept/providers/setup_provider.dart';
 import 'package:selfkept/providers/sources_provider.dart';
@@ -29,6 +30,7 @@ import 'package:selfkept/services/household_service.dart';
 import 'package:selfkept/services/ingest_service.dart';
 import 'package:selfkept/services/insights_service.dart';
 import 'package:selfkept/services/diagnostics_service.dart';
+import 'package:selfkept/services/retention_service.dart';
 import 'package:selfkept/services/integration_service.dart';
 import 'package:selfkept/services/labs_service.dart';
 import 'package:selfkept/services/oura_service.dart';
@@ -74,6 +76,7 @@ class TestHarness {
   final OuraAppProvider ouraApp;
   final SetupProvider setup;
   final RecentProblemsProvider recentProblems;
+  final RetentionProvider retention;
   final SsoProvider sso;
 
   /// Stands in for the browser everywhere a page opens a link.
@@ -103,6 +106,7 @@ class TestHarness {
     required this.ouraApp,
     required this.setup,
     required this.recentProblems,
+    required this.retention,
     required this.sso,
     required this.openUrl,
   });
@@ -197,6 +201,10 @@ class TestHarness {
         service: DiagnosticsService(client),
         auth: auth,
       ),
+      retention: RetentionProvider(
+        service: RetentionService(client),
+        auth: auth,
+      ),
       sso: SsoProvider(
         service: SsoService(client),
         auth: auth,
@@ -233,6 +241,7 @@ class TestHarness {
         ChangeNotifierProvider.value(value: ouraApp),
         ChangeNotifierProvider.value(value: setup),
         ChangeNotifierProvider.value(value: recentProblems),
+        ChangeNotifierProvider.value(value: retention),
         ChangeNotifierProvider.value(value: sso),
         Provider<UrlOpener>.value(value: openUrl),
       ],
@@ -247,6 +256,7 @@ class TestHarness {
 
   void dispose() {
     sso.dispose();
+    retention.dispose();
     recentProblems.dispose();
     setup.dispose();
     ouraApp.dispose();

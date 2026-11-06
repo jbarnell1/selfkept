@@ -63,3 +63,16 @@ public enum CredentialSource
   /// <summary>Saved from the app by an admin, encrypted in the database.</summary>
   App,
 }
+
+/// <summary>Where a server setting's value comes from.</summary>
+public enum SettingSource
+{
+  /// <summary>Nobody set it; the built-in default applies.</summary>
+  Default,
+
+  /// <summary>The server's environment (.env). Read-only from the app.</summary>
+  Environment,
+
+  /// <summary>Saved from the app by an admin, encrypted in the database.</summary>
+  App,
+}
