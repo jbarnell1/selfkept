@@ -1,9 +1,13 @@
 package app.selfkept.selfkept.health
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
 import android.util.JsonReader
@@ -71,6 +75,8 @@ import kotlin.reflect.KClass
  *     deviceInfo()                                  -> { name, platform, osVersion }
  *     requestPermissions({ metrics: [String] })     -> "granted" | "partial" | "denied" | "unavailable"
  *     collectSince({ cursor, backfillFrom, limit }) -> { samples, workouts, cursor, hasMore }
+ *     backgroundLimited()                           -> Boolean
+ *     openBatterySettings()                         -> null
  *   EventChannel   app.selfkept/health/changes
  *     emits once when the periodic worker has written new rows.
  *
@@ -188,7 +194,38 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
                 val limit = call.argument<Int>("limit") ?: 1500
                 collectSince(cursor, backfillFrom, limit, result)
             }
+            "backgroundLimited" -> result.success(backgroundLimited())
+            "openBatterySettings" -> {
+                openBatterySettings()
+                result.success(null)
+            }
             else -> result.notImplemented()
+        }
+    }
+
+    /**
+     * True when Android may hold the closed-app send. Without the battery
+     * exemption, Adaptive Battery moves an app that is seldom opened into the
+     * rare standby bucket, where its jobs still run but get no network.
+     */
+    private fun backgroundLimited(): Boolean {
+        val activities = context.getSystemService(ActivityManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && activities?.isBackgroundRestricted == true) {
+            return true
+        }
+        val power = context.getSystemService(PowerManager::class.java) ?: return false
+        return !power.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    /** App info, where "App battery usage" sets Unrestricted. */
+    private fun openBatterySettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(Uri.fromParts("package", context.packageName, null))
+        val current = activity
+        if (current != null) {
+            current.startActivity(intent)
+        } else {
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 

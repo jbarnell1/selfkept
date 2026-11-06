@@ -204,6 +204,20 @@ void main() {
     expect(collector.cursorsSeen.length, greaterThan(afterChange));
   });
 
+  test('a battery limit is read at init and again on resume', () async {
+    collector.limited = true;
+    await h.collector.init();
+    expect(h.collector.backgroundLimited, isTrue);
+
+    await h.collector.openBatterySettings();
+    expect(collector.batterySettingsOpened, 1);
+
+    collector.limited = false;
+    h.collector.onResume();
+    await Future<void>.delayed(Duration.zero);
+    expect(h.collector.backgroundLimited, isFalse);
+  });
+
   test('a collector exception is surfaced and leaves the connection', () async {
     await h.collector.init();
     await h.collector.connect();

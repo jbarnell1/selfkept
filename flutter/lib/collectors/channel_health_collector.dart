@@ -94,6 +94,28 @@ class ChannelHealthCollector implements HealthCollector {
   }
 
   @override
+  Future<bool> backgroundLimited() async {
+    try {
+      return await _methods.invokeMethod<bool>('backgroundLimited') ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> openBatterySettings() async {
+    try {
+      await _methods.invokeMethod<void>('openBatterySettings');
+    } on MissingPluginException {
+      return;
+    } on PlatformException {
+      return;
+    }
+  }
+
+  @override
   Stream<void> get changes => _changes ??= _events
       .receiveBroadcastStream()
       .map<void>((_) {})
