@@ -15,6 +15,9 @@ namespace SelfKept.Infrastructure.Services.Interpret;
 public sealed class TodayService : ITodayService
 {
   private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+  /// <summary>How far back Today looks for the last reading of a metric that missed last night.</summary>
+  public const int GapLookbackDays = 14;
+
   private static readonly string[] ReadinessMetrics =
     [MetricKeys.SleepStage, MetricKeys.HrvRmssdMs, MetricKeys.HrvSdnnMs, MetricKeys.RestingHrBpm];
 
@@ -61,7 +64,7 @@ public sealed class TodayService : ITodayService
     // The insights gate: both reads return null when the viewer has no insights grant.
     var baselines = await _baselines.GetLatestPerMetricForInsightsAsync(viewerPersonId, targetPersonId, ct);
     if (baselines == null) return null;
-    var recent = await _summaries.GetRangeForInsightsAsync(viewerPersonId, targetPersonId, ReadinessMetrics, today.AddDays(-1), today, ct);
+    var recent = await _summaries.GetRangeForInsightsAsync(viewerPersonId, targetPersonId, ReadinessMetrics, today.AddDays(-(GapLookbackDays - 1)), today, ct);
     if (recent == null) return null;
     var stored = await _insights.ListAsync(viewerPersonId, targetPersonId, today.AddDays(-1), today, includeDismissed: false, ct);
     if (stored == null) return null;
@@ -84,7 +87,11 @@ public sealed class TodayService : ITodayService
     var readiness = new ReadinessDto(
       Band(byMetric, hrvKey, LastNight(recent, hrvKey, today)),
       Band(byMetric, MetricKeys.RestingHrBpm, LastNight(recent, MetricKeys.RestingHrBpm, today)),
-      Band(byMetric, MetricKeys.SleepStage, sleepMinutes));
+      Band(byMetric, MetricKeys.SleepStage, sleepMinutes),
+      new ReadinessGapsDto(
+        Gap(byMetric, recent, hrvKey, today),
+        Gap(byMetric, recent, MetricKeys.RestingHrBpm, today),
+        Gap(byMetric, recent, MetricKeys.SleepStage, today)));
 
     // The latest check-in follows the checkins grant; null means not shared (or none).
     var checkins = await _checkins.ListAsync(viewerPersonId, targetPersonId, now.AddDays(-30), now.AddMinutes(1), 1, ct);
@@ -161,6 +168,15 @@ public sealed class TodayService : ITodayService
   {
     var mine = rows.Where(r => r.MetricKey == metricKey).ToList();
     return (mine.FirstOrDefault(r => r.Day == today) ?? mine.FirstOrDefault(r => r.Day == today.AddDays(-1)))?.Value;
+  }
+
+  /// <summary>An established metric with nothing for last night: the last day it had a reading, if any in the window.</summary>
+  private static ReadinessGapDto? Gap(IReadOnlyDictionary<string, Baseline> baselines, IReadOnlyList<DailySummary> rows, string metricKey, DateOnly today)
+  {
+    if (!baselines.TryGetValue(metricKey, out var b) || !b.IsEstablished) return null;
+    if (LastNight(rows, metricKey, today) != null) return null;
+    var last = rows.Where(r => r.MetricKey == metricKey).Select(r => (DateOnly?)r.Day).Max();
+    return new ReadinessGapDto(last);
   }
 
   private static string? Band(IReadOnlyDictionary<string, Baseline> baselines, string metricKey, double? value)

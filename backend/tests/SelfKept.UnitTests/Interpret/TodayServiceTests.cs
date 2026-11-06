@@ -128,6 +128,40 @@ public class TodayServiceTests : IAsyncLifetime
     today.Readiness.Sleep.Should().BeNull();
     today.SleepMinutes.Should().Be(480);
     today.Sentence.Should().Contain("You slept 8 h last night").And.Contain("Still learning your normal");
+    today.Readiness.Gaps!.Hrv.Should().BeNull("there is no range yet, so nothing is missing");
+  }
+
+  [Fact]
+  public async Task Get_WatchOffForTwoNights_NamesTheLastDayWithAReading()
+  {
+    // Ranges are ready, but nothing arrived for the last two nights (a flat watch).
+    var rows = new List<DailySummary>();
+    for (var i = 0; i < 28; i++)
+    {
+      var day = Today.AddDays(-30 + i);
+      rows.Add(new DailySummary { PersonId = _owner.Id, MetricKey = "hrv_sdnn_ms", Day = day, Value = 50 + (i % 5), Count = 1, ComputedAt = Now.UtcDateTime });
+      rows.Add(new DailySummary { PersonId = _owner.Id, MetricKey = "sleep_stage", Day = day, Value = 470 + (i % 4) * 5, Count = 4, ComputedAt = Now.UtcDateTime });
+    }
+    await Summaries.UpsertManyAsync(rows);
+    await Baselines.UpsertManyAsync(await new BaselineService(Summaries, _clock).ComputeAsync(_owner.Id, Today.AddDays(-1)));
+
+    var today = await Service.GetAsync(_owner.Id, _owner.Id);
+
+    today!.Readiness.Hrv.Should().BeNull();
+    today.Readiness.Sleep.Should().BeNull();
+    today.Readiness.Gaps!.Hrv!.LastDay.Should().Be(Today.AddDays(-3));
+    today.Readiness.Gaps.Sleep!.LastDay.Should().Be(Today.AddDays(-3));
+    today.Readiness.Gaps.RestingHr.Should().BeNull("resting HR never had a range");
+  }
+
+  [Fact]
+  public async Task Get_WithLastNight_HasNoGaps()
+  {
+    await SeedEstablishedAsync();
+
+    var today = await Service.GetAsync(_owner.Id, _owner.Id);
+
+    today!.Readiness.Gaps.Should().Be(new ReadinessGapsDto(null, null, null));
   }
 
   [Fact]

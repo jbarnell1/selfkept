@@ -108,6 +108,13 @@ abstract class HealthCollector {
 
   /// Something to call this phone on the Sources screen.
   Future<String> deviceName();
+
+  /// True when the platform may hold sends while the app is closed (Android
+  /// without the battery exemption).
+  Future<bool> backgroundLimited();
+
+  /// Opens the system page where the user lifts that limit.
+  Future<void> openBatterySettings();
 }
 
 /// Web and desktop: nothing to read.
@@ -135,6 +142,12 @@ class NoopHealthCollector implements HealthCollector {
 
   @override
   Future<String> deviceName() async => 'This device';
+
+  @override
+  Future<bool> backgroundLimited() async => false;
+
+  @override
+  Future<void> openBatterySettings() async {}
 }
 
 /// Picks the collector for the running platform.

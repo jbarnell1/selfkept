@@ -75,6 +75,20 @@ void main() {
         expect(t.readiness.isEmpty, isTrue);
         expect(t.cards.map((c) => c.id), ['a', 'b']);
       });
+
+      test('a gap carries the last day with a reading', () {
+        final t = Today.fromJson(
+          Fixtures.today(
+            pascal: pascal,
+            hrv: null,
+            hrvGap: true,
+            hrvLastDay: '2026-10-26',
+          ),
+        );
+        expect(t.readiness.hrv, isNull);
+        expect(t.readiness.hrvGap?.lastDay, DateTime(2026, 10, 26));
+        expect(t.readiness.sleepGap, isNull);
+      });
     });
 
     group('Trend models ($casing)', () {

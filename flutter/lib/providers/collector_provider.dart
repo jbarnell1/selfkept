@@ -89,6 +89,7 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
   String? _error;
   DateTime? _lastCollectAt;
   int _lastCollected = 0;
+  bool _backgroundLimited = false;
   bool _collectRequested = false;
   Future<void>? _inFlight;
   StreamSubscription<void>? _changes;
@@ -137,9 +138,13 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
   /// Rows the last run read from the store.
   int get lastCollected => _lastCollected;
 
+  /// True when the phone may hold sends while the app is closed.
+  bool get backgroundLimited => _backgroundLimited;
+
   /// Checks the platform and restores a saved connection. Call once after
-  /// sign-in; safe to call again.
-  Future<void> init() async {
+  /// sign-in; safe to call again. [collect] false leaves the first pass to
+  /// the caller (the background upload awaits it).
+  Future<void> init({bool collect = true}) async {
     final available = await _collector.isAvailable();
     if (!available) {
       _status = CollectorStatus.unavailable;
@@ -147,12 +152,13 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
       return;
     }
     await _restore();
+    _backgroundLimited = await _collector.backgroundLimited();
     _changes ??= _collector.changes.listen((_) => collectAndFlush());
     _status = _sourceId == null
         ? CollectorStatus.disconnected
         : CollectorStatus.connected;
     notify();
-    if (_sourceId != null) unawaited(collectAndFlush());
+    if (collect && _sourceId != null) unawaited(collectAndFlush());
   }
 
   /// Asks for permissions, registers the source and runs the first collect
@@ -226,7 +232,19 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
 
   /// Called by the app when it returns to the foreground.
   void onResume() {
+    unawaited(_checkBackground());
     if (_sourceId != null) unawaited(collectAndFlush());
+  }
+
+  /// Opens the battery page. [onResume] reads the answer on the way back.
+  Future<void> openBatterySettings() => _collector.openBatterySettings();
+
+  Future<void> _checkBackground() async {
+    if (!isAvailable) return;
+    final limited = await _collector.backgroundLimited();
+    if (limited == _backgroundLimited) return;
+    _backgroundLimited = limited;
+    notify();
   }
 
   /// Reads new data page by page, queueing and flushing each page. Collects

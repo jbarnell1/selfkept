@@ -178,6 +178,34 @@ void main() {
       expect(find.text('The server could not be reached.'), findsOneWidget);
       expect(find.text('Sync now'), findsOneWidget);
     });
+
+    testWidgets('a battery limit shows a way to the battery settings', (
+      tester,
+    ) async {
+      await usePhoneSize(tester);
+      collector.limited = true;
+      collector.pages.add(CollectResult(samples: hrSamples(1), cursor: 'c1'));
+      await tester.pumpWidget(h.wrap(const SourcesPage()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Connect Apple Health'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Open battery settings'));
+      await tester.tap(find.text('Open battery settings'));
+      await tester.pump();
+      expect(collector.batterySettingsOpened, 1);
+    });
+
+    testWidgets('no battery limit, no battery line', (tester) async {
+      await usePhoneSize(tester);
+      collector.pages.add(CollectResult(samples: hrSamples(1), cursor: 'c1'));
+      await tester.pumpWidget(h.wrap(const SourcesPage()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Connect Apple Health'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open battery settings'), findsNothing);
+    });
   });
 
   group('Oura card', () {

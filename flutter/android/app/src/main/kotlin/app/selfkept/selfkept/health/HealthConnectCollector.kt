@@ -1,11 +1,17 @@
 package app.selfkept.selfkept.health
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
+import android.util.JsonReader
+import android.util.JsonToken
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -52,6 +58,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.io.File
 import java.time.Duration
 import java.time.Instant
@@ -68,6 +75,8 @@ import kotlin.reflect.KClass
  *     deviceInfo()                                  -> { name, platform, osVersion }
  *     requestPermissions({ metrics: [String] })     -> "granted" | "partial" | "denied" | "unavailable"
  *     collectSince({ cursor, backfillFrom, limit }) -> { samples, workouts, cursor, hasMore }
+ *     backgroundLimited()                           -> Boolean
+ *     openBatterySettings()                         -> null
  *   EventChannel   app.selfkept/health/changes
  *     emits once when the periodic worker has written new rows.
  *
@@ -79,7 +88,8 @@ import kotlin.reflect.KClass
  * Background: see [HealthSyncWorker]. It runs every 15 minutes, reads with the
  * same [HealthReader], writes a JSON file under files/health_pending/, and
  * posts a change on [HealthChangeBus]. The next `collectSince` drains those
- * files first, then reads the live delta.
+ * files first, then reads the live delta. With the app closed, the worker
+ * starts [BackgroundUpload], whose headless engine registers this plugin too.
  */
 class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.MethodCallHandler,
     EventChannel.StreamHandler, PluginRegistry.ActivityResultListener,
@@ -184,7 +194,38 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
                 val limit = call.argument<Int>("limit") ?: 1500
                 collectSince(cursor, backfillFrom, limit, result)
             }
+            "backgroundLimited" -> result.success(backgroundLimited())
+            "openBatterySettings" -> {
+                openBatterySettings()
+                result.success(null)
+            }
             else -> result.notImplemented()
+        }
+    }
+
+    /**
+     * True when Android may hold the closed-app send. Without the battery
+     * exemption, Adaptive Battery moves an app that is seldom opened into the
+     * rare standby bucket, where its jobs still run but get no network.
+     */
+    private fun backgroundLimited(): Boolean {
+        val activities = context.getSystemService(ActivityManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && activities?.isBackgroundRestricted == true) {
+            return true
+        }
+        val power = context.getSystemService(PowerManager::class.java) ?: return false
+        return !power.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    /** App info, where "App battery usage" sets Unrestricted. */
+    private fun openBatterySettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(Uri.fromParts("package", context.packageName, null))
+        val current = activity
+        if (current != null) {
+            current.startActivity(intent)
+        } else {
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 
@@ -295,21 +336,30 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
                     reader.seedTokensFromCursor(cursor)
                     val from = backfillFrom?.let { HealthReader.parseInstant(it) }
                         ?: Instant.now().minus(Duration.ofDays(90))
-                    // Rows the worker left behind go first; they are already mapped.
-                    val staged = PendingFiles.drain(context)
-                    val remaining = (limit - staged.samples.length()).coerceAtLeast(0)
-                    val live = reader.collect(from, remaining)
+                    // Rows the worker left behind go first; they are already
+                    // mapped. The cursor Dart passes back is the one it saved
+                    // with the last page, so its claim is in the outbox.
+                    PendingFiles.settle(context, PendingFiles.claimIn(cursor))
+                    val staged = PendingFiles.drain(context, limit)
+                    val remaining = if (PendingFiles.hasAny(context)) 0 else limit - staged.samples.length()
+                    val live = if (remaining > 0) reader.collect(from, remaining) else null
                     val samples = JSONArray()
                     for (i in 0 until staged.samples.length()) samples.put(staged.samples.get(i))
-                    for (i in 0 until live.samples.length()) samples.put(live.samples.get(i))
                     val workouts = JSONArray()
                     for (i in 0 until staged.workouts.length()) workouts.put(staged.workouts.get(i))
-                    for (i in 0 until live.workouts.length()) workouts.put(live.workouts.get(i))
+                    if (live != null) {
+                        for (i in 0 until live.samples.length()) samples.put(live.samples.get(i))
+                        for (i in 0 until live.workouts.length()) workouts.put(live.workouts.get(i))
+                    }
+                    val next = JSONObject(reader.cursor())
+                    staged.claim?.let { next.put(PendingFiles.CURSOR_KEY, it) }
                     JSONObject()
                         .put("samples", samples)
                         .put("workouts", workouts)
-                        .put("cursor", reader.cursor())
-                        .put("hasMore", live.hasMore)
+                        .put("cursor", next.toString())
+                        // Without a live read there is more: staged rows left,
+                        // or a live delta not yet read.
+                        .put("hasMore", live?.hasMore ?: true)
                 }
                 result.success(JsonBridge.toFlutter(payload))
             } catch (e: Exception) {
@@ -320,8 +370,8 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
 }
 
 /**
- * Lets the worker, which has no Flutter engine of its own, poke the plugin
- * when it is alive in the same process. Listeners are invoked on the calling
+ * Lets the worker poke the plugin when an engine is alive in the same
+ * process. Listeners are invoked on the calling
  * thread; the plugin hops to main.
  */
 object HealthChangeBus {
@@ -340,17 +390,34 @@ object HealthChangeBus {
 /**
  * Rows the worker collected while Dart was not running. One file per worker
  * run under files/health_pending/, each a JSON object { samples, workouts }.
- * Files are deleted as they are drained; Dart writes the rows to its outbox
- * before anything is sent, so a crash between the two costs one re-read of
- * the same records, which the server deduplicates on sourceUid.
+ *
+ * Days of files can be far larger than the heap, so [drain] streams them and
+ * hands over at most one page of samples, splitting a file when it has to.
+ * Handed-over rows are claimed, not deleted: the claim id rides in the cursor
+ * Dart saves after the page is in its outbox, and [settle] deletes a claim
+ * only when that cursor comes back. A claim that never comes back (the
+ * process died first) returns to pending, and the server deduplicates the
+ * re-send on sourceUid.
  */
 object PendingFiles {
     private const val DIR = "health_pending"
+    private const val CLAIMED = ".claimed-"
 
-    class Drained(val samples: JSONArray, val workouts: JSONArray)
+    /** The cursor key that carries the claim of the page it came with. */
+    const val CURSOR_KEY = "staged"
+
+    class Drained(val samples: JSONArray, val workouts: JSONArray, val claim: String?)
 
     fun dir(context: Context): File = File(context.filesDir, DIR).also { it.mkdirs() }
 
+    fun claimIn(cursor: String?): String? = try {
+        if (cursor.isNullOrBlank()) null else JSONObject(cursor).optString(CURSOR_KEY).takeIf { it.isNotEmpty() }
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Synchronized with [settle], which deletes .tmp files. */
+    @Synchronized
     fun write(context: Context, samples: JSONArray, workouts: JSONArray) {
         if (samples.length() == 0 && workouts.length() == 0) return
         val file = File(dir(context), "${System.currentTimeMillis()}.json")
@@ -361,24 +428,127 @@ object PendingFiles {
         }
     }
 
+    fun hasAny(context: Context): Boolean = pending(context).isNotEmpty()
+
+    private fun pending(context: Context): List<File> =
+        dir(context).listFiles { f -> f.name.endsWith(".json") }?.sortedBy { it.name } ?: emptyList()
+
+    /**
+     * Deletes the files of claim [acked], whose rows Dart has saved, and
+     * returns every other claimed file to pending. Leftover .tmp files are
+     * half-written and go.
+     */
     @Synchronized
-    fun drain(context: Context): Drained {
+    fun settle(context: Context, acked: String?) {
+        for (file in dir(context).listFiles() ?: emptyArray()) {
+            val at = file.name.indexOf(CLAIMED)
+            when {
+                file.name.endsWith(".tmp") -> file.delete()
+                at < 0 -> Unit
+                file.name.substring(at + CLAIMED.length) == acked -> file.delete()
+                else -> file.renameTo(File(file.parentFile, file.name.substring(0, at)))
+            }
+        }
+    }
+
+    /** Claims up to [limit] staged samples, oldest file first. */
+    @Synchronized
+    fun drain(context: Context, limit: Int): Drained {
         val samples = JSONArray()
         val workouts = JSONArray()
-        val files = dir(context).listFiles { f -> f.name.endsWith(".json") }?.sortedBy { it.name } ?: emptyList()
-        for (file in files) {
+        val claim = System.currentTimeMillis().toString()
+        var claimed = false
+        for (file in pending(context)) {
+            val room = limit - samples.length()
+            if (room <= 0) break
             try {
-                val body = JSONObject(file.readText())
-                val s = body.optJSONArray("samples") ?: JSONArray()
-                val w = body.optJSONArray("workouts") ?: JSONArray()
-                for (i in 0 until s.length()) samples.put(s.get(i))
-                for (i in 0 until w.length()) workouts.put(w.get(i))
+                take(file, room, claim, samples, workouts)
+                claimed = true
             } catch (_: Exception) {
                 // A damaged file is dropped rather than blocking every sync.
+                file.delete()
             }
-            file.delete()
         }
-        return Drained(samples, workouts)
+        return Drained(samples, workouts, if (claimed) claim else null)
+    }
+
+    /**
+     * Streams [file], adding at most [room] samples and all its workouts to
+     * [samples] and [workouts]. A file that fits is renamed to the claim; a
+     * larger one is split into a claimed part and the rest, which stays
+     * pending under the original name.
+     */
+    private fun take(file: File, room: Int, claim: String, samples: JSONArray, workouts: JSONArray) {
+        val taken = JSONArray()
+        val takenWorkouts = JSONArray()
+        val rest = File(file.path + ".rest.tmp")
+        var restCount = 0
+        rest.bufferedWriter().use { out ->
+            out.write("{\"workouts\":[],\"samples\":[")
+            JsonReader(file.bufferedReader()).use { reader ->
+                reader.beginObject()
+                while (reader.hasNext()) {
+                    when (reader.nextName()) {
+                        "samples" -> {
+                            reader.beginArray()
+                            while (reader.hasNext()) {
+                                val row = readValue(reader)
+                                if (taken.length() < room) {
+                                    taken.put(row)
+                                } else {
+                                    if (restCount > 0) out.write(",")
+                                    out.write(row.toString())
+                                    restCount += 1
+                                }
+                            }
+                            reader.endArray()
+                        }
+                        "workouts" -> {
+                            reader.beginArray()
+                            while (reader.hasNext()) takenWorkouts.put(readValue(reader))
+                            reader.endArray()
+                        }
+                        else -> reader.skipValue()
+                    }
+                }
+                reader.endObject()
+            }
+            out.write("]}")
+        }
+        if (restCount == 0) {
+            rest.delete()
+            if (!file.renameTo(File(file.path + CLAIMED + claim))) throw IllegalStateException("claim failed")
+        } else {
+            // The claimed part first: a crash before the rest replaces the
+            // file costs a re-send, never a loss.
+            val part = File(file.parentFile, file.name.removeSuffix(".json") + "-" + claim + ".json" + CLAIMED + claim)
+            File(part.path + ".tmp").apply {
+                writeText(JSONObject().put("samples", taken).put("workouts", takenWorkouts).toString())
+                renameTo(part)
+            }
+            if (!rest.renameTo(file)) throw IllegalStateException("split failed")
+        }
+        for (i in 0 until taken.length()) samples.put(taken.get(i))
+        for (i in 0 until takenWorkouts.length()) workouts.put(takenWorkouts.get(i))
+    }
+
+    /** One JSON value from [reader], as the org.json types the mapper wrote. */
+    private fun readValue(reader: JsonReader): Any = when (reader.peek()) {
+        JsonToken.BEGIN_OBJECT -> JSONObject().also { obj ->
+            reader.beginObject()
+            while (reader.hasNext()) obj.put(reader.nextName(), readValue(reader))
+            reader.endObject()
+        }
+        JsonToken.BEGIN_ARRAY -> JSONArray().also { arr ->
+            reader.beginArray()
+            while (reader.hasNext()) arr.put(readValue(reader))
+            reader.endArray()
+        }
+        // JSONTokener picks Int, Long or Double from the text, as JSONObject(String) did.
+        JsonToken.NUMBER -> JSONTokener(reader.nextString()).nextValue()
+        JsonToken.BOOLEAN -> reader.nextBoolean()
+        JsonToken.NULL -> JSONObject.NULL.also { reader.nextNull() }
+        else -> reader.nextString()
     }
 }
 
@@ -476,7 +646,8 @@ class HealthReader(private val context: Context) {
         if (cursor.isNullOrBlank() || state.length() > 0) return
         try {
             val parsed = JSONObject(cursor)
-            for (key in parsed.keys()) state.put(key, parsed.getJSONObject(key))
+            // Only the per-type entries; the cursor also carries PendingFiles.CURSOR_KEY.
+            for (key in parsed.keys()) parsed.optJSONObject(key)?.let { state.put(key, it) }
             save()
         } catch (_: Exception) {
             // Not ours (or damaged): start fresh.
