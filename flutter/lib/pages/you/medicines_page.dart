@@ -33,12 +33,29 @@ class MedicinesPage extends StatefulWidget {
   static const String stoppedTitle = 'Stopped';
   static const String substancesLabel = 'Noted for your readings';
 
-  /// "Daily", "Weekly, Sunday mornings".
+  /// "Daily", "Weekly, Sunday mornings", "As needed. For the odd headache".
+  /// The note is kept as typed: one that starts with a small letter carries
+  /// on the schedule's sentence, one with a capital starts its own.
   static String scheduleLine(Medication m) {
     final note = m.scheduleNote?.trim() ?? '';
-    return note.isEmpty
-        ? m.schedule.displayName
-        : '${m.schedule.displayName}, $note';
+    if (note.isEmpty) return m.schedule.displayName;
+    final first = note[0];
+    final carriesOn = first != first.toUpperCase();
+    return carriesOn
+        ? '${m.schedule.displayName}, $note'
+        : '${m.schedule.displayName}. $note';
+  }
+
+  /// "Medicine. Generic. As needed. For the odd headache.": each part a
+  /// sentence, with a full stop at the end unless the note already has one.
+  static String kindLine(Medication m) {
+    final line = [
+      m.kind.displayName,
+      if (m.generic == true) 'Generic',
+      if (m.generic == false) 'Name brand',
+      scheduleLine(m),
+    ].join('. ');
+    return RegExp(r'[.!?]$').hasMatch(line) ? line : '$line.';
   }
 
   /// "Magnesium 200 mg".
@@ -149,12 +166,7 @@ class _MedicationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dates = DateFormat.yMMMd();
-    final kindLine = [
-      item.kind.displayName,
-      if (item.generic == true) 'Generic',
-      if (item.generic == false) 'Name brand',
-      MedicinesPage.scheduleLine(item),
-    ].join('. ');
+    final kindLine = MedicinesPage.kindLine(item);
     final dose = item.dose?.trim() ?? '';
     final started = item.startedOn;
     final stopped = item.stoppedOn;

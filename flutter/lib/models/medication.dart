@@ -134,8 +134,33 @@ class Medication {
     for (final item in asJsonList(body)) Medication.fromJson(item),
   ];
 
-  /// "vitamin_d" reads as "Vitamin d"; good enough for a small chip.
+  /// The server's substance tags with the names a person reads; the same
+  /// names as SubstanceTags.DisplayName on the server.
+  static const Map<String, String> _substanceNames = {
+    'testosterone': 'Testosterone',
+    'statin': 'Statin',
+    'thyroid': 'Thyroid hormone',
+    'biotin': 'Biotin',
+    'iron': 'Iron',
+    'vitamin_d': 'Vitamin D',
+    'creatine': 'Creatine',
+    'glp1': 'GLP-1',
+    'beta_blocker': 'Beta blocker',
+    'estrogen': 'Estrogen',
+    'metformin': 'Metformin',
+    'zinc': 'Zinc',
+    'magnesium': 'Magnesium',
+    'omega_3': 'Omega-3',
+    'vitamin_b12': 'Vitamin B12',
+    'caffeine': 'Caffeine',
+    'melatonin': 'Melatonin',
+  };
+
+  /// "vitamin_d" reads as "Vitamin D", "omega_3" as "Omega-3". A tag the
+  /// client does not know reads as its words with a capital.
   static String substanceLabel(String tag) {
+    final known = _substanceNames[tag];
+    if (known != null) return known;
     if (tag.isEmpty) return tag;
     final spaced = tag.replaceAll('_', ' ');
     return spaced[0].toUpperCase() + spaced.substring(1);

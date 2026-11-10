@@ -69,6 +69,42 @@ public class LabReviewFlowTests
   }
 
   [Fact]
+  public async Task Review_PanelBeforeLacksTheMarker_ComparesWithTheLatestEarlierReadingAndNamesItsDay()
+  {
+    await using var factory = new ApiFactory();
+    var (ada, _, _, _) = await HouseholdAsync(factory);
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var oldest = today.AddDays(-200);
+    var middle = today.AddDays(-90);
+    var latest = today.AddDays(-3);
+
+    async Task<Guid> PanelAsync(DateOnly on, params object[] results)
+    {
+      var response = await ada.PostJsonAsync("/api/labs/reports", new { provider = "rythm", collectedOn = Iso(on), results });
+      response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+      return (await response.ReadJsonAsync()).GetProperty("id").GetGuid();
+    }
+
+    await PanelAsync(oldest, new { metricKey = "lab.shbg", value = 35, unit = "nmol/L" }, new { metricKey = "lab.tsh", value = 2.0, unit = "mIU/L" });
+    await PanelAsync(middle, new { metricKey = "lab.tsh", value = 2.2, unit = "mIU/L" });
+    var reportId = await PanelAsync(latest,
+      new { metricKey = "lab.shbg", value = 40, unit = "nmol/L" },
+      new { metricKey = "lab.tsh", value = 2.1, unit = "mIU/L" },
+      new { metricKey = "lab.cortisol", value = 14, unit = "ug/dL" });
+
+    var review = await (await ada.GetAsync($"/api/labs/reports/{reportId}/review")).ReadJsonAsync();
+
+    review.GetProperty("previousCollectedOn").GetString().Should().Be(Iso(middle));
+    var markers = review.GetProperty("markers").EnumerateArray().ToDictionary(m => m.GetProperty("metricKey").GetString()!);
+    markers["lab.shbg"].GetProperty("previousValue").GetDouble().Should().Be(35);
+    markers["lab.shbg"].GetProperty("previousOn").GetString().Should().Be(Iso(oldest), "the panel before had no SHBG, the one before that did");
+    markers["lab.shbg"].GetProperty("reasons").EnumerateArray().Select(r => r.GetString()).Should().NotContain("no_previous");
+    markers["lab.tsh"].GetProperty("previousOn").GetString().Should().Be(Iso(middle));
+    markers["lab.cortisol"].GetProperty("previousOn").ValueKind.Should().Be(JsonValueKind.Null);
+    markers["lab.cortisol"].GetProperty("reasons").EnumerateArray().Select(r => r.GetString()).Should().Contain("no_previous", "cortisol was never measured before");
+  }
+
+  [Fact]
   public async Task TwoPanels_Review_Timeline_Trial_Related_Overview_AndTheShareRules()
   {
     await using var factory = new ApiFactory();

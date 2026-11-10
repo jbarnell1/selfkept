@@ -70,7 +70,7 @@ Twelve markers join the 30 of the Rythm panel so a fuller panel is read in full:
 
 ## Lab review
 
-`GET /api/labs/reports/{id}/review` sets one panel against the one before it (by collected date). Each marker gets a verdict judged against how much that test varies by itself: `working`, `right_direction`, `no_clear_change`, `not_working` or `cannot_tell`, with the change, the reference change value, the reasons, the draw-condition and substance links that apply, preparation notes and, where a verified source gives one, a retest line. The definitions, the variation figures and their sources are in `docs/cross-reference.md`. Trials whose start falls between the two panels are listed with the verdicts of their markers.
+`GET /api/labs/reports/{id}/review` sets one panel against the one before it (by collected date). A marker the panel before did not include is set against the latest earlier panel that did, judged with that panel's own draw conditions, and `previousOn` names its day; `no_previous` is kept for a marker never measured before. Each marker gets a verdict judged against how much that test varies by itself: `working`, `right_direction`, `no_clear_change`, `not_working` or `cannot_tell`, with the change, the reference change value, the reasons, the draw-condition and substance links that apply, preparation notes and, where a verified source gives one, a retest line. The definitions, the variation figures and their sources are in `docs/cross-reference.md`. Trials whose start falls between the two panels are listed with the verdicts of their markers.
 
 ## Trials
 
@@ -136,6 +136,7 @@ LabReviewMarkerDto = {
   metricKey, displayName, unit,
   value: number,
   previousValue: number | null,
+  previousOn: date | null,                   // the panel before, or the latest earlier panel with this marker
   change: number | null,                     // value minus previousValue, catalogue unit
   changePercent: number | null,              // against previousValue, one decimal
   rcvPercent: number | null,                 // null without a verified variation figure
@@ -274,14 +275,14 @@ Audit: `lab.report.conditions` (collected date only), `trial.saved` and `trial.d
   ],
   "markers": [
     {
-      "metricKey": "lab.ggt", "displayName": "GGT", "unit": "U/L", "value": 28, "previousValue": 40,
+      "metricKey": "lab.ggt", "displayName": "GGT", "unit": "U/L", "value": 28, "previousValue": 40, "previousOn": "2026-08-14",
       "change": -12, "changePercent": -30, "rcvPercent": 24.7, "beyondRcv": true, "moved": "down", "wanted": "down",
       "verdict": "working", "reasons": [], "readWithCare": [],
       "variation": { "cviPercent": 8.9, "source": "Carobene 2017, Clin Chem 63(6):1141-1150 (EuBIVAS)", "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/28428356/", "caveat": null },
       "prep": [], "retest": null
     },
     {
-      "metricKey": "lab.triglycerides", "displayName": "Triglycerides", "unit": "mg/dL", "value": 168, "previousValue": 120,
+      "metricKey": "lab.triglycerides", "displayName": "Triglycerides", "unit": "mg/dL", "value": 168, "previousValue": 120, "previousOn": "2026-08-14",
       "change": 48, "changePercent": 40, "rcvPercent": null, "beyondRcv": null, "moved": "up", "wanted": "down",
       "verdict": "cannot_tell", "reasons": ["draw_conditions_differ", "no_variation_figure"],
       "readWithCare": [{ "linkId": "not_fasting_triglycerides", "from": "condition:not_fasting", "explanation": "One to six hours after a usual meal, ...", "source": "Nordestgaard 2016, ..." }],

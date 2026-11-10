@@ -78,6 +78,34 @@ void main() {
   }
 
   group('lab review', () {
+    test('a change from an older panel names the day of that reading', () {
+      final panelBefore = DateTime(2026, 8, 14);
+      final older = LabReviewMarker(
+        metricKey: 'lab.shbg',
+        unit: 'nmol/L',
+        value: 40,
+        previousValue: 35,
+        previousOn: DateTime(2026, 3, 3),
+        change: 5,
+      );
+      final sameAsPanel = LabReviewMarker(
+        metricKey: 'lab.shbg',
+        unit: 'nmol/L',
+        value: 40,
+        previousValue: 35,
+        previousOn: panelBefore,
+        change: 5,
+      );
+      expect(
+        LabReviewPage.changeLine(older, panelBefore: panelBefore),
+        'Up 5 nmol/L from 35 nmol/L on Mar 3, 2026',
+      );
+      expect(
+        LabReviewPage.changeLine(sameAsPanel, panelBefore: panelBefore),
+        'Up 5 nmol/L from 35 nmol/L',
+      );
+    });
+
     testBothThemes('verdicts, variation, conditions and trials', (
       tester,
       theme,
@@ -362,7 +390,10 @@ void main() {
       expect(find.text('Aug 14, 2026'), findsOneWidget);
       expect(find.text('Rythm · 30 results'), findsOneWidget);
       expect(find.text('Fasting, morning'), findsOneWidget);
-      expect(find.text('Taking: creatine'), findsOneWidget);
+      expect(
+        find.text('Taking: creatine, vitamin B12, vitamin D'),
+        findsOneWidget,
+      );
       expect(find.text('Weight 84.0 kg on Aug 12'), findsOneWidget);
     });
 

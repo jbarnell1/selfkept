@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:selfkept/models/medication.dart';
 import 'package:selfkept/pages/you/medicines_page.dart';
 import 'package:selfkept/utils/api_error.dart';
 import 'package:selfkept/widgets/status_views.dart';
@@ -62,16 +63,51 @@ void main() {
     expect(find.text(MedicinesPage.currentTitle), findsOneWidget);
     expect(find.text('Acme Daily Multi'), findsOneWidget);
     expect(
-      find.text('Supplement. Name brand. Daily, with breakfast'),
+      find.text('Supplement. Name brand. Daily, with breakfast.'),
       findsOneWidget,
     );
     expect(find.text('Vitamin D3 25 mcg, Zinc 10 mg'), findsOneWidget);
-    expect(find.text('Vitamin d'), findsOneWidget);
+    expect(find.text('Vitamin D'), findsOneWidget);
     expect(find.text('Zinc'), findsOneWidget);
     await scrollTo(tester, find.text('Atorvastatin'));
     expect(find.text(MedicinesPage.stoppedTitle), findsOneWidget);
     expect(find.text('Statin'), findsOneWidget);
     expect(find.text(MedicinesPage.addLabel), findsOneWidget);
+  });
+
+  Medication withNote(String? note, {String schedule = 'as_needed'}) {
+    final json = BodyFixtures.medication(kind: 'medication');
+    json['scheduleNote'] = note;
+    json['schedule'] = schedule;
+    json['generic'] = true;
+    return Medication.fromJson(json);
+  }
+
+  test('the kind line reads as sentences and keeps the note as typed', () {
+    expect(
+      MedicinesPage.kindLine(withNote('For the odd headache')),
+      'Medicine. Generic. As needed. For the odd headache.',
+    );
+    expect(
+      MedicinesPage.kindLine(withNote('with breakfast', schedule: 'daily')),
+      'Medicine. Generic. Daily, with breakfast.',
+    );
+    expect(
+      MedicinesPage.kindLine(withNote('Only on bad days!')),
+      'Medicine. Generic. As needed. Only on bad days!',
+    );
+    expect(
+      MedicinesPage.kindLine(withNote(null)),
+      'Medicine. Generic. As needed.',
+    );
+  });
+
+  test('substance tags read with their proper names', () {
+    expect(Medication.substanceLabel('vitamin_d'), 'Vitamin D');
+    expect(Medication.substanceLabel('vitamin_b12'), 'Vitamin B12');
+    expect(Medication.substanceLabel('omega_3'), 'Omega-3');
+    expect(Medication.substanceLabel('glp1'), 'GLP-1');
+    expect(Medication.substanceLabel('something_new'), 'Something new');
   });
 
   testWidgets('loading: one spinner and no add button yet', (tester) async {

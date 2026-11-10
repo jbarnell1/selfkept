@@ -3,9 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/lab_review.dart';
+import '../../models/medication.dart';
 import '../../providers/systems_provider.dart';
 import '../../theme/tokens.dart';
 import '../../utils/body_units.dart';
+import '../../utils/metric_format.dart';
 import '../../widgets/page_body.dart';
 import '../../widgets/person_switcher.dart';
 import '../../widgets/surface_card.dart';
@@ -102,7 +104,7 @@ class _LabTimelinePageState extends State<LabTimelinePage> {
                                 ),
                                 if (p.substances.isNotEmpty)
                                   Text(
-                                    'Taking: ${p.substances.map((s) => s.replaceAll('_', ' ')).join(', ')}',
+                                    'Taking: ${p.substances.map((s) => nameInSentence(Medication.substanceLabel(s))).join(', ')}',
                                     style: theme.textTheme.bodySmall,
                                   ),
                                 if (p.weight != null)

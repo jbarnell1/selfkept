@@ -62,14 +62,17 @@ public sealed class LabReviewService : ILabReviewService
     var all = await _reports.ListAsync(viewerPersonId, personId, ct);
     if (person == null || all == null) return null;
 
-    var previous = all
+    var earlierPanels = all
       .Where(r => r.Id != report.Id && (r.CollectedOn < report.CollectedOn || (r.CollectedOn == report.CollectedOn && r.CreatedAt < report.CreatedAt)))
       .OrderByDescending(r => r.CollectedOn).ThenByDescending(r => r.CreatedAt)
-      .FirstOrDefault();
+      .ToList();
+    var previous = earlierPanels.FirstOrDefault();
 
     var medications = await _medications.ListAsync(viewerPersonId, personId, ct) ?? [];
     var latestDraw = Draw(report, medications);
     var previousDraw = previous == null ? DrawContext.Unknown : Draw(previous, medications);
+    var draws = new Dictionary<Guid, DrawContext>();
+    if (previous != null) draws[previous.Id] = previousDraw;
     var age = LabReferenceLookup.AgeOn(person.BirthDate, report.CollectedOn);
 
     var judgements = new List<MarkerJudgement>();
@@ -79,11 +82,16 @@ public sealed class LabReviewService : ILabReviewService
       var metric = _catalogue.Find(result.MetricKey);
       if (metric == null) continue;
       var reference = LabReferenceLookup.ForAge(_references.Find(metric, person.SexAtBirth), age);
-      var earlier = previous?.Results.FirstOrDefault(r => r.Confirmed && r.MetricKey == result.MetricKey);
-      var j = LabReview.Judge(result.MetricKey, result.Value, earlier?.Value, reference, metric.GoodDirection, person.SexAtBirth, latestDraw, previousDraw);
+      // The panel before may not have had this marker; then the latest earlier panel that did is
+      // the comparison, judged against that panel's own draw.
+      var (earlierPanel, earlier) = EarlierReading(earlierPanels, result.MetricKey);
+      var earlierDraw = earlierPanel == null
+        ? DrawContext.Unknown
+        : draws.TryGetValue(earlierPanel.Id, out var known) ? known : draws[earlierPanel.Id] = Draw(earlierPanel, medications);
+      var j = LabReview.Judge(result.MetricKey, result.Value, earlier?.Value, reference, metric.GoodDirection, person.SexAtBirth, latestDraw, earlierDraw);
       judgements.Add(j);
       markers.Add(new LabReviewMarkerDto(
-        result.MetricKey, metric.DisplayName, result.Unit, result.Value, j.PreviousValue, j.Change, j.ChangePercent, j.RcvPercent, j.BeyondRcv,
+        result.MetricKey, metric.DisplayName, result.Unit, result.Value, j.PreviousValue, earlierPanel?.CollectedOn, j.Change, j.ChangePercent, j.RcvPercent, j.BeyondRcv,
         j.Moved, j.Wanted, j.Verdict, j.Reasons,
         j.ReadWithCare.Select(l => new ReadWithCareDto(l.Id, l.From, l.Explanation, l.Source)).ToList(),
         j.Variation == null ? null : new VariationSourceDto(j.Variation.CviPercent, j.Variation.Source, j.Variation.SourceUrl, j.Variation.Caveat),
@@ -162,7 +170,7 @@ public sealed class LabReviewService : ILabReviewService
       if (otherKey.StartsWith(LabLinks.SubstancePrefix, StringComparison.Ordinal))
       {
         var tag = otherKey[LabLinks.SubstancePrefix.Length..];
-        related.Add(new RelatedReadingDto(otherKey, "substance", tag.Replace('_', ' '), null, "labs", true, null, null, links));
+        related.Add(new RelatedReadingDto(otherKey, "substance", SubstanceTags.DisplayName(tag), null, "labs", true, null, null, links));
         continue;
       }
       if (otherKey.StartsWith(DrawConditionKeys.Prefix, StringComparison.Ordinal))
@@ -195,6 +203,17 @@ public sealed class LabReviewService : ILabReviewService
   // --- building blocks ---------------------------------------------------------------------
 
   public static LabLinkDto ToDto(LabLink l) => new(l.Id, l.From, l.To, l.Direction, l.Explanation, l.Source, l.SourceUrl, l.Evidence);
+
+  /// <summary>The newest earlier panel with a confirmed result for the marker, and that result; nulls when there is none.</summary>
+  public static (LabReport? Panel, LabResult? Result) EarlierReading(IReadOnlyList<LabReport> earlierNewestFirst, string metricKey)
+  {
+    foreach (var panel in earlierNewestFirst)
+    {
+      var result = panel.Results.FirstOrDefault(r => r.Confirmed && r.MetricKey == metricKey);
+      if (result != null) return (panel, result);
+    }
+    return (null, null);
+  }
 
   private static DrawContext Draw(LabReport report, IReadOnlyList<Medication> medications) =>
     new(DrawConditions.Of(report), Substances(medications, report.CollectedOn));

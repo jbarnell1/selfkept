@@ -26,6 +26,11 @@ public sealed record LabReviewMarkerDto(
   string Unit,
   double Value,
   double? PreviousValue,
+  /// <summary>
+  /// The day of the earlier reading compared with: the panel before when it had the marker, else
+  /// the latest earlier panel that did. Null when the marker was never measured before.
+  /// </summary>
+  DateOnly? PreviousOn,
   double? Change,
   double? ChangePercent,
   /// <summary>Reference change value in percent: how far the marker must move before the change is probably real.</summary>

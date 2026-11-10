@@ -242,6 +242,10 @@ class LabReviewMarker {
   final String unit;
   final double value;
   final double? previousValue;
+
+  /// The day of the earlier reading compared with: the panel before, or the
+  /// latest earlier panel that had this marker. Null when it is the first.
+  final DateTime? previousOn;
   final double? change;
   final double? changePercent;
   final double? rcvPercent;
@@ -263,6 +267,7 @@ class LabReviewMarker {
     this.unit = '',
     required this.value,
     this.previousValue,
+    this.previousOn,
     this.change,
     this.changePercent,
     this.rcvPercent,
@@ -289,6 +294,7 @@ class LabReviewMarker {
       unit: r.string('unit'),
       value: readDouble(r.raw('value')) ?? 0,
       previousValue: readDouble(r.raw('previousValue')),
+      previousOn: r.dateTime('previousOn'),
       change: readDouble(r.raw('change')),
       changePercent: readDouble(r.raw('changePercent')),
       rcvPercent: readDouble(r.raw('rcvPercent')),

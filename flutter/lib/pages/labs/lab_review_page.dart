@@ -99,13 +99,21 @@ class LabReviewPage extends StatefulWidget {
         : 'Within the usual test-to-test variation of $figure percent.';
   }
 
-  /// "Down 12 U/L (30 percent) from 40 U/L".
-  static String changeLine(LabReviewMarker m) {
+  /// "Down 12 U/L (30 percent) from 40 U/L", with the day of that reading
+  /// when it came from an older panel than [panelBefore] (the panel before
+  /// did not include this marker): "... from 40 U/L on Mar 3, 2026".
+  static String changeLine(LabReviewMarker m, {DateTime? panelBefore}) {
     final previous = m.previousValue;
     final change = m.change;
     if (previous == null || change == null) return '';
     final unit = m.displayUnit.isEmpty ? '' : ' ${m.displayUnit}';
-    final from = '${formatLabValue(previous)}$unit';
+    final on = m.previousOn;
+    final older =
+        on != null &&
+        (panelBefore == null ||
+            DateUtils.dateOnly(on) != DateUtils.dateOnly(panelBefore));
+    final from =
+        '${formatLabValue(previous)}$unit${older ? ' on ${spokenDay(on)}' : ''}';
     if (change == 0) return 'No change from $from';
     final word = change > 0 ? 'Up' : 'Down';
     final percent = m.changePercent == null
@@ -289,7 +297,7 @@ class _LabReviewPageState extends State<LabReviewPage> {
             for (var i = 0; i < r.markers.length; i++) ...[
               if (i > 0)
                 Divider(height: 1, indent: Space.x4, color: colors.hairline),
-              _MarkerRow(marker: r.markers[i]),
+              _MarkerRow(marker: r.markers[i], panelBefore: previous),
             ],
           ],
         ),
@@ -419,15 +427,16 @@ class _ConditionsLine extends StatelessWidget {
 
 class _MarkerRow extends StatelessWidget {
   final LabReviewMarker marker;
+  final DateTime? panelBefore;
 
-  const _MarkerRow({required this.marker});
+  const _MarkerRow({required this.marker, this.panelBefore});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final m = marker;
     final unit = m.displayUnit.isEmpty ? '' : ' ${m.displayUnit}';
-    final change = LabReviewPage.changeLine(m);
+    final change = LabReviewPage.changeLine(m, panelBefore: panelBefore);
     final variation = m.variation;
     final small = theme.textTheme.bodySmall;
     return Padding(

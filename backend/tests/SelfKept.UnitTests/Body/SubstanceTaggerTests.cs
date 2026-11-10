@@ -107,4 +107,21 @@ public class SubstanceTaggerTests
 
     tags.Should().Equal(SubstanceTags.All);
   }
+
+  [Theory]
+  [InlineData(SubstanceTags.VitaminD, "Vitamin D")]
+  [InlineData(SubstanceTags.B12, "Vitamin B12")]
+  [InlineData(SubstanceTags.Omega3, "Omega-3")]
+  [InlineData(SubstanceTags.Glp1, "GLP-1")]
+  [InlineData("something_new", "something new")]
+  public void DisplayName_KnownAndUnknownTags_ReadAsWords(string tag, string expected)
+  {
+    SubstanceTags.DisplayName(tag).Should().Be(expected);
+  }
+
+  [Fact]
+  public void DisplayName_EveryKnownTag_HasAProperName()
+  {
+    SubstanceTags.All.Should().OnlyContain(t => !SubstanceTags.DisplayName(t).Contains('_') && char.IsUpper(SubstanceTags.DisplayName(t)[0]));
+  }
 }

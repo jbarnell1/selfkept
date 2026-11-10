@@ -273,6 +273,29 @@ public static class SubstanceTags
     Testosterone, Statin, Thyroid, Biotin, Iron, VitaminD, Creatine, Glp1, BetaBlocker, Estrogen, Metformin, Zinc,
     Magnesium, Omega3, B12, Caffeine, Melatonin,
   ];
+
+  /// <summary>The name a person reads for a tag: "Vitamin D", "Omega-3", "GLP-1". An unknown tag reads as its words.</summary>
+  public static string DisplayName(string tag) => tag switch
+  {
+    Testosterone => "Testosterone",
+    Statin => "Statin",
+    Thyroid => "Thyroid hormone",
+    Biotin => "Biotin",
+    Iron => "Iron",
+    VitaminD => "Vitamin D",
+    Creatine => "Creatine",
+    Glp1 => "GLP-1",
+    BetaBlocker => "Beta blocker",
+    Estrogen => "Estrogen",
+    Metformin => "Metformin",
+    Zinc => "Zinc",
+    Magnesium => "Magnesium",
+    Omega3 => "Omega-3",
+    B12 => "Vitamin B12",
+    Caffeine => "Caffeine",
+    Melatonin => "Melatonin",
+    _ => tag.Replace('_', ' '),
+  };
 }
 
 /// <summary>The heaviest set of one lift on one day. One row per (person, day, lift).</summary>

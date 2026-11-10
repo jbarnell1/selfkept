@@ -539,7 +539,7 @@ abstract final class SystemsFixtures {
         'conditions': conditions(),
         'markerCount': 30,
         'weight': weightShared ? {'day': '2026-08-12', 'kg': 84} : null,
-        'substances': ['creatine'],
+        'substances': ['creatine', 'vitamin_b12', 'vitamin_d'],
       },
     ],
   };
