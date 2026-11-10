@@ -346,6 +346,6 @@ public class CrossReferenceRuleTests
     var candidates = new RuleEngine(RuleEngine.DefaultRules()).Evaluate(context);
 
     candidates.Should().NotBeEmpty();
-    candidates.Should().OnlyContain(c => !c.Templated.Contains('—'));
+    candidates.Should().OnlyContain(c => !c.Templated.Contains('\u2014'));
   }
 }

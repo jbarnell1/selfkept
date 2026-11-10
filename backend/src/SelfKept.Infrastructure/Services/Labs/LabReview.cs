@@ -107,7 +107,7 @@ public static class LabReview
     var care = ReadWithCare(metricKey, latest);
     var variation = LabVariation.For(metricKey, sex);
     var wanted = wantedOverride ?? Wanted(reference, goodDirection, previousValue);
-    var rcv = variation == null ? (double?)null : Math.Round(LabVariation.Rcv(variation.CviPercent), 1);
+    var rcv = variation == null ? (double?)null : Math.Round(LabVariation.Rcv(variation.CviPercent), 1, MidpointRounding.AwayFromZero);
     var reasons = new List<string>();
 
     if (previousValue is not { } prev)
@@ -117,7 +117,7 @@ public static class LabReview
     }
 
     var change = Math.Round(value - prev, 4);
-    var percent = LabVariation.ChangePercent(prev, value) is { } pc ? Math.Round(pc, 1) : (double?)null;
+    var percent = LabVariation.ChangePercent(prev, value) is { } pc ? Math.Round(pc, 1, MidpointRounding.AwayFromZero) : (double?)null;
     var moved = change > 0 ? Up : change < 0 ? Down : NoDirection;
     bool? beyond = rcv is { } r && percent is { } p ? Math.Abs(p) > r : null;
 

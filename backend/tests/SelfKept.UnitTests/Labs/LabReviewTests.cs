@@ -231,7 +231,7 @@ public class LabReviewTests
       link.SourceUrl.Should().StartWith("https://", link.Id);
       link.Source.Should().NotBeNullOrWhiteSpace(link.Id);
       link.Evidence.Should().NotBeNullOrWhiteSpace(link.Id);
-      link.Explanation.Should().NotContain("—", link.Id);
+      link.Explanation.Should().NotContain("\u2014", link.Id);
       link.Source.Should().NotContainEquivalentOf("EFLM database", "papers are cited, never the database");
     }
   }

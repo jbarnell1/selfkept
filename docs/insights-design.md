@@ -97,3 +97,23 @@ Notes:
 - The nightly job runs from 03:30 in each person's time zone and interprets yesterday once; `recompute` does the same on demand for any day up to today.
 - Audit actions: `insight.reaction`, `insight.dismiss`, `interpret.recompute`. Model calls go to `ai_call`, never to the audit log.
 - `GET /api/system/version` lists `insights.rules` and, when `Ai:Enabled` is true with a base URL and model set, `insights.model`.
+
+## Lab review and cross-reference rules
+
+Added with the lab review package. Each reads the lab context (the two latest panels with their draw conditions and the substances active at each draw, the reference rows for the person's sex and age, and the active trials) and fires without the 28-day baseline gate. The thresholds, their sources and the rules left out are in `docs/cross-reference.md`, "Rules".
+
+| Kind | Fires when | Severity |
+| --- | --- | --- |
+| `trial_ready` | a panel collected after an active trial's start has just come in, or the trial's read date arrived (blood trials once a panel after the start exists) | notice |
+| `retest_due` | an active blood trial reached its read date with no panel since it started | notice |
+| `draw_conditions_differ` | the current and previous panel differ on fasting, time of day, hard training, illness, biotin or creatine | notice |
+| `apob_ldl_disagree` | ApoB and LDL sit on different sides of their lines, or moved in opposite directions by 15 percent or more each | notice |
+| `calculated_ldl_unreliable` | triglycerides 400 mg/dL or more with an LDL on the panel | notice |
+| `ferritin_inflammation` | ferritin under 70 ng/mL with hs-CRP above its usual range | notice |
+| `high_ferritin_context` | ferritin above 300 ng/mL (men) or 200 (women), shown with triglycerides, HDL, hs-CRP and transferrin saturation | clinician |
+| `thyroid_cholesterol` | TSH above range with LDL or total cholesterol above range or higher than last time | clinician |
+| `free_testosterone_shbg` | SHBG outside its usual range with a total testosterone on the panel | notice |
+| `creatinine_muscle` | creatine on the list at the draw with creatinine above range or eGFR below it | notice |
+| `hematocrit_testosterone` | testosterone on the list at the draw and haematocrit above its usual range | clinician |
+| `expected_swing` | a marker moved 15 percent or more but within its reference change value; `lab_trend` holds its card for that marker | notice |
+| `lab_review_ready` | a current panel with one before it; says how many markers got each verdict | notice |
