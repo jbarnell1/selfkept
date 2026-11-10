@@ -138,6 +138,7 @@ public static class DependencyInjection
     services.AddScoped<IStrengthService, StrengthService>();
     services.AddScoped<IMeasurementService, MeasurementService>();
     services.AddScoped<IProgressService, ProgressService>();
+    services.AddScoped<IBodyContextLoader, BodyContextLoader>();
 
     // Package 5 (Connect): the OAuth server for /mcp, personal tokens, assistant memory, the tools.
     services.AddSingleton(McpSettings.From(configuration));

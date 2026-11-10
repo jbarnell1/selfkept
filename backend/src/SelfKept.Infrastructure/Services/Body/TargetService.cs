@@ -124,6 +124,14 @@ public sealed class TargetService : ITargetService
       active.Select(t => TargetTally.Compute(t, t.ToDto(_catalogue), today, data)).ToList());
   }
 
+  public async Task<IReadOnlyList<TargetTallyDto>> TallyOwnAsync(Guid personId, DateOnly day, CancellationToken ct = default)
+  {
+    var active = (await _targets.ListOwnAsync(personId, ct)).Where(t => t.Active).ToList();
+    if (active.Count == 0) return [];
+    var data = await ReadAsync(personId, personId, active, day, ct);
+    return active.Select(t => TargetTally.Compute(t, t.ToDto(_catalogue), day, data)).ToList();
+  }
+
   /// <summary>Reads what the active targets need for the last seven days, each under the viewer's grant for it.</summary>
   private async Task<TallyData> ReadAsync(Guid viewerPersonId, Guid targetPersonId, IReadOnlyList<DailyTarget> active, DateOnly today, CancellationToken ct)
   {

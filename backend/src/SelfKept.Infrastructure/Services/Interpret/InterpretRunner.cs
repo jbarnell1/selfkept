@@ -25,6 +25,7 @@ public sealed class InterpretRunner : IInterpretRunner
   private readonly ILabReportRepository _labReports;
   private readonly ILabReferenceRepository _labReferences;
   private readonly IMetricCatalogue _catalogue;
+  private readonly IBodyContextLoader _body;
   private readonly TimeProvider _clock;
   private readonly ILogger<InterpretRunner> _logger;
 
@@ -41,12 +42,14 @@ public sealed class InterpretRunner : IInterpretRunner
     ILabReportRepository labReports,
     ILabReferenceRepository labReferences,
     IMetricCatalogue catalogue,
+    IBodyContextLoader body,
     TimeProvider clock,
     ILogger<InterpretRunner> logger)
   {
     _labReports = labReports;
     _labReferences = labReferences;
     _catalogue = catalogue;
+    _body = body;
     _persons = persons;
     _baselineService = baselineService;
     _baselines = baselines;
@@ -75,7 +78,8 @@ public sealed class InterpretRunner : IInterpretRunner
       .GroupBy(r => r.MetricKey, StringComparer.Ordinal)
       .ToDictionary(g => g.Key, g => (IReadOnlyList<DailySummary>)g.OrderBy(r => r.Day).ToList(), StringComparer.Ordinal);
     var labs = await LoadLabsAsync(person, ct);
-    var context = new RuleContext(person, day, baselines.ToDictionary(b => b.MetricKey, StringComparer.Ordinal), series, labs);
+    var body = await _body.LoadAsync(person, day, ct);
+    var context = new RuleContext(person, day, baselines.ToDictionary(b => b.MetricKey, StringComparer.Ordinal), series, labs, body);
 
     var candidates = _engine.Evaluate(context);
     var demoted = await DemotedKindsAsync(personId, day, candidates.Select(c => c.Kind), ct);

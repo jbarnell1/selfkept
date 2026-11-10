@@ -116,6 +116,11 @@ public static class InsightKinds
   public const string Spo2Low = "spo2_low";
   public const string LabOutOfRange = "lab_out_of_range";
   public const string LabTrend = "lab_trend";
+  public const string LossRateFast = "loss_rate_fast";
+  public const string GoalReached = "goal_reached";
+  public const string GoalOffCourse = "goal_off_course";
+  public const string TargetWeek = "target_week";
+  public const string WaistHeight = "waist_height";
   public const string Learning = "learning";
 }
 

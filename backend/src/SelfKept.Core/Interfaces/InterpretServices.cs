@@ -6,13 +6,14 @@ namespace SelfKept.Core.Interfaces;
 /// <summary>What one rule saw, pre-loaded once per person per day so rules stay pure.</summary>
 public sealed class RuleContext
 {
-  public RuleContext(Person person, DateOnly day, IReadOnlyDictionary<string, Baseline> baselines, IReadOnlyDictionary<string, IReadOnlyList<DailySummary>> series, LabContext? labs = null)
+  public RuleContext(Person person, DateOnly day, IReadOnlyDictionary<string, Baseline> baselines, IReadOnlyDictionary<string, IReadOnlyList<DailySummary>> series, LabContext? labs = null, BodyContext? body = null)
   {
     Person = person;
     Day = day;
     Baselines = baselines;
     Series = series;
     Labs = labs ?? LabContext.Empty;
+    Body = body ?? BodyContext.Empty;
     // HRV: rmssd when the person has it, else sdnn (design, "whichever the person has").
     HrvMetricKey = series.TryGetValue(MetricKeys.HrvRmssdMs, out var rmssd) && rmssd.Count > 0 ? MetricKeys.HrvRmssdMs : MetricKeys.HrvSdnnMs;
   }
@@ -32,6 +33,9 @@ public sealed class RuleContext
 
   /// <summary>The person's lab panels and the reference ranges for their sex. Empty when none are stored.</summary>
   public LabContext Labs { get; }
+
+  /// <summary>Goals, the weigh-in series, the week of targets and what the person takes. Empty when none are stored.</summary>
+  public BodyContext Body { get; }
 
   public Baseline? BaselineFor(string metricKey) => Baselines.TryGetValue(metricKey, out var b) ? b : null;
 
@@ -100,6 +104,59 @@ public sealed class LabContext
   public Func<string, LabReference?> Reference { get; }
 
   public LabPanelSnapshot? Latest => Panels.Count > 0 ? Panels[0] : null;
+}
+
+/// <summary>One reading on one day of a series that does not arrive daily, such as a weigh-in.</summary>
+public readonly record struct DatedValue(DateOnly Day, double Value);
+
+/// <summary>
+/// Where one active goal stands on the day being interpreted. Status is one of PaceStatuses.
+/// ReachedAWeekAgo lets a rule say "reached" for a week and then fall quiet.
+/// </summary>
+public sealed record GoalStanding(
+  Goal Goal,
+  string? MetricKey,
+  string? MetricName,
+  string? Unit,
+  double? Current,
+  double? PacePerWeek,
+  string Status,
+  bool ReachedAWeekAgo);
+
+/// <summary>How one target went over the seven days ending on the day being interpreted.</summary>
+public sealed record TargetWeek(string Label, string Kind, string Period, int MetDays, int KnownDays, bool? MetThisWeek);
+
+/// <summary>
+/// What the body and goal rules see (docs/body-design.md, "Rules"). Weigh-ins and waist readings
+/// are sparse, so they are judged by readings and spacing and never by the 28-day baseline gate.
+/// </summary>
+public sealed class BodyContext
+{
+  public static readonly BodyContext Empty = new();
+
+  /// <summary>Active goals, main first.</summary>
+  public IReadOnlyList<GoalStanding> Goals { get; init; } = [];
+
+  /// <summary>Weigh-ins of the last 120 days after screening, oldest first, in kg.</summary>
+  public IReadOnlyList<DatedValue> Weight { get; init; } = [];
+
+  /// <summary>The smoothed weight on the latest weigh-in, in kg.</summary>
+  public double? TrendWeightKg { get; init; }
+
+  /// <summary>Change per week over the last four weeks in kg (negative is down), or null with too few readings.</summary>
+  public double? WeeklyRateKg { get; init; }
+
+  /// <summary>Waist readings of the last 120 days, oldest first, in cm.</summary>
+  public IReadOnlyList<DatedValue> Waist { get; init; } = [];
+
+  public IReadOnlyList<TargetWeek> Targets { get; init; } = [];
+
+  /// <summary>Substance tags of the medicines and supplements the person takes on the day.</summary>
+  public IReadOnlyCollection<string> Substances { get; init; } = [];
+
+  public bool HasGoalOn(string metricKey) => Goals.Any(g => g.MetricKey == metricKey);
+
+  public bool Takes(string substance) => Substances.Contains(substance);
 }
 
 /// <summary>What a rule produces when it fires.</summary>

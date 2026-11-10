@@ -200,7 +200,7 @@ public sealed class ProgressService : IProgressService
   }
 
   /// <summary>Where a non-weight metric stands: the latest reading for a sparse one, else the mean of the last seven days.</summary>
-  private static double? Current(string key, IReadOnlyList<DayValue> points, DateOnly today)
+  internal static double? Current(string key, IReadOnlyList<DayValue> points, DateOnly today)
   {
     if (points.Count == 0) return null;
     if (Sparse.Contains(key)) return points[^1].Value;

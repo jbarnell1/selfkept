@@ -36,6 +36,11 @@ public sealed class RuleEngine : IRuleEngine
     new Spo2LowRule(),
     new LabOutOfRangeRule(),
     new LabTrendRule(),
+    new LossRateFastRule(),
+    new GoalReachedRule(),
+    new GoalOffCourseRule(),
+    new TargetWeekRule(),
+    new WaistHeightRule(),
     new LearningRule(),
   ];
 

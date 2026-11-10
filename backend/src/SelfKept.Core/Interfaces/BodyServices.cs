@@ -1,4 +1,5 @@
 using SelfKept.Core.DTOs;
+using SelfKept.Core.Entities;
 
 namespace SelfKept.Core.Interfaces;
 
@@ -42,6 +43,9 @@ public interface ITargetService
   /// may not read (the day log, the strength log, another category's metric) comes back unknown.
   /// </summary>
   Task<GoalTallyDto?> TallyAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default);
+
+  /// <summary>The person's own active targets tallied over the seven days ending on a given day. Server-internal.</summary>
+  Task<IReadOnlyList<TargetTallyDto>> TallyOwnAsync(Guid personId, DateOnly day, CancellationToken ct = default);
 }
 
 /// <summary>A day log entry to save on a person's behalf (the assistant and the evening check-in use this).</summary>
@@ -119,4 +123,10 @@ public interface IProgressService
   /// strength log and goal suggestions. Null when the viewer may not see the target's body data.
   /// </summary>
   Task<ProgressDto?> GetAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default);
+}
+
+/// <summary>Loads what the body and goal rules read for one person and day. Server-internal: the person's own data.</summary>
+public interface IBodyContextLoader
+{
+  Task<BodyContext> LoadAsync(Person person, DateOnly day, CancellationToken ct = default);
 }
