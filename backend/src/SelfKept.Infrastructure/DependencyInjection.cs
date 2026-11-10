@@ -124,6 +124,11 @@ public static class DependencyInjection
     services.AddScoped<ILabReportRepository, LabReportRepository>();
     services.AddSingleton<LabSummaryPdfRenderer>();
     services.AddScoped<ILabService, LabService>();
+    // Lab review and cross-reference: trials, the review, the links, the household overview.
+    services.AddScoped<ITrialRepository, TrialRepository>();
+    services.AddScoped<ITrialService, TrialService>();
+    services.AddScoped<ILabReviewService, LabReviewService>();
+    services.AddScoped<IHouseholdOverviewService, HouseholdOverviewService>();
 
     // Body and goals: goals, targets, the journal, medicines, the strength log, typed measurements.
     services.AddScoped<IGoalRepository, GoalRepository>();

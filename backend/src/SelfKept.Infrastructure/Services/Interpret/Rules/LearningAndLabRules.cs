@@ -126,7 +126,8 @@ public sealed class LabOutOfRangeRule : RuleBase
 /// <summary>
 /// A watched marker moved 15 percent or more in the direction of worse across the two most
 /// recent panels (ApoB, LDL, hs-CRP, fructosamine, triglycerides, ferritin, TSH, GGT). Watch,
-/// or clinician when the latest value also trips the clinician tier.
+/// or clinician when the latest value also trips the clinician tier. A move that stays inside the
+/// marker's verified reference change value is held (expected_swing says so instead).
 /// </summary>
 public sealed class LabTrendRule : RuleBase
 {
@@ -141,13 +142,16 @@ public sealed class LabTrendRule : RuleBase
     var panel = LabRules.CurrentPanel(context);
     if (panel == null || context.Labs.Panels.Count < 2) return null;
     var previous = context.Labs.Panels[1];
+    // A move inside the marker's reference change value is expected test-to-test variation;
+    // expected_swing labels it and this card holds (docs/cross-reference.md, "Expected swing").
+    var held = ExpectedSwingRule.ExpectedSwings(context, panel, previous).Select(j => j.MetricKey).ToHashSet(StringComparer.Ordinal);
 
     var moves = new List<(string Metric, LabResult Old, LabResult New, double Percent, string Severity)>();
     foreach (var metric in LabMetricKeys.TrendMarkers)
     {
       var latest = panel.Result(metric);
       var earlier = previous.Result(metric);
-      if (latest == null || earlier == null || earlier.Value <= 0) continue;
+      if (latest == null || earlier == null || earlier.Value <= 0 || held.Contains(metric)) continue;
       var reference = context.Labs.Reference(metric);
       if (reference == null) continue;
       var percent = (latest.Value - earlier.Value) / earlier.Value * 100;

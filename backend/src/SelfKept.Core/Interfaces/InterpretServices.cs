@@ -80,6 +80,12 @@ public sealed class RuleContext
 public sealed record LabPanelSnapshot(Guid ReportId, DateOnly CollectedOn, DateOnly ConfirmedOn, IReadOnlyDictionary<string, LabResult> Results)
 {
   public LabResult? Result(string metricKey) => Results.TryGetValue(metricKey, out var r) ? r : null;
+
+  /// <summary>How the blood was drawn (docs/labs-design.md, "Draw conditions").</summary>
+  public PanelConditions Conditions { get; init; } = PanelConditions.Unknown;
+
+  /// <summary>Substance tags of the medicines and supplements active on the collected day.</summary>
+  public IReadOnlyCollection<string> Substances { get; init; } = [];
 }
 
 /// <summary>Lab panels newest first, plus the reference row that applies to this person for a marker.</summary>
@@ -104,6 +110,12 @@ public sealed class LabContext
   public Func<string, LabReference?> Reference { get; }
 
   public LabPanelSnapshot? Latest => Panels.Count > 0 ? Panels[0] : null;
+
+  /// <summary>The person's sex at birth, for the sex-specific thresholds and variation figures of the cross-reference rules.</summary>
+  public Enums.SexAtBirth Sex { get; init; }
+
+  /// <summary>The person's active trials, oldest start first (docs/labs-design.md, "Trials").</summary>
+  public IReadOnlyList<Trial> Trials { get; init; } = [];
 }
 
 /// <summary>One reading on one day of a series that does not arrive daily, such as a weigh-in.</summary>

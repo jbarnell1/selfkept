@@ -26,6 +26,8 @@ public sealed class InterpretRunner : IInterpretRunner
   private readonly ILabReferenceRepository _labReferences;
   private readonly IMetricCatalogue _catalogue;
   private readonly IBodyContextLoader _body;
+  private readonly IMedicationRepository _medications;
+  private readonly ITrialRepository _trials;
   private readonly TimeProvider _clock;
   private readonly ILogger<InterpretRunner> _logger;
 
@@ -43,9 +45,13 @@ public sealed class InterpretRunner : IInterpretRunner
     ILabReferenceRepository labReferences,
     IMetricCatalogue catalogue,
     IBodyContextLoader body,
+    IMedicationRepository medications,
+    ITrialRepository trials,
     TimeProvider clock,
     ILogger<InterpretRunner> logger)
   {
+    _medications = medications;
+    _trials = trials;
     _labReports = labReports;
     _labReferences = labReferences;
     _catalogue = catalogue;
@@ -77,7 +83,7 @@ public sealed class InterpretRunner : IInterpretRunner
     var series = rows
       .GroupBy(r => r.MetricKey, StringComparer.Ordinal)
       .ToDictionary(g => g.Key, g => (IReadOnlyList<DailySummary>)g.OrderBy(r => r.Day).ToList(), StringComparer.Ordinal);
-    var labs = await LoadLabsAsync(person, ct);
+    var labs = await LoadLabsAsync(person, day, ct);
     var body = await _body.LoadAsync(person, day, ct);
     var context = new RuleContext(person, day, baselines.ToDictionary(b => b.MetricKey, StringComparer.Ordinal), series, labs, body);
 
@@ -133,22 +139,36 @@ public sealed class InterpretRunner : IInterpretRunner
     return new RecomputeResultDto(personId, day, baselines.Count, kinds.Count, kinds);
   }
 
-  /// <summary>The two most recent panels plus the reference rows for the person's sex, for the lab rules.</summary>
-  private async Task<LabContext> LoadLabsAsync(Person person, CancellationToken ct)
+  /// <summary>
+  /// The two most recent panels with their draw conditions and the substances active at each
+  /// draw, the reference rows for the person's sex and age, and the active trials, for the lab rules.
+  /// </summary>
+  private async Task<LabContext> LoadLabsAsync(Person person, DateOnly day, CancellationToken ct)
   {
     var reports = await _labReports.ListOwnAsync(person.Id, 2, ct);
-    if (reports.Count == 0) return LabContext.Empty;
+    var trials = await _trials.ListOwnActiveAsync(person.Id, ct);
+    if (reports.Count == 0 && trials.Count == 0) return LabContext.Empty;
+    var medications = reports.Count == 0 ? [] : await _medications.ListOwnAsync(person.Id, ct);
     var zone = DayBoundaries.Resolve(person.TimeZone);
     var panels = reports.Select(r => new LabPanelSnapshot(
         r.Id,
         r.CollectedOn,
         DayBoundaries.LocalDay(r.ConfirmedAt ?? r.CreatedAt, zone),
-        r.Results.Where(x => x.Confirmed).GroupBy(x => x.MetricKey, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal)))
+        r.Results.Where(x => x.Confirmed).GroupBy(x => x.MetricKey, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal))
+      {
+        Conditions = Labs.DrawConditions.Of(r),
+        Substances = Labs.LabReviewService.Substances(medications, r.CollectedOn),
+      })
       .ToList();
+    var age = Repositories.LabReferenceLookup.AgeOn(person.BirthDate, day);
     return new LabContext(
       panels,
-      key => _catalogue.Find(key) is { } metric ? _labReferences.Find(metric, person.SexAtBirth) : null,
-      key => _catalogue.Find(key)?.DisplayName ?? key);
+      key => _catalogue.Find(key) is { } metric ? Repositories.LabReferenceLookup.ForAge(_labReferences.Find(metric, person.SexAtBirth), age) : null,
+      key => _catalogue.Find(key)?.DisplayName ?? key)
+    {
+      Sex = person.SexAtBirth,
+      Trials = trials,
+    };
   }
 
   public async Task<bool> HasRunAsync(Guid personId, DateOnly day, CancellationToken ct = default) =>

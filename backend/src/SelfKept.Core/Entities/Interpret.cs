@@ -122,6 +122,21 @@ public static class InsightKinds
   public const string TargetWeek = "target_week";
   public const string WaistHeight = "waist_height";
   public const string Learning = "learning";
+
+  // Lab review and cross-reference (docs/cross-reference.md, "Rules").
+  public const string TrialReady = "trial_ready";
+  public const string RetestDue = "retest_due";
+  public const string DrawConditionsDiffer = "draw_conditions_differ";
+  public const string ApoBLdlDisagree = "apob_ldl_disagree";
+  public const string CalculatedLdlUnreliable = "calculated_ldl_unreliable";
+  public const string FerritinInflammation = "ferritin_inflammation";
+  public const string HighFerritinContext = "high_ferritin_context";
+  public const string ThyroidCholesterol = "thyroid_cholesterol";
+  public const string FreeTestosteroneShbg = "free_testosterone_shbg";
+  public const string CreatinineMuscle = "creatinine_muscle";
+  public const string HematocritTestosterone = "hematocrit_testosterone";
+  public const string ExpectedSwing = "expected_swing";
+  public const string LabReviewReady = "lab_review_ready";
 }
 
 public static class InsightSeverities
