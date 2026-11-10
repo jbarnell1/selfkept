@@ -146,6 +146,7 @@ public static class DependencyInjection
     services.AddScoped<IReadBackRepository, ReadBackRepository>();
     services.AddScoped<IContextLoader, ContextLoader>();
     services.AddScoped<IContextService, ContextService>();
+    services.AddScoped<IPatternService, PatternService>();
 
     // Package 5 (Connect): the OAuth server for /mcp, personal tokens, assistant memory, the tools.
     services.AddSingleton(McpSettings.From(configuration));
