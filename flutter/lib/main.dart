@@ -35,6 +35,7 @@ import 'providers/profile_provider.dart';
 import 'providers/server_settings.dart';
 import 'providers/sources_provider.dart';
 import 'providers/startup_provider.dart';
+import 'providers/systems_scope.dart';
 import 'providers/today_provider.dart';
 import 'providers/trends_provider.dart';
 import 'router/app_router.dart';
@@ -399,6 +400,8 @@ class _AppState extends State<App> {
         ChangeNotifierProvider.value(value: _medications),
         ChangeNotifierProvider.value(value: _progress),
         Provider<UrlOpener>.value(value: openExternalUrl),
+        // Systems, context, weekly review, lab review and trials.
+        ...systemsProviders(widget.client),
       ],
       child: MaterialApp.router(
         title: Brand.productName,

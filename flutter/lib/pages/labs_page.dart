@@ -7,6 +7,7 @@ import '../models/enums.dart';
 import '../models/lab.dart';
 import '../providers/labs_provider.dart';
 import '../providers/profile_provider.dart';
+import '../providers/systems_scope.dart';
 import '../theme/tokens.dart';
 import '../widgets/clinician_summary_button.dart';
 import '../widgets/lab_marker_tile.dart';
@@ -28,6 +29,8 @@ class LabsPage extends StatefulWidget {
       'Some ranges depend on sex at birth. Set it under You to see the right ones.';
   static const String deleteTitle = 'Delete this panel?';
   static const String deleteBody = 'Its results leave your trends too.';
+  static const String reviewLabel = 'Review';
+  static const String timelineLabel = 'Timeline';
 
   /// Columns for a content width: 2 under 600, 3 under 1000, 4 above.
   static int columnsFor(double width) =>
@@ -374,11 +377,20 @@ class _Panels extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final review = SystemsFeatures.has(context, SystemsFeatures.labsReview);
     return _Narrow(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SectionHeader(title: 'Panels'),
+          SectionHeader(
+            title: 'Panels',
+            trailing: review
+                ? TextButton(
+                    onPressed: () => context.push('/labs/timeline'),
+                    child: const Text(LabsPage.timelineLabel),
+                  )
+                : null,
+          ),
           SurfaceCard(
             padding: const EdgeInsets.symmetric(
               horizontal: Space.x4,
@@ -412,6 +424,12 @@ class _Panels extends StatelessWidget {
                             ],
                           ),
                         ),
+                        if (review)
+                          TextButton(
+                            onPressed: () =>
+                                context.push('/labs/report/${reports[i].id}'),
+                            child: const Text(LabsPage.reviewLabel),
+                          ),
                         IconButton(
                           tooltip: 'Delete panel',
                           onPressed: () => _delete(context, reports[i]),

@@ -24,6 +24,7 @@ import '../widgets/status_views.dart';
 import '../widgets/surface_card.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/targets_card.dart';
+import 'systems/weekly_review_page.dart';
 
 /// Today: the place a day begins. A greeting, the day's sentence against
 /// your own baseline, three readiness chips, the day's targets, the day log,
@@ -155,6 +156,7 @@ class _TodayPageState extends State<TodayPage> {
             const AddToToday(),
             const SizedBox(height: Space.x6),
             const _Cards(),
+            const WeeklyReviewTodayCard(),
             CheckInEntry(key: ValueKey(_entryGeneration), onKeep: _keep),
             const _LastCheckin(),
             const SizedBox(height: Space.x6),

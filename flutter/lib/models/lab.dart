@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 
 import '../utils/json_reader.dart';
 import 'band_position.dart';
+import 'lab_review.dart';
 
 /// Panel groups, in the order the Labs page lists them.
 enum LabGroup {
@@ -240,6 +241,9 @@ class LabReport {
   final DateTime? confirmedAt;
   final List<LabResult> results;
 
+  /// How the blood was drawn. Null from a server without draw conditions.
+  final DrawConditions? conditions;
+
   const LabReport({
     required this.id,
     this.personId = '',
@@ -251,6 +255,7 @@ class LabReport {
     this.createdAt,
     this.confirmedAt,
     this.results = const [],
+    this.conditions,
   });
 
   /// "Rythm", "Manual": the provider with a capital letter.
@@ -259,6 +264,7 @@ class LabReport {
 
   factory LabReport.fromJson(Map<String, dynamic> json) {
     final r = JsonReader(json);
+    final conditions = r.object('conditions');
     return LabReport(
       id: r.string('id'),
       personId: r.string('personId'),
@@ -271,6 +277,9 @@ class LabReport {
       createdAt: r.dateTime('createdAt'),
       confirmedAt: r.dateTime('confirmedAt'),
       results: [for (final x in r.objects('results')) LabResult.fromJson(x)],
+      conditions: conditions == null
+          ? null
+          : DrawConditions.fromJson(conditions),
     );
   }
 

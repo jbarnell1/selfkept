@@ -28,6 +28,7 @@ import 'package:selfkept/providers/server_settings.dart';
 import 'package:selfkept/providers/setup_provider.dart';
 import 'package:selfkept/providers/sources_provider.dart';
 import 'package:selfkept/providers/startup_provider.dart';
+import 'package:selfkept/providers/systems_scope.dart';
 import 'package:selfkept/providers/today_provider.dart';
 import 'package:selfkept/providers/trends_provider.dart';
 import 'package:selfkept/services/body_service.dart';
@@ -318,6 +319,8 @@ class TestHarness {
         ChangeNotifierProvider.value(value: medications),
         ChangeNotifierProvider.value(value: progress),
         Provider<UrlOpener>.value(value: openUrl),
+        // Systems, context, weekly review, lab review and trials.
+        ...systemsProviders(api),
       ],
       child: router == null
           ? MaterialApp(theme: theme ?? AppTheme.light, home: child)
