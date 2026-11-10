@@ -112,6 +112,19 @@ public static class CheckinMachine
     Advance(state);
   }
 
+  /// <summary>
+  /// Topics an answer already put on the log, though it was given for another question: they are
+  /// done and not asked. The topic being asked is left to <see cref="Answer"/>.
+  /// </summary>
+  public static void Cover(CheckinState state, IEnumerable<string> topics)
+  {
+    foreach (var topic in topics.Distinct())
+    {
+      if (topic == state.Current || !state.Pending.Remove(topic)) continue;
+      state.Done.Add(topic);
+    }
+  }
+
   public static void Leave(CheckinState state)
   {
     state.Left = true;
@@ -242,6 +255,16 @@ public static partial class CheckinHarvest
     if (Okay().IsMatch(lower)) return 4;
     return null;
   }
+
+  /// <summary>The topic a day log kind answers, or null for a kind no question asks about (a note).</summary>
+  public static string? TopicOf(string kind) => kind switch
+  {
+    JournalKinds.Food => CheckinTopics.Eating,
+    JournalKinds.Training => CheckinTopics.Training,
+    JournalKinds.Drink => CheckinTopics.Drinks,
+    JournalKinds.Symptom => CheckinTopics.Symptoms,
+    _ => null,
+  };
 
   private static string KindOf(string topic) => topic switch
   {

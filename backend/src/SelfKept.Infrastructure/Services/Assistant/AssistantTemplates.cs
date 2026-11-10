@@ -67,6 +67,27 @@ public static class AssistantTemplates
   public const string MoodRetry = "Sorry, I did not catch that. Was your mood great, good, okay, meh, low or very low?";
   public const string SkippedLine = "No problem, we can leave that one.";
 
+  /// <summary>
+  /// An answer that did not fit the question but still had something to keep: "Thanks, I have
+  /// put the food on today's log." The question is asked again after it.
+  /// </summary>
+  public static string OffTopicSaved(IEnumerable<string> kinds, bool remembered)
+  {
+    var words = kinds.Select(KindWords).Distinct().ToList();
+    if (words.Count == 0) return remembered ? "Thanks, I will remember that." : "Thanks, that is on today's log.";
+    var list = words.Count == 1 ? words[0] : string.Join(", ", words.Take(words.Count - 1)) + " and " + words[^1];
+    return $"Thanks, I have put the {list} on today's log.";
+  }
+
+  private static string KindWords(string kind) => kind switch
+  {
+    JournalKinds.Food => "food",
+    JournalKinds.Drink => "drinks",
+    JournalKinds.Training => "training",
+    JournalKinds.Symptom => "symptoms",
+    _ => "note",
+  };
+
   public static string Question(string topic) => topic switch
   {
     CheckinTopics.Eating => "How was your eating today?",

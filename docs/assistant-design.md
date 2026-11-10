@@ -66,7 +66,7 @@ Every table cascades from `person`.
 | --- | --- |
 | id, person_id | |
 | kind | `chat` or `checkin` (check) |
-| title_cipher | text null, encrypted. A chat takes its first 60 characters from the first message |
+| title_cipher | text null, encrypted. A chat takes it from the first message: the first sentence when it fits in 60 characters, else the first 60 cut at a word |
 | day | date. The local day of a check-in (required for `checkin`), null for a chat |
 | state | jsonb. The check-in state machine (topic keys and flags only) |
 | created_at, updated_at, ended_at | |
@@ -327,6 +327,15 @@ The flow:
    6: very low, terrible = 1; low, bad, rough = 2; meh = 3; okay, fine, not bad = 4; good = 5;
    great = 6; or a digit from 1 to 6. If no mood word is found, the question is asked once more
    and then the topic is skipped.
+
+   Off the topic. The conversation can be left at any point and keeps what it could harvest, so
+   an answer that does not fit the question (the mood question answered with "I had salmon and
+   rice for dinner") still goes through the same capture as chat, is saved with source `checkin`
+   on the user message (so undo works the same way) and is not saved twice. The reply says what
+   was kept ("Thanks, I have put the food on today's log.") and asks the question again, once;
+   with nothing to keep it is the plain retry ("Sorry, I did not catch that. ..."). Any answer
+   that puts another topic's kind on the log (a glass of wine named with dinner) marks that topic
+   done, so it is not asked.
 5. Skip. "skip", "pass" or "rather not say" saves nothing and moves on.
 6. Encouragement. Before the next question comes one line from the bank, keyed by topic and by
    what the answer said:
@@ -507,8 +516,9 @@ Returns up to 50 conversations, most recently updated first:
 200 [ ConversationSummaryDto ]
 ConversationSummaryDto = {
   id: uuid, kind: "chat" | "checkin",
-  title: string,    // the first 60 characters of the first message, the title given,
-                    // "New conversation", or "Evening check-in, 10 Nov"
+  title: string,    // the first message's first sentence when it fits in 60 characters,
+                    // else its first 60 cut at a word without trailing punctuation, the title given,
+                    // "New conversation", or "Evening check-in, Nov 10"
   day?: date,       // check-ins only
   createdAt: datetime, updatedAt: datetime
 }

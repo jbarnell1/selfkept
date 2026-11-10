@@ -11,6 +11,8 @@ namespace SelfKept.Infrastructure.Services.Assistant;
 /// is missing, harvests each answer at once (source "checkin", the topic as a hint), puts a mood
 /// into the existing mood check-in, and says one line of encouragement from the bank before the
 /// next question. The model may reword that line; the guard checks it. Leaving keeps the harvest.
+/// An answer that does not fit the question is still captured as chat would capture it, and the
+/// topics it covers are not asked.
 /// </summary>
 public sealed class CheckinFlowService : ICheckinFlowService
 {
@@ -123,6 +125,7 @@ public sealed class CheckinFlowService : ICheckinFlowService
     string? encouragement = null;
     string? topicAnswered = null;
     var reworded = false;
+    var askPlain = false;
 
     if (answer != null)
     {
@@ -143,22 +146,36 @@ public sealed class CheckinFlowService : ICheckinFlowService
       if (topicAnswered != null)
       {
         var harvest = CheckinHarvest.Interpret(_capture, topicAnswered, answer, now, zone);
-        var (entries, _) = await _saver.SaveAsync(actor, new CaptureResult(harvest.Drafts, []), JournalSources.Checkin, userMessage.Id, ct);
+        // An answer that does not fit the question (a meal given for the mood) is still read the
+        // way chat reads it, so the conversation keeps whatever it can. The topic harvest saved
+        // nothing in that case, so nothing is saved twice.
+        var found = harvest.Outcome == CheckinOutcome.Retry ? _capture.Extract(answer, now, zone) : new CaptureResult(harvest.Drafts, []);
+        var (entries, remembered) = await _saver.SaveAsync(actor, found, JournalSources.Checkin, userMessage.Id, ct);
         captured.AddRange(entries);
-        refs.AddRange(CaptureSaver.Refs(entries, []));
+        refs.AddRange(CaptureSaver.Refs(entries, remembered));
         if (harvest.Mood is { } m)
         {
           var checkin = await _checkins.CreateAsync(actor.UserId, actor.PersonId, actor.HouseholdId, new CreateCheckinRequest(null, m, null, null), actor.Info, ct);
           mood = m;
           refs.Add(new CaptureRefDto(AssistantMeta.Mood, checkin.Id, CheckinTopics.Mood, []));
         }
+        CheckinMachine.Cover(state, entries.Select(e => CheckinHarvest.TopicOf(e.Kind)).OfType<string>());
         CheckinMachine.Answer(state, harvest.Outcome);
         var movedOn = state.Current != topicAnswered;
+        var offTopicSaved = harvest.Outcome == CheckinOutcome.Retry && (entries.Count > 0 || remembered.Count > 0)
+          ? AssistantTemplates.OffTopicSaved(entries.Select(e => e.Kind), remembered.Count > 0)
+          : null;
         if (harvest.Outcome == CheckinOutcome.Skipped || (harvest.Outcome == CheckinOutcome.Retry && movedOn))
         {
-          encouragement = AssistantTemplates.SkippedLine;
+          encouragement = AssistantTemplates.Join(offTopicSaved, AssistantTemplates.SkippedLine);
         }
-        else if (harvest.Outcome != CheckinOutcome.Retry)
+        else if (harvest.Outcome == CheckinOutcome.Retry)
+        {
+          // Asked once more: after saying what was kept, the question itself rather than "did not catch that".
+          encouragement = offTopicSaved;
+          askPlain = offTopicSaved != null;
+        }
+        else
         {
           (encouragement, reworded) = await EncouragementAsync(actor.PersonId, topicAnswered, harvest.Tone, ct);
         }
@@ -195,7 +212,7 @@ public sealed class CheckinFlowService : ICheckinFlowService
     string closing;
     if (state.Current is { } next)
     {
-      question = Question(state, next);
+      question = askPlain ? AssistantTemplates.Question(next) : Question(state, next);
       closing = opening && answer == null ? AssistantTemplates.Join(AssistantTemplates.Opening, question) : question;
     }
     else if (state.NothingMissing && topicAnswered == null && answer == null)

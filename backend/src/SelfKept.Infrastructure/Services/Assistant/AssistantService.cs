@@ -169,7 +169,7 @@ public sealed class AssistantService : IAssistantService
     conversation.UpdatedAt = now;
     if (conversation.TitleCipher == null)
     {
-      conversation.TitleCipher = _encryption.Encrypt(message.Length > AutoTitleLength ? message[..AutoTitleLength].TrimEnd() : message);
+      conversation.TitleCipher = _encryption.Encrypt(AutoTitle(message));
     }
     await _repository.UpdateOwnConversationAsync(conversation, ct);
 
@@ -368,13 +368,43 @@ public sealed class AssistantService : IAssistantService
     return new AssistantStreamEvent(AssistantStreamEvent.Done, new DoneEventDto(turn.ConversationId, reply.Id, turn.UserMessageId, origin, text, reason == AssistantMeta.RedFlagReason));
   }
 
+  /// <summary>"Evening check-in, Nov 10": month first, as every other date in the app.</summary>
+  public static string CheckinTitle(DateOnly day) =>
+    "Evening check-in, " + day.ToString("MMM d", System.Globalization.CultureInfo.InvariantCulture);
+
+  /// <summary>
+  /// A conversation's title from its first message: the first sentence when it fits, else cut at
+  /// the last whole word within the limit, without trailing punctuation or spaces.
+  /// </summary>
+  public static string AutoTitle(string message)
+  {
+    var text = System.Text.RegularExpressions.Regex.Replace(message.Trim(), @"\s+", " ");
+    // A sentence ends at a stop followed by a space; a short opener ("Hi.") is not a title.
+    var end = System.Text.RegularExpressions.Regex.Match(text, @"[.!?](?:\s|$)");
+    string title;
+    if (end.Success && end.Index >= MinSentenceTitle && end.Index <= AutoTitleLength) title = text[..end.Index];
+    else if (text.Length <= AutoTitleLength) title = text;
+    else
+    {
+      var cut = text[..(AutoTitleLength + 1)];
+      var space = cut.LastIndexOf(' ');
+      title = space > 0 ? cut[..space] : text[..AutoTitleLength];
+    }
+    title = title.TrimEnd(TitleTrim);
+    // A message that is only punctuation keeps its own characters.
+    return title.Length > 0 ? title : text[..Math.Min(text.Length, AutoTitleLength)];
+  }
+
+  private const int MinSentenceTitle = 12;
+  private static readonly char[] TitleTrim = [' ', '.', ',', ';', ':', '!', '?', '-'];
+
   private static AssistantStreamEvent Delta(string text) => new(AssistantStreamEvent.Delta, new DeltaEventDto(text));
 
   private ConversationSummaryDto Summary(AssistantConversation c) => new(
     c.Id,
     c.Kind,
     (c.TitleCipher == null ? null : _encryption.TryDecrypt(c.TitleCipher))
-      ?? (c.Kind == ConversationKinds.Checkin && c.Day is { } day ? "Evening check-in, " + day.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture) : "New conversation"),
+      ?? (c.Kind == ConversationKinds.Checkin && c.Day is { } day ? CheckinTitle(day) : "New conversation"),
     c.Day,
     c.CreatedAt,
     c.UpdatedAt);

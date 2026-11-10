@@ -26,7 +26,7 @@ void main() {
         AssistantFixtures.summary(
           id: 'c0',
           kind: 'checkin',
-          title: 'Evening check-in, 9 Nov',
+          title: 'Evening check-in, Nov 9',
           day: '2026-11-09',
         ),
       ],
@@ -52,7 +52,7 @@ void main() {
     expect(find.text(AssistantPage.checkinLabel), findsOneWidget);
     expect(find.text(AssistantPage.playbookTitle), findsOneWidget);
     expect(find.text('Long run this morning'), findsOneWidget);
-    expect(find.text('Evening check-in, 9 Nov'), findsOneWidget);
+    expect(find.text('Evening check-in, Nov 9'), findsOneWidget);
     expect(find.text(ModelQuietNote.text), findsNothing);
   });
 
