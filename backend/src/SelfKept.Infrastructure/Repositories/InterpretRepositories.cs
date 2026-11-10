@@ -86,6 +86,9 @@ public sealed class BaselineRepository : IBaselineRepository
     return await LatestPerMetricAsync(targetPersonId, ct);
   }
 
+  public async Task<IReadOnlyList<Baseline>> GetLatestOwnPerMetricAsync(Guid personId, CancellationToken ct = default) =>
+    await LatestPerMetricAsync(personId, ct);
+
   // Baselines are computed for every metric together, so the newest computed_for day holds the
   // newest row of each metric: one query for the day, one for its rows.
   private async Task<List<Baseline>> LatestPerMetricAsync(Guid personId, CancellationToken ct)
@@ -156,6 +159,12 @@ public sealed class InsightRepository : IInsightRepository
     if (!includeDismissed) query = query.Where(i => i.DismissedAt == null);
     return await query.OrderByDescending(i => i.Day).ThenByDescending(i => i.CreatedAt).ToListAsync(ct);
   }
+
+  public async Task<IReadOnlyList<Insight>> ListOwnAsync(Guid personId, DateOnly from, DateOnly to, CancellationToken ct = default) =>
+    await _context.Insights.AsNoTracking()
+      .Where(i => i.PersonId == personId && i.Day >= from && i.Day <= to && i.DismissedAt == null)
+      .OrderByDescending(i => i.Day).ThenByDescending(i => i.CreatedAt)
+      .ToListAsync(ct);
 }
 
 /// <summary>Like the audit log: its own short-lived context, and a failed write is logged, never thrown.</summary>

@@ -15,8 +15,7 @@ NNNN_short_description.down.sql   committed for manual, reviewed rollback (never
 
 - Only `*.up.sql` files are embedded (see the `.csproj` `EmbeddedResource` glob) and run on
   startup, in filename order. Keep the numeric prefix zero-padded and monotonic. The next free
-  number is 0016. Numbers 0016 to 0020 are taken by packages in flight; `0018_context`
-  (context events, docs/context-design.md) is one of them.
+  number is 0021.
 - `*.down.sql` is the reviewed reverse of the up script. Downs are not auto-run: rolling back a
   schema is a deliberate, supervised act. Apply a down by hand (psql) and delete the matching
   `schemaversions` row.
@@ -61,3 +60,10 @@ or newer. The default is off; the self-host image turns it on.
 The schema targets PostgreSQL 16. `pgvector/pgvector:pg16` is the recommended image so a later
 package can add vector columns without a database swap; nothing in these scripts needs the
 extension yet.
+
+## Assistant tables (0016)
+
+`0016_assistant` adds `assistant_conversation`, `assistant_message`, `assistant_brief`,
+`nudge_setting` and `nudge_log` for the in-app assistant (`docs/assistant-design.md`). All five
+are own-only and cascade from `person`; free text is encrypted and the jsonb columns hold keys
+and ids only. Its down script drops the five tables and leaves `journal_entry` alone.

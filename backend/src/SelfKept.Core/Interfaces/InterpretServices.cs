@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using SelfKept.Core.DTOs;
 using SelfKept.Core.Entities;
 
@@ -255,6 +256,47 @@ public interface IChatModel
   bool Enabled { get; }
   string ModelName { get; }
   Task<ChatCompletion> CompleteAsync(string system, string user, ChatOptions options, CancellationToken ct = default);
+
+  /// <summary>
+  /// A conversation of several turns. The default folds the turns into the single-prompt call so
+  /// an implementation that only knows one prompt keeps working.
+  /// </summary>
+  Task<ChatCompletion> CompleteAsync(IReadOnlyList<ChatTurn> turns, ChatOptions options, CancellationToken ct = default)
+  {
+    var (system, user) = ChatTurn.Fold(turns);
+    return CompleteAsync(system, user, options, ct);
+  }
+
+  /// <summary>
+  /// The same conversation answered piece by piece as the model writes it. The default yields the
+  /// whole answer as one piece.
+  /// </summary>
+  async IAsyncEnumerable<string> StreamAsync(IReadOnlyList<ChatTurn> turns, ChatOptions options, [EnumeratorCancellation] CancellationToken ct = default)
+  {
+    var completion = await CompleteAsync(turns, options, ct);
+    if (completion.Content.Length > 0) yield return completion.Content;
+  }
+
+  /// <summary>Whether the model server answers at all, without running the model. The default trusts Enabled.</summary>
+  Task<bool> PingAsync(CancellationToken ct = default) => Task.FromResult(Enabled);
+}
+
+/// <summary>One turn of a conversation sent to the model: system, user or assistant.</summary>
+public sealed record ChatTurn(string Role, string Content)
+{
+  public const string System = "system";
+  public const string User = "user";
+  public const string Assistant = "assistant";
+
+  /// <summary>System turns joined into one system prompt; the rest written out as a transcript ending on the last turn.</summary>
+  public static (string System, string User) Fold(IReadOnlyList<ChatTurn> turns)
+  {
+    var system = string.Join("\n\n", turns.Where(t => t.Role == System).Select(t => t.Content));
+    var rest = turns.Where(t => t.Role != System).ToList();
+    if (rest.Count == 1) return (system, rest[0].Content);
+    var user = string.Join("\n", rest.Select(t => (t.Role == Assistant ? "Assistant: " : "User: ") + t.Content));
+    return (system, user);
+  }
 }
 
 /// <summary>Asks the model to reword templated facts, validates the answer, falls back to the template.</summary>

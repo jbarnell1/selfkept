@@ -31,6 +31,9 @@ public interface IBaselineRepository
   /// rather than each metric's own, because Today is an insights-category product.
   /// </summary>
   Task<IReadOnlyList<Baseline>?> GetLatestPerMetricForInsightsAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default);
+
+  /// <summary>Server-internal: the person's own newest row per metric (the in-app assistant reads its owner's record).</summary>
+  Task<IReadOnlyList<Baseline>> GetLatestOwnPerMetricAsync(Guid personId, CancellationToken ct = default);
 }
 
 public interface IInsightRepository
@@ -52,6 +55,9 @@ public interface IInsightRepository
 
   /// <summary>Newest first. Null when the viewer may not see the target's insights.</summary>
   Task<IReadOnlyList<Insight>?> ListAsync(Guid viewerPersonId, Guid targetPersonId, DateOnly from, DateOnly to, bool includeDismissed, CancellationToken ct = default);
+
+  /// <summary>Server-internal: the person's own cards that are not dismissed, newest first.</summary>
+  Task<IReadOnlyList<Insight>> ListOwnAsync(Guid personId, DateOnly from, DateOnly to, CancellationToken ct = default);
 }
 
 public interface IAiCallRepository

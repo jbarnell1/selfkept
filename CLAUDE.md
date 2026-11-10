@@ -20,6 +20,7 @@ Self-hosted household health app. C# .NET 10 API, Flutter 3.44 clients (iOS, And
 | API contract | `docs/api-contract.md`, `docs/ingest-contract.md` |
 | Package designs | `docs/setup-design.md`, `docs/sso-design.md`, `docs/insights-design.md`, `docs/labs-design.md`, `docs/connect-design.md`, `docs/lab-ranges.md`, `docs/retention-design.md` |
 | Context, new rules, patterns, systems, weekly review | `docs/context-design.md` |
+| In-app assistant: chat, capture, guard, check-in, brief, playbook, nudges, API | `docs/assistant-design.md` |
 | Backend conventions | `.claude/rules/backend.md` |
 | Flutter conventions | `.claude/rules/flutter.md` |
 | Testing | `.claude/rules/testing.md` |

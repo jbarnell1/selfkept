@@ -33,7 +33,8 @@ public class MigrationUpgradeTests
      "oura_connection", "oura_auth_state",
      "sample_minute", "sample_rollup_month",
      "goal", "daily_target", "journal_entry", "medication", "strength_set",
-     "context_event"];
+     "context_event",
+     "assistant_conversation", "assistant_message", "assistant_brief", "nudge_setting", "nudge_log"];
 
   [RequiresPostgresFact]
   public async Task EmptyDatabase_ToHead_CreatesEveryTable_AndIsIdempotent()
