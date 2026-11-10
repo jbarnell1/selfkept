@@ -104,11 +104,42 @@ public class SystemsAndReviewTests
   }
 
   [Fact]
+  public async Task Systems_CardOlderThanAWeek_CountsTheSameOnTheListAndTheDetail()
+  {
+    await using var f = await RecordFixture.SeededAsync();
+    f.Db.Insights.Add(new Insight
+    {
+      Id = Guid.NewGuid(), PersonId = f.Owner, Day = RecordFixture.Today.AddDays(-12), Kind = InsightKinds.RhrElevated, Severity = InsightSeverities.Watch,
+      Metrics = [MetricKeys.RestingHrBpm], Evidence = "{}", Templated = "Resting heart rate is up on your normal.", CreatedAt = RecordFixture.Now,
+    });
+    await f.Db.SaveChangesAsync();
+
+    var listed = (await f.Systems.ListAsync(f.Owner, f.Owner))!.Systems.Single(s => s.Key == "heart");
+    var detail = (await f.Systems.GetAsync(f.Owner, f.Owner, "heart"))!;
+
+    detail.Insights.Should().HaveCount(2);
+    listed.Insights.Should().HaveCount(2, "the list reads the same cards the detail page shows");
+    listed.State.Should().StartWith("2 cards worth a look.").And.Be(detail.State);
+  }
+
+  [Fact]
   public void State_LabFlagWithoutOutsideReadings_NamesTheMarker()
   {
     var labs = new[] { new SystemLabDto("lab.ldl", "LDL cholesterol", "mg/dL", 160, new DateOnly(2026, 10, 21), LabFlags.High, null, null, null) };
 
     SystemsService.State([], labs, []).Should().Be("LDL cholesterol came back high on Oct 21, 2026.");
+  }
+
+  [Theory]
+  [InlineData(MetricKeys.Steps, "Steps", "Steps are below your usual range.")]
+  [InlineData(MetricKeys.ExerciseMin, "Exercise minutes", "Exercise minutes are below your usual range.")]
+  [InlineData(MetricKeys.HrvRmssdMs, "HRV (RMSSD)", "HRV (RMSSD) is below your usual range.")]
+  [InlineData(MetricKeys.SleepStage, "Sleep", "Sleep is below your usual range.")]
+  public void State_ReadingBelowItsRange_AgreesWithTheMetricName(string metric, string name, string expected)
+  {
+    var reading = new SystemReadingDto(metric, name, "count", "activity", RecordFixture.Today, 3000, new SystemUsualDto(8000, 7000, 9000, 28), BandPositions.Below, null);
+
+    SystemsService.State([reading], [], []).Should().Be(expected);
   }
 
   // --- read-backs ---

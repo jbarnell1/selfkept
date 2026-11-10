@@ -144,6 +144,24 @@ public class PatternMathTests
   }
 
   [Fact]
+  public void Sentence_ForWristTemperature_UsesTheDegreeSign()
+  {
+    var p = new PatternStats(JournalTags.Alcohol, MetricKeys.WristTempDeltaC, 9, 31, 0.3, 0.12, 0.18, 0.2, 0.4, 0.0, 0.25, 0.3, 0.05, 0, 0, true);
+
+    PatternMath.Sentence(p).Should().Contain("your wrist temperature change ran 0.18 °C higher").And.Contain("(0.2 to 0.4 °C on those nights");
+  }
+
+  [Theory]
+  [InlineData(MetricKeys.RestingHrBpm, "resting heart rate")]
+  [InlineData(MetricKeys.HrvRmssdMs, "HRV")]
+  [InlineData(MetricKeys.Vo2Max, "VO2 max")]
+  [InlineData(MetricKeys.SleepStage, "sleep")]
+  public void MetricWords_InsideASentence_KeepsAcronyms(string metric, string expected)
+  {
+    PatternMath.MetricWords(metric).Should().Be(expected);
+  }
+
+  [Fact]
   public void Build_ListsEstablishedPatterns_AndTagsStillBuilding()
   {
     var (logged, nights) = Data(8, 16);

@@ -238,8 +238,9 @@ your own data, not proof."
 Per reading: the latest daily figure of the last 120 days, the latest baseline's `median28`, `p25`
 and `p75` once `n28 >= 14` (`usual`), and the band of the latest value against it. A metric with no
 figure and no baseline is left out. Per lab marker: the latest and previous confirmed value and the
-flag as reported. Cards: the stored insights of the last 7 days (30 on the detail page), not
-dismissed, whose metrics touch the system.
+flag as reported. Cards: the stored insights of the last 30 days, not dismissed, whose metrics
+touch the system. The list and the detail page read the same cards, so the count in the state line
+is the number of cards the detail page shows.
 
 State line, built by code: "One card worth a look." or "{n} cards worth a look." when watch or
 clinician cards are open, then the first reading outside its usual range ("Resting heart rate is
@@ -517,7 +518,7 @@ WorkoutsDto = {
 | Method | Path | Returns |
 | --- | --- | --- |
 | GET | `/api/systems?personId?` | `SystemsDto` |
-| GET | `/api/systems/{key}?personId?` | `SystemDto`, with `recent` and `history` filled and 30 days of cards |
+| GET | `/api/systems/{key}?personId?` | `SystemDto`, with `recent` and `history` filled |
 
 Keys: `heart`, `sleep`, `metabolism`, `hormones`, `body`, `cycle` (any case).
 

@@ -12,6 +12,7 @@ import '../../providers/journal_provider.dart';
 import '../../theme/tokens.dart';
 import '../../utils/body_units.dart';
 import '../../utils/goal_format.dart';
+import '../../utils/metric_format.dart';
 import '../../widgets/status_views.dart';
 import '../../widgets/subpage_app_bar.dart';
 import '../../widgets/viewer_units.dart';
@@ -290,7 +291,7 @@ class _GoalEditorState extends State<GoalEditor> {
                         GoalFormat.defaultMetricKey(_kind) == null
                             ? GoalEditor.noMetric
                             : '${GoalEditor.usualMetric}: '
-                                  '${GoalFormat.metricFor(GoalFormat.defaultMetricKey(_kind))!.displayName.toLowerCase()}',
+                                  '${nameInSentence(GoalFormat.metricFor(GoalFormat.defaultMetricKey(_kind))!.displayName)}',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

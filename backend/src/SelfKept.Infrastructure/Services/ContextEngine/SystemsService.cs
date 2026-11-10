@@ -21,8 +21,11 @@ public sealed class SystemsService : ISystemsService
   /// <summary>How far back a reading may be and still count as the latest: weigh-ins and VO2 max are sparse.</summary>
   public const int LatestLookbackDays = 120;
 
-  public const int CardDays = 7;
-  public const int DetailCardDays = 30;
+  /// <summary>
+  /// The cards of the last 30 days, on the list and the detail page alike, so the count in the
+  /// state line is the number of cards the detail page shows.
+  /// </summary>
+  public const int CardDays = 30;
   public const int LabHistory = 6;
 
   public static readonly IReadOnlyList<BodySystem> All =
@@ -78,7 +81,7 @@ public sealed class SystemsService : ISystemsService
 
   public async Task<SystemsDto?> ListAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default)
   {
-    var read = await ReadAsync(viewerPersonId, targetPersonId, detail: false, ct);
+    var read = await ReadAsync(viewerPersonId, targetPersonId, ct);
     if (read == null) return null;
     var systems = new List<SystemDto>();
     foreach (var system in All)
@@ -92,7 +95,7 @@ public sealed class SystemsService : ISystemsService
   {
     var system = All.FirstOrDefault(s => s.Key == key.Trim().ToLowerInvariant());
     if (system == null) return null;
-    var read = await ReadAsync(viewerPersonId, targetPersonId, detail: true, ct);
+    var read = await ReadAsync(viewerPersonId, targetPersonId, ct);
     if (read == null) return null;
     return await BuildAsync(viewerPersonId, targetPersonId, system, read, detail: true, ct);
   }
@@ -104,7 +107,7 @@ public sealed class SystemsService : ISystemsService
     IReadOnlyList<LabReport>? Reports,
     IReadOnlyList<Insight>? Insights);
 
-  private async Task<Read?> ReadAsync(Guid viewer, Guid target, bool detail, CancellationToken ct)
+  private async Task<Read?> ReadAsync(Guid viewer, Guid target, CancellationToken ct)
   {
     var person = await _persons.GetByIdAsync(target, ct);
     if (person == null) return null;
@@ -113,7 +116,7 @@ public sealed class SystemsService : ISystemsService
     var today = DayBoundaries.LocalDay(_clock.GetUtcNow().UtcDateTime, DayBoundaries.Resolve(person.TimeZone));
     var baselines = (await _baselines.GetLatestPerMetricAsync(viewer, target, ct) ?? []).ToDictionary(b => b.MetricKey, StringComparer.Ordinal);
     var reports = await _labs.ListAsync(viewer, target, ct);
-    var insights = await _insights.ListAsync(viewer, target, today.AddDays(-((detail ? DetailCardDays : CardDays) - 1)), today, includeDismissed: false, ct);
+    var insights = await _insights.ListAsync(viewer, target, today.AddDays(-(CardDays - 1)), today, includeDismissed: false, ct);
     return new Read(today, allowed, baselines, reports, insights);
   }
 
@@ -196,7 +199,7 @@ public sealed class SystemsService : ISystemsService
     {
       var first = outside[0];
       var more = outside.Count > 1 ? $" {outside.Count - 1} more reading{(outside.Count > 2 ? "s are" : " is")} outside it too." : string.Empty;
-      parts.Add($"{first.DisplayName} is {first.Band} your usual range.{more}");
+      parts.Add($"{first.DisplayName} {MetricNames.Is(first.Metric)} {first.Band} your usual range.{more}");
     }
     else if (flagged.Count > 0)
     {

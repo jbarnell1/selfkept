@@ -196,12 +196,12 @@ public static class PatternMath
   {
     MetricKeys.HrvRmssdMs or MetricKeys.HrvSdnnMs => "HRV",
     MetricKeys.SleepStage => "sleep",
-    _ => MetricNames.For(metric).ToLowerInvariant(),
+    _ => MetricNames.InSentence(metric),
   };
 
   private static string TagWords(string tag) => JournalTags.DisplayName(tag).ToLowerInvariant();
 
-  private static string UnitWords(string unit) => unit == "C" ? "C" : unit;
+  private static string UnitWords(string unit) => unit == "C" ? "°C" : unit;
 
   private static string Num(double value, int decimals) =>
     Math.Round(value, decimals, MidpointRounding.AwayFromZero).ToString(decimals == 0 ? "0" : "0.0#", CultureInfo.InvariantCulture);

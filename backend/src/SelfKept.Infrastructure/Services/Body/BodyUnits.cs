@@ -13,7 +13,7 @@ public static class BodyUnits
   public const double LbPerKg = 2.2046226218;
   public const double CmPerInch = 2.54;
 
-  /// <summary>"82.4 kg", "181.7 lb", "18.5 %", "7 h 30 min". Unknown units print as they are.</summary>
+  /// <summary>"82.4 kg", "181.7 lb", "18.5 %", "7 h 30 min", "0.18 °C". Unknown units print as they are.</summary>
   public static string Format(double value, string? unit, UnitSystem units, int decimals = 1)
   {
     switch (unit)
@@ -28,6 +28,8 @@ public static class BodyUnits
         return Number(value, decimals);
       case "count":
         return Number(value, 0);
+      case "C":
+        return Number(value, decimals) + " °C";
       default:
         return Number(value, decimals) + " " + unit;
     }

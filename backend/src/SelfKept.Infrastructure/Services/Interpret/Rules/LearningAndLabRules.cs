@@ -100,7 +100,7 @@ public sealed class LabOutOfRangeRule : RuleBase
     var name = context.Labs.DisplayName(lead.Result.MetricKey);
     var direction = lead.Assessment.Position == LabPositions.Above ? "above" : "below";
 
-    var text = $"{name} is {direction} the usual range: {LabRules.Amount(lead.Result.Value, lead.Result.Unit)} on {LabRules.Spoken(panel.CollectedOn)} (usual {LabRules.Range(lead.Reference)}).";
+    var text = $"{name} {MetricNames.Is(lead.Result.MetricKey)} {direction} the usual range: {LabRules.Amount(lead.Result.Value, lead.Result.Unit)} on {LabRules.Spoken(panel.CollectedOn)} (usual {LabRules.Range(lead.Reference)}).";
     var previousResult = previous?.Result(lead.Result.MetricKey);
     if (previousResult != null && previous != null)
     {

@@ -202,15 +202,17 @@ public sealed class StateBriefBuilder : IStateBriefBuilder
     var comparator = t.Target.Comparator == "at_most" ? "at most" : "at least";
     return t.Target.Period == "week"
       ? $"{t.Target.Label} ({comparator} {Format(t.Target.Value)}{unit} a week): {current} over the last 7 days, {verdict}."
-      : $"{t.Target.Label} ({comparator} {Format(t.Target.Value)}{unit} a day): {current} today, {verdict}; kept on {t.MetDays} of {t.KnownDays} days with an answer this week.";
+      : $"{t.Target.Label} ({comparator} {Format(t.Target.Value)}{unit} a day): {current} today, {verdict}; kept on {t.MetDays} of {t.KnownDays} {(t.KnownDays == 1 ? "day" : "days")} with an answer this week.";
   }
 
-  private static string? TargetsSummary(IReadOnlyList<TargetTallyDto> tally)
+  /// <summary>"Today 2 of your 3 daily targets are met so far.", with "is" for one met and a sentence of its own for a single target.</summary>
+  public static string? TargetsSummary(IReadOnlyList<TargetTallyDto> tally)
   {
     var daily = tally.Where(t => t.Target.Period == "day").ToList();
     if (daily.Count == 0) return null;
     var met = daily.Count(t => t.Met == true);
-    return $"Today {met} of your {daily.Count} daily targets are met so far.";
+    if (daily.Count == 1) return met == 1 ? "Today your one daily target is met so far." : "Today your one daily target is not met yet.";
+    return $"Today {met} of your {daily.Count} daily targets {(met == 1 ? "is" : "are")} met so far.";
   }
 
   private async Task<(List<string> Lines, string? SleepText, List<string> Standouts)> ReadingsAsync(Guid personId, DateOnly today, CancellationToken ct)
@@ -240,7 +242,7 @@ public sealed class StateBriefBuilder : IStateBriefBuilder
       {
         line += $"; usual range {ValueText(key, b!.P25_28!.Value, unit)} to {ValueText(key, b.P75_28!.Value, unit)}, so {BandWords(band)}.";
         var standout = b.P10_28 is { } p10 && row.Value < p10 || b.P90_28 is { } p90 && row.Value > p90;
-        if (standout && key != MetricKeys.SleepStage) standouts.Add($"{name} was {value} {when}, {BandWords(band)}.");
+        if (standout && key != MetricKeys.SleepStage) standouts.Add($"{name} {MetricNames.Was(key)} {value} {when}, {BandWords(band)}.");
       }
       else
       {

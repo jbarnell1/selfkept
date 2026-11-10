@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/context.dart';
 import '../../providers/systems_provider.dart';
 import '../../theme/tokens.dart';
+import '../../utils/metric_format.dart';
 import '../../widgets/page_body.dart';
 import '../../widgets/person_switcher.dart';
 import '../../widgets/surface_card.dart';
@@ -79,7 +80,7 @@ class _PatternsPageState extends State<PatternsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${pattern.tagLabel} and ${pattern.metricName.toLowerCase()}',
+                  '${pattern.tagLabel} and ${nameInSentence(pattern.metricName)}',
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: Space.x2),
