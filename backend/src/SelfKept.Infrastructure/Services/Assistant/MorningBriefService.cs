@@ -189,6 +189,8 @@ public sealed class MorningBriefService : IMorningBriefService
       .Where(i => i.Kind != InsightKinds.Learning)
       .OrderByDescending(i => i.Severity == InsightSeverities.Clinician ? 3 : i.Severity == InsightSeverities.Watch ? 2 : 1)
       .ThenByDescending(i => i.Day)
+      .ThenByDescending(InterpretMapping.BandDistanceOf)
+      .ThenBy(i => i.Kind, StringComparer.Ordinal)
       .FirstOrDefault();
 
     var evening = await _journal.ListOwnAsync(person.Id, yesterday, yesterday, ct);
