@@ -22,13 +22,17 @@ import androidx.health.connect.client.records.BloodGlucoseRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.BodyTemperatureRecord
+import androidx.health.connect.client.records.BodyWaterMassRecord
+import androidx.health.connect.client.records.BoneMassRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.MenstruationFlowRecord
+import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RespiratoryRateRecord
@@ -605,6 +609,10 @@ class HealthReader(private val context: Context) {
             Mapping("WeightRecord", WeightRecord::class),
             Mapping("BodyFatRecord", BodyFatRecord::class),
             Mapping("HeightRecord", HeightRecord::class),
+            Mapping("LeanBodyMassRecord", LeanBodyMassRecord::class),
+            Mapping("BoneMassRecord", BoneMassRecord::class),
+            Mapping("BodyWaterMassRecord", BodyWaterMassRecord::class),
+            Mapping("NutritionRecord", NutritionRecord::class),
             Mapping("MenstruationFlowRecord", MenstruationFlowRecord::class),
             Mapping("BasalBodyTemperatureRecord", BasalBodyTemperatureRecord::class),
             Mapping("BloodGlucoseRecord", BloodGlucoseRecord::class),
@@ -671,12 +679,16 @@ class HealthReader(private val context: Context) {
         val workouts = JSONArray()
         var hasMore = false
         var budget = limit
+        val granted = client.permissionController.getGrantedPermissions()
 
         for (m in mappings) {
             if (budget <= 0) {
                 hasMore = true
                 break
             }
+            // A type the person declined is skipped: Health Connect refuses the
+            // read. Allowing it later starts it fresh with its own backfill.
+            if (HealthPermission.getReadPermission(m.type) !in granted) continue
             val e = entry(m.name)
             if (!e.has("token")) {
                 e.put("token", client.getChangesToken(ChangesTokenRequest(setOf(m.type))))
@@ -832,6 +844,16 @@ object RecordMapper {
             is HeightRecord -> samples.put(
                 base(uid(r.metadata), "height_cm", r.time, null, r.height.inMeters * 100.0, "cm", meta(r, "HeightRecord"))
             )
+            is LeanBodyMassRecord -> samples.put(
+                base(uid(r.metadata), "lean_mass_kg", r.time, null, r.mass.inKilograms, "kg", meta(r, "LeanBodyMassRecord"))
+            )
+            is BoneMassRecord -> samples.put(
+                base(uid(r.metadata), "bone_mass_kg", r.time, null, r.mass.inKilograms, "kg", meta(r, "BoneMassRecord"))
+            )
+            is BodyWaterMassRecord -> samples.put(
+                base(uid(r.metadata), "body_water_kg", r.time, null, r.mass.inKilograms, "kg", meta(r, "BodyWaterMassRecord"))
+            )
+            is NutritionRecord -> mapNutrition(r, samples)
             is MenstruationFlowRecord -> {
                 val (value, label) = when (r.flow) {
                     MenstruationFlowRecord.FLOW_LIGHT -> 1 to "light"
@@ -877,6 +899,26 @@ object RecordMapper {
                 else -> 5 to "unspecified"
             }
             samples.put(base(uid(r.metadata, "-$i"), "sleep_stage", s.startTime, s.endTime, value.toDouble(), "stage", JSONObject(m.toString()).put("stage", label)))
+        }
+    }
+
+    /**
+     * What another app logged as eaten, one interval sample per field the
+     * record carries. A field the record leaves out is skipped, never sent as 0.
+     */
+    private fun mapNutrition(r: NutritionRecord, samples: JSONArray) {
+        val m = meta(r, "NutritionRecord")
+        r.energy?.let {
+            samples.put(base(uid(r.metadata, "-energy"), "energy_intake_kcal", r.startTime, r.endTime, it.inKilocalories, "kcal", m))
+        }
+        r.protein?.let {
+            samples.put(base(uid(r.metadata, "-protein"), "protein_g", r.startTime, r.endTime, it.inGrams, "g", m))
+        }
+        r.totalCarbohydrate?.let {
+            samples.put(base(uid(r.metadata, "-carbs"), "carbs_g", r.startTime, r.endTime, it.inGrams, "g", m))
+        }
+        r.totalFat?.let {
+            samples.put(base(uid(r.metadata, "-fat"), "fat_g", r.startTime, r.endTime, it.inGrams, "g", m))
         }
     }
 
