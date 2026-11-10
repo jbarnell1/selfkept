@@ -31,6 +31,7 @@ class JournalProvider extends ChangeNotifier with SafeNotifier {
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
     _auth.addListener(_onAuthChanged);
+    _changes.addListener(_onRecordChanged);
   }
 
   /// Today's entries, newest first.
@@ -141,6 +142,13 @@ class JournalProvider extends ChangeNotifier with SafeNotifier {
     notify();
   }
 
+  /// The assistant saves entries from what the person says, so today's list
+  /// reloads when someone else announces a change.
+  void _onRecordChanged() {
+    if (identical(_changes.origin, this) || !_hasLoaded || isDisposed) return;
+    load();
+  }
+
   void _onAuthChanged() {
     if (_auth.isAuthenticated) return;
     if (!_hasLoaded && !_tagsLoaded && _error == null) return;
@@ -156,6 +164,7 @@ class JournalProvider extends ChangeNotifier with SafeNotifier {
   @override
   void dispose() {
     _auth.removeListener(_onAuthChanged);
+    _changes.removeListener(_onRecordChanged);
     super.dispose();
   }
 }

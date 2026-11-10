@@ -24,6 +24,7 @@ import '../pages/trend_detail_page.dart';
 import '../pages/you/goals_page.dart';
 import '../pages/you/medicines_page.dart';
 import '../pages/you/you_page.dart';
+import 'assistant_routes.dart';
 import '../providers/auth_provider.dart';
 import '../providers/startup_provider.dart';
 import '../theme/tokens.dart';
@@ -191,6 +192,8 @@ GoRouter buildRouter({
           ConsentPage(requestId: state.uri.queryParameters['request']),
         ),
       ),
+      // The in-app assistant's chat, check-in, playbook and You pages.
+      ...assistantRoutes(_fade),
       StatefulShellRoute.indexedStack(
         pageBuilder: (context, state, shell) =>
             _fade(state, AppShell(navigationShell: shell)),

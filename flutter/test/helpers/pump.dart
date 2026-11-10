@@ -63,7 +63,11 @@ import 'package:selfkept/providers/sso_provider.dart';
 import 'package:selfkept/utils/device_time_zone.dart';
 import 'package:selfkept/services/sso_service.dart';
 
+import 'package:selfkept/providers/assistant_providers.dart';
+import 'package:selfkept/services/sse/event_stream_client.dart';
+
 import 'fake_api_client.dart';
+import 'fake_event_stream.dart';
 
 /// Everything a page needs, built on one fake client. Never touches the network.
 class TestHarness {
@@ -99,6 +103,10 @@ class TestHarness {
   final GoalsProvider goals;
   final MedicationsProvider medications;
   final ProgressProvider progress;
+
+  /// The in-app assistant, streaming through [streams].
+  final AssistantProviders assistant;
+  final FakeEventStreamTransport streams;
 
   /// Stands in for the browser everywhere a page opens a link.
   final UrlOpener openUrl;
@@ -136,6 +144,8 @@ class TestHarness {
     required this.goals,
     required this.medications,
     required this.progress,
+    required this.assistant,
+    required this.streams,
     required this.openUrl,
   });
 
@@ -186,7 +196,20 @@ class TestHarness {
     final viewing = ViewedPerson(auth: auth);
     final goalsService = GoalsService(client);
     final targetsService = TargetsService(client);
+    final streams = FakeEventStreamTransport();
     return TestHarness._(
+      streams: streams,
+      assistant: AssistantProviders(
+        api: client,
+        events: EventStreamClient(
+          transport: streams,
+          serverUrl: () => client.serverUrl,
+          accessToken: () async => 'test-token',
+          refresh: () async => false,
+        ),
+        auth: auth,
+        changes: changes,
+      ),
       recordChanges: changes,
       viewing: viewing,
       tally: TallyProvider(
@@ -318,6 +341,7 @@ class TestHarness {
         ChangeNotifierProvider.value(value: medications),
         ChangeNotifierProvider.value(value: progress),
         Provider<UrlOpener>.value(value: openUrl),
+        ...assistant.providers,
       ],
       child: router == null
           ? MaterialApp(theme: theme ?? AppTheme.light, home: child)
@@ -329,6 +353,7 @@ class TestHarness {
   }
 
   void dispose() {
+    assistant.dispose();
     progress.dispose();
     medications.dispose();
     goals.dispose();

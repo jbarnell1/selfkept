@@ -12,6 +12,7 @@ import 'collectors/health_collector.dart';
 import 'offline/open_outbox.dart';
 import 'offline/outbox_repository.dart';
 import 'offline/sync_engine.dart';
+import 'providers/assistant_providers.dart';
 import 'providers/auth_provider.dart';
 import 'providers/checkins_provider.dart';
 import 'providers/collector_provider.dart';
@@ -211,6 +212,7 @@ class _AppState extends State<App> {
   late final GoalsProvider _goals;
   late final MedicationsProvider _medications;
   late final ProgressProvider _progress;
+  late final AssistantProviders _assistant;
   late final AppLifecycleListener _lifecycle;
   late final GoRouter _router;
   bool _collectorStarted = false;
@@ -312,6 +314,11 @@ class _AppState extends State<App> {
       changes: _recordChanges,
       viewing: _viewing,
     );
+    _assistant = AssistantProviders.forClient(
+      client: client,
+      auth: _auth,
+      changes: _recordChanges,
+    );
     _auth.addListener(_onAuthChanged);
     // A foreground pass every time the app comes back.
     _lifecycle = AppLifecycleListener(onResume: _collector.onResume);
@@ -335,6 +342,7 @@ class _AppState extends State<App> {
     _lifecycle.dispose();
     _auth.removeListener(_onAuthChanged);
     _router.dispose();
+    _assistant.dispose();
     _progress.dispose();
     _medications.dispose();
     _goals.dispose();
@@ -399,6 +407,7 @@ class _AppState extends State<App> {
         ChangeNotifierProvider.value(value: _medications),
         ChangeNotifierProvider.value(value: _progress),
         Provider<UrlOpener>.value(value: openExternalUrl),
+        ..._assistant.providers,
       ],
       child: MaterialApp.router(
         title: Brand.productName,

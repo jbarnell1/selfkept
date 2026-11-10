@@ -319,4 +319,20 @@ class DioApiClient implements ApiClient {
 
   @override
   Future<void> clearSession() => _tokens.clear();
+
+  /// The access token, for a request that cannot go through Dio (the
+  /// streamed assistant reply on web).
+  Future<String?> accessToken() => _tokens.readAccessToken();
+
+  /// The refresh a 401 gets inside Dio, for those same requests. True when a
+  /// new access token is stored. When the server said no, the session is
+  /// cleared and [onUnauthorized] fires, as it does for any other call.
+  Future<bool> refreshAfterUnauthorized() async {
+    final refreshed = await _refreshSession();
+    if (refreshed == false) {
+      await _tokens.clear();
+      _onUnauthorized?.call();
+    }
+    return refreshed == true;
+  }
 }
