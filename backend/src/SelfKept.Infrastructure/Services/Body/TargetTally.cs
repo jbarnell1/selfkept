@@ -90,9 +90,11 @@ public static class TargetTally
         return new Reading(true, entries.Count(j => target.Tag != null && j.Tags.Contains(target.Tag)), true);
       default:
         if (data.Strength == null) return new Reading(false, null, false);
-        var lifts = data.Strength.Count(s => s.Day == day);
-        // A day with no set is a known rest day once the person keeps a log at all.
-        return new Reading(true, lifts, data.Strength.Count > 0);
+        // A day with no set is a known rest day once there is a set somewhere in the seven days.
+        // With no set at all in the window every day is unknown, like a day with nothing in the
+        // day log, so an "at most" target never passes on nothing logged.
+        if (data.Strength.Count == 0) return new Reading(true, null, false);
+        return new Reading(true, data.Strength.Count(s => s.Day == day), true);
     }
   }
 
