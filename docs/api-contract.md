@@ -174,7 +174,10 @@ one `data: <json>` line per frame. The order is `capture` exactly once
 (`{ conversationId, messageId, entries, remembered }`), then `delta` zero or more times
 (`{ text }`, one checked sentence), then `replace` at most once (`{ text, reason: "guard" |
 "unreachable" }`, the client discards what it showed), then `done` exactly once
-(`{ conversationId, messageId, userMessageId, origin: "model" | "template" | "guard", text }`).
+(`{ conversationId, messageId, userMessageId, origin: "model" | "template" | "guard", text, redFlag }`).
+`redFlag` is true only when the reply answers a red-flag message (the urgent-care wording); a
+refused model answer is origin `guard` too and has `redFlag` false. Stored messages carry the same
+`redFlag` field.
 
 ## Context, patterns, read-backs, systems and weekly review
 
