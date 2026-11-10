@@ -98,6 +98,14 @@ Notes:
 - Audit actions: `insight.reaction`, `insight.dismiss`, `interpret.recompute`. Model calls go to `ai_call`, never to the audit log.
 - `GET /api/system/version` lists `insights.rules` and, when `Ai:Enabled` is true with a base URL and model set, `insights.model`.
 
+## Body and goals rules
+
+`docs/body-design.md`, "Rules", adds five kinds that read goals, targets and the typed body
+measurements: `loss_rate_fast`, `goal_reached`, `goal_off_course`, `target_week` and
+`waist_height`, all severity `notice`. When each fires, its wording and its evidence are given
+there, along with the change to `weight_trend` (quiet while an active goal is measured by
+`weight_kg`).
+
 ## Context, patterns and the rules that read them
 
 `docs/context-design.md` adds context (stored events and context derived from the record) to the
