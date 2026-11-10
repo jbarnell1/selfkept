@@ -108,6 +108,9 @@ public interface IWorkoutRepository
 
   /// <summary>Null when the viewer may not see the target's activity.</summary>
   Task<IReadOnlyList<Workout>?> ListAsync(Guid viewerPersonId, Guid targetPersonId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
+
+  /// <summary>Server-internal: the person's own workouts that started in the window, newest first.</summary>
+  Task<IReadOnlyList<Workout>> ListOwnAsync(Guid personId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
 }
 
 public interface ICheckinRepository

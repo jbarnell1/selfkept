@@ -32,7 +32,8 @@ public class MigrationUpgradeTests
      "oauth_client", "oauth_authorization_request", "oauth_refresh_token", "personal_access_token", "ai_memory",
      "oura_connection", "oura_auth_state",
      "sample_minute", "sample_rollup_month",
-     "goal", "daily_target", "journal_entry", "medication", "strength_set"];
+     "goal", "daily_target", "journal_entry", "medication", "strength_set",
+     "assistant_conversation", "assistant_message", "assistant_brief", "nudge_setting", "nudge_log"];
 
   [RequiresPostgresFact]
   public async Task EmptyDatabase_ToHead_CreatesEveryTable_AndIsIdempotent()

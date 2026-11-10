@@ -56,6 +56,11 @@ public class SelfKeptDbContext : DbContext
   public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
   public DbSet<Medication> Medications => Set<Medication>();
   public DbSet<StrengthSet> StrengthSets => Set<StrengthSet>();
+  public DbSet<AssistantConversation> AssistantConversations => Set<AssistantConversation>();
+  public DbSet<AssistantMessage> AssistantMessages => Set<AssistantMessage>();
+  public DbSet<AssistantBrief> AssistantBriefs => Set<AssistantBrief>();
+  public DbSet<NudgeSetting> NudgeSettings => Set<NudgeSetting>();
+  public DbSet<NudgeLog> NudgeLogs => Set<NudgeLog>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -65,6 +70,7 @@ public class SelfKeptDbContext : DbContext
     ConfigureConnect(modelBuilder);
     ConfigureSso(modelBuilder);
     ConfigureBody(modelBuilder);
+    AssistantModel.Configure(modelBuilder);
 
     modelBuilder.Entity<User>(e =>
     {

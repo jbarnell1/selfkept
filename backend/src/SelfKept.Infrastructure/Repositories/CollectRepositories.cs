@@ -332,6 +332,12 @@ public sealed class WorkoutRepository : IWorkoutRepository
       .OrderByDescending(w => w.StartAt)
       .ToListAsync(ct);
   }
+
+  public async Task<IReadOnlyList<Workout>> ListOwnAsync(Guid personId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default) =>
+    await _context.Workouts.AsNoTracking()
+      .Where(w => w.PersonId == personId && w.StartAt >= fromUtc && w.StartAt < toUtc)
+      .OrderByDescending(w => w.StartAt)
+      .ToListAsync(ct);
 }
 
 public sealed class CheckinRepository : ICheckinRepository

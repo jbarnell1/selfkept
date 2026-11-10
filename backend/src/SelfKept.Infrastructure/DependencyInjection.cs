@@ -20,6 +20,7 @@ using SelfKept.Infrastructure.Services.Interpret;
 using SelfKept.Infrastructure.Services.Labs;
 using SelfKept.Infrastructure.Services.Oura;
 using SelfKept.Infrastructure.Services;
+using SelfKept.Infrastructure.Services.Assistant;
 
 namespace SelfKept.Infrastructure;
 
@@ -214,6 +215,9 @@ public static class DependencyInjection
     services.AddJobLockedHostedService<HousekeepingJob>();
     services.AddJobLockedHostedService<InterpretNightlyJob>();
     services.AddJobLockedHostedService<OuraPollJob>();
+
+    // The in-app assistant (docs/assistant-design.md), including its nudge job.
+    services.AddAssistant();
 
     return services;
   }
