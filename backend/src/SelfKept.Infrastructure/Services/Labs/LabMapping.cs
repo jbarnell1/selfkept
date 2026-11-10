@@ -8,7 +8,8 @@ public static class LabMapping
 {
   public static LabReportDto ToDto(this LabReport r, IMetricCatalogue catalogue, string? notes) =>
     new(r.Id, r.PersonId, r.Provider, r.CollectedOn, r.ReceivedOn, r.SourceImageCipher != null, notes, r.CreatedAt, r.ConfirmedAt,
-      r.Results.OrderBy(x => LabPanel.OrderOf(x.MetricKey)).Select(x => x.ToDto(catalogue)).ToList());
+      r.Results.OrderBy(x => LabPanel.OrderOf(x.MetricKey)).Select(x => x.ToDto(catalogue)).ToList(),
+      DrawConditions.ToDto(r));
 
   public static LabResultDto ToDto(this LabResult x, IMetricCatalogue catalogue) =>
     new(x.Id, x.MetricKey, catalogue.Find(x.MetricKey)?.DisplayName ?? x.MetricKey, x.Value, x.Unit, x.Flag, x.RawText, x.Derived, x.ReferenceLow, x.ReferenceHigh);

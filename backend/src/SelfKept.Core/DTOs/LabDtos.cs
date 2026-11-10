@@ -36,7 +36,33 @@ public sealed record CreateLabReportRequest(
   [Required] IReadOnlyList<LabResultInput>? Results,
   /// <summary>The source photo as base64 (JPEG or PNG), encrypted at rest. Optional.</summary>
   string? Image,
-  [MaxLength(2000)] string? Notes);
+  [MaxLength(2000)] string? Notes,
+  /// <summary>How the blood was drawn. Optional; a Rythm panel without it is pre-filled as a morning draw after a fast of 8 or more hours.</summary>
+  DrawConditionsInput? Conditions = null);
+
+/// <summary>
+/// The draw conditions asked when a panel is confirmed (docs/labs-design.md, "Draw conditions").
+/// Every field is optional; a missing field means "not known". drawTime is local "HH:mm"; when
+/// it is given, drawPeriod is worked out from it.
+/// </summary>
+public sealed record DrawConditionsInput(
+  [MaxLength(8)] string? Fasting,
+  [Range(0, 72)] int? FastingHours,
+  [MaxLength(8)] string? DrawTime,
+  [MaxLength(16)] string? DrawPeriod,
+  bool? HardTraining,
+  bool? Unwell);
+
+/// <summary>Conditions as stored. fasting and drawPeriod are always present ("unknown" when never answered).</summary>
+public sealed record DrawConditionsDto(
+  string Fasting,
+  int? FastingHours,
+  string? DrawTime,
+  string DrawPeriod,
+  bool? HardTraining,
+  bool? Unwell,
+  /// <summary>True while these are the provider's pre-filled defaults (Rythm) and the person has not changed them.</summary>
+  bool Defaulted);
 
 public sealed record LabResultDto(
   Guid Id,
@@ -60,7 +86,8 @@ public sealed record LabReportDto(
   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Notes,
   DateTime CreatedAt,
   DateTime? ConfirmedAt,
-  IReadOnlyList<LabResultDto> Results);
+  IReadOnlyList<LabResultDto> Results,
+  DrawConditionsDto Conditions);
 
 public sealed record LabRangeDto(double? Low, double? High);
 

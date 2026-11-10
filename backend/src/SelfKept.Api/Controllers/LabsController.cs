@@ -68,6 +68,11 @@ public sealed class LabsController : BaseController
   public async Task<IActionResult> GetReport(Guid id, CancellationToken ct) =>
     HandleServiceResponse(await _labs.GetReportAsync(GetCurrentPersonId(), id, ct), NoSuchReport);
 
+  /// <summary>Replaces the draw conditions (fasting, time of draw and the rest) on one of the caller's own reports.</summary>
+  [HttpPut("reports/{id:guid}/conditions")]
+  public async Task<IActionResult> UpdateConditions(Guid id, [FromBody] DrawConditionsInput request, CancellationToken ct) =>
+    HandleServiceResponse(await _labs.UpdateConditionsAsync(GetCurrentUserId(), GetCurrentPersonId(), GetCurrentHouseholdId(), id, request, CurrentRequestInfo(), ct), NoSuchReport);
+
   /// <summary>Own reports only. Removes the lab.* samples the report wrote.</summary>
   [HttpDelete("reports/{id:guid}")]
   public async Task<IActionResult> DeleteReport(Guid id, CancellationToken ct) =>

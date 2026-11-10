@@ -7,7 +7,7 @@ using Xunit;
 namespace SelfKept.UnitTests.Data;
 
 /// <summary>
-/// MetricSeed.cs is the single source of the catalogue; 0014_metric_reseed.up.sql is generated from
+/// MetricSeed.cs is the single source of the catalogue; 0019_metric_reseed.up.sql is generated from
 /// it. Regenerate after editing the list:
 ///   SELFKEPT_REGENERATE_SEED=1 dotnet test --filter MetricSeedTests
 /// </summary>
@@ -24,12 +24,12 @@ public class MetricSeedTests
   ];
 
   [Fact]
-  public void Seed_ContainsEveryContractKey_AndThirtyLabMarkers()
+  public void Seed_ContainsEveryContractKey_AndFortyTwoLabMarkers()
   {
     var keys = MetricSeed.All.Select(m => m.Key).ToList();
 
     keys.Should().Contain(ContractKeys);
-    keys.Where(k => k.StartsWith("lab.", StringComparison.Ordinal)).Should().HaveCount(30);
+    keys.Where(k => k.StartsWith("lab.", StringComparison.Ordinal)).Should().HaveCount(42);
     keys.Should().OnlyHaveUniqueItems();
   }
 
