@@ -7,7 +7,7 @@ namespace SelfKept.Infrastructure.Services;
 internal static class Mapping
 {
   public static PersonDto ToDto(this Person p) =>
-    new(p.Id, p.DisplayName, p.SexAtBirth, p.BirthDate, p.Units, p.TimeZone);
+    new(p.Id, p.DisplayName, p.SexAtBirth, p.BirthDate, p.Units, p.TimeZone, p.HeightCm);
 
   public static UserDto ToDto(this User u, HouseholdRole role) =>
     new(u.Id, u.Email, u.DisplayName, role, u.HouseholdId, u.Person.ToDto(), SetupItems(u.SetupPlan), u.SetupCompletedAt);

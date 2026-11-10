@@ -10,6 +10,7 @@ using SelfKept.Infrastructure.Mcp.Tools;
 using SelfKept.Infrastructure.Mcp;
 using SelfKept.Infrastructure.Repositories;
 using SelfKept.Infrastructure.Security;
+using SelfKept.Infrastructure.Services.Body;
 using SelfKept.Infrastructure.Services.Collect;
 using SelfKept.Infrastructure.Services.Connect;
 using SelfKept.Infrastructure.Services.Export;
@@ -123,6 +124,20 @@ public static class DependencyInjection
     services.AddScoped<ILabReportRepository, LabReportRepository>();
     services.AddSingleton<LabSummaryPdfRenderer>();
     services.AddScoped<ILabService, LabService>();
+
+    // Body and goals: goals, targets, the journal, medicines, the strength log, typed measurements.
+    services.AddScoped<IGoalRepository, GoalRepository>();
+    services.AddScoped<IDailyTargetRepository, DailyTargetRepository>();
+    services.AddScoped<IJournalRepository, JournalRepository>();
+    services.AddScoped<IMedicationRepository, MedicationRepository>();
+    services.AddScoped<IStrengthRepository, StrengthRepository>();
+    services.AddScoped<IGoalService, GoalService>();
+    services.AddScoped<ITargetService, TargetService>();
+    services.AddScoped<IJournalService, JournalService>();
+    services.AddScoped<IMedicationService, MedicationService>();
+    services.AddScoped<IStrengthService, StrengthService>();
+    services.AddScoped<IMeasurementService, MeasurementService>();
+    services.AddScoped<IProgressService, ProgressService>();
 
     // Package 5 (Connect): the OAuth server for /mcp, personal tokens, assistant memory, the tools.
     services.AddSingleton(McpSettings.From(configuration));

@@ -167,9 +167,9 @@ public class DailySummaryRulesTests
   [Fact]
   public void Derive_MetricWithoutRule_IsNull()
   {
-    DailySummaryRules.Derive(Person, "vo2max", Day, [At("vo2max", "2026-10-29 08:00", 45)], Computed).Should().BeNull();
-    DailySummaryRules.DayFor(At("vo2max", "2026-10-29 08:00", 45), PlusTwo).Should().BeNull();
-    DailySummaryRules.HasRule("vo2max").Should().BeFalse();
+    DailySummaryRules.Derive(Person, "menstrual_flow", Day, [At("menstrual_flow", "2026-10-29 08:00", 2)], Computed).Should().BeNull();
+    DailySummaryRules.DayFor(At("menstrual_flow", "2026-10-29 08:00", 2), PlusTwo).Should().BeNull();
+    DailySummaryRules.HasRule("menstrual_flow").Should().BeFalse();
   }
 
   [Fact]

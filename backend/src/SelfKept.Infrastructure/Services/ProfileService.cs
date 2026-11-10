@@ -13,6 +13,9 @@ public sealed class ProfileService : IProfileService
   private readonly IRefreshTokenService _refreshTokens;
   private readonly TimeProvider _clock;
 
+  public const double MinHeightCm = 90;
+  public const double MaxHeightCm = 250;
+
   public ProfileService(
     IUserRepository users,
     IPersonRepository persons,
@@ -56,6 +59,14 @@ public sealed class ProfileService : IProfileService
     person.BirthDate = request.BirthDate;
     person.Units = request.Units;
     person.TimeZone = timeZone;
+    if (request.HeightCm is { } height)
+    {
+      if (height != 0 && height is < MinHeightCm or > MaxHeightCm)
+      {
+        throw new DomainValidationException($"Height must be between {MinHeightCm} and {MaxHeightCm} cm.");
+      }
+      person.HeightCm = height == 0 ? null : height;
+    }
     person.UpdatedAt = now;
     await _persons.UpdateAsync(person, ct);
 

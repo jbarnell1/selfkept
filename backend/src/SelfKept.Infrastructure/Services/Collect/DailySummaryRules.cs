@@ -40,6 +40,18 @@ public static class DailySummaryRules
     [MetricKeys.WristTempDeltaC] = SummaryRule.Average,
     [MetricKeys.OuraReadiness] = SummaryRule.Average,
     [MetricKeys.OuraSleepScore] = SummaryRule.Average,
+    // Body readings arrive a few times a week at most; the day's figure is their mean.
+    [MetricKeys.BodyFatPct] = SummaryRule.Average,
+    [MetricKeys.WaistCm] = SummaryRule.Average,
+    [MetricKeys.LeanMassKg] = SummaryRule.Average,
+    [MetricKeys.BoneMassKg] = SummaryRule.Average,
+    [MetricKeys.BodyWaterKg] = SummaryRule.Average,
+    [MetricKeys.Vo2Max] = SummaryRule.Average,
+    // What was eaten, as the phone's nutrition records report it, summed per day.
+    [MetricKeys.EnergyIntakeKcal] = SummaryRule.Sum,
+    [MetricKeys.ProteinG] = SummaryRule.Sum,
+    [MetricKeys.CarbsG] = SummaryRule.Sum,
+    [MetricKeys.FatG] = SummaryRule.Sum,
   };
 
   public static SummaryRule? RuleFor(string metricKey) => Rules.TryGetValue(metricKey, out var rule) ? rule : null;

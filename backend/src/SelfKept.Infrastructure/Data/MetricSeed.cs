@@ -6,13 +6,13 @@ namespace SelfKept.Infrastructure.Data;
 
 /// <summary>
 /// The metric catalogue as code: the one list that generates the SQL seed migration
-/// (0004_metric_seed.up.sql, checked for drift by MetricSeedTests) and seeds the InMemory test
+/// (0014_metric_reseed.up.sql, checked for drift by MetricSeedTests) and seeds the InMemory test
 /// database, which runs no SQL. On Postgres the metric table is authoritative and the catalogue
 /// loads from it.
 /// </summary>
 public static class MetricSeed
 {
-  public const string SeedScriptName = "0004_metric_seed.up.sql";
+  public const string SeedScriptName = "0014_metric_reseed.up.sql";
 
   private const string Instant = MetricKinds.Instant;
   private const string Interval = MetricKinds.Interval;
@@ -75,6 +75,16 @@ public static class MetricSeed
     Add("weight_kg", "kg", Instant, ShareCategory.Body, "Weight", "Body weight in kilograms.", Neutral, "29463-7");
     Add("body_fat_pct", "%", Instant, ShareCategory.Body, "Body fat", "Body fat as a percentage of weight, from a scale or device.", Neutral, "41982-0");
     Add("height_cm", "cm", Instant, ShareCategory.Body, "Height", "Height in centimetres.", Neutral, "8302-2");
+    Add("waist_cm", "cm", Instant, ShareCategory.Body, "Waist", "Waist measured around the middle, level with the navel.", Neutral);
+    Add("lean_mass_kg", "kg", Instant, ShareCategory.Body, "Lean mass", "Everything that is not fat, as estimated by a scale or device.", Neutral);
+    Add("bone_mass_kg", "kg", Instant, ShareCategory.Body, "Bone mass", "Bone mineral mass as estimated by a scale or device.", Neutral);
+    Add("body_water_kg", "kg", Instant, ShareCategory.Body, "Body water", "Total body water as estimated by a scale or device.", Neutral);
+
+    // Nutrition, read from the phone's health store when another app logs it there
+    Add("energy_intake_kcal", "kcal", Interval, ShareCategory.Body, "Energy eaten", "Calories eaten, as logged in another app.", Neutral);
+    Add("protein_g", "g", Interval, ShareCategory.Body, "Protein", "Protein eaten, as logged in another app.", Neutral);
+    Add("carbs_g", "g", Interval, ShareCategory.Body, "Carbohydrate", "Carbohydrate eaten, as logged in another app.", Neutral);
+    Add("fat_g", "g", Interval, ShareCategory.Body, "Fat", "Fat eaten, as logged in another app.", Neutral);
 
     // Cycle
     Add("menstrual_flow", "level", Interval, ShareCategory.Cycle, "Menstrual flow", "Logged flow, from none to heavy.", Neutral, labels: MenstrualFlowLabels, sex: SexApplicabilities.Female);
@@ -122,7 +132,8 @@ public static class MetricSeed
   public static string ToSql()
   {
     var sb = new StringBuilder();
-    sb.Append("-- 0004_metric_seed: the metric catalogue from docs/ingest-contract.md plus the lab markers.\n");
+    sb.Append("-- 0014_metric_reseed: the whole metric catalogue (docs/ingest-contract.md plus the lab markers), seeded again\n");
+    sb.Append("-- so an install that ran 0004 gains the metrics added since. 0004 stays as it shipped.\n");
     sb.Append("-- GENERATED from MetricSeed.cs (MetricSeedTests checks for drift). Edit the C# list, then regenerate.\n");
     sb.Append("-- Idempotent: re-running updates display text and classification but never removes a key.\n\n");
     sb.Append("INSERT INTO metric (key, unit, kind, category, display_name, blurb, good_direction, loinc, value_labels, sex_applicability) VALUES\n");

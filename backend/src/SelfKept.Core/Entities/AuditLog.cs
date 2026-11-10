@@ -56,4 +56,16 @@ public static class AuditActions
   public const string IntegrationChanged = "integration.changed";
   public const string RetentionRollup = "retention.rollup";
   public const string RetentionChanged = "retention.changed";
+  public const string GoalSaved = "goal.saved";
+  public const string GoalEnded = "goal.ended";
+  public const string TargetSaved = "target.saved";
+  public const string TargetDeleted = "target.deleted";
+  public const string JournalCreated = "journal.created";
+  public const string JournalDeleted = "journal.deleted";
+  public const string MedicationSaved = "medication.saved";
+  public const string MedicationDeleted = "medication.deleted";
+  public const string StrengthSaved = "strength.saved";
+  public const string StrengthDeleted = "strength.deleted";
+  public const string MeasurementCreated = "measurement.created";
+  public const string MeasurementDeleted = "measurement.deleted";
 }

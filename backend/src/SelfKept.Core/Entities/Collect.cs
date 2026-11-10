@@ -62,6 +62,17 @@ public static class SexApplicabilities
 public static class MetricKeys
 {
   public const string LabPrefix = "lab.";
+  public const string BodyFatPct = "body_fat_pct";
+  public const string HeightCm = "height_cm";
+  public const string WaistCm = "waist_cm";
+  public const string LeanMassKg = "lean_mass_kg";
+  public const string BoneMassKg = "bone_mass_kg";
+  public const string BodyWaterKg = "body_water_kg";
+  public const string EnergyIntakeKcal = "energy_intake_kcal";
+  public const string ProteinG = "protein_g";
+  public const string CarbsG = "carbs_g";
+  public const string FatG = "fat_g";
+  public const string Vo2Max = "vo2max";
   public const string Steps = "steps";
   public const string DistanceM = "distance_m";
   public const string ActiveEnergyKcal = "active_energy_kcal";
@@ -134,6 +145,9 @@ public static class SourceKinds
   /// <summary>The per-person system source that check-ins are written under.</summary>
   public const string CheckinDeviceName = "Check-ins";
   public const string CheckinPlatform = "server";
+
+  /// <summary>The per-person system source that typed-in measurements (weight, waist, body fat) are written under.</summary>
+  public const string TypedDeviceName = "Typed in";
 }
 
 /// <summary>

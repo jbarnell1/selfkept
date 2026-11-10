@@ -51,6 +51,11 @@ public class SelfKeptDbContext : DbContext
   public DbSet<SsoAuthState> SsoAuthStates => Set<SsoAuthState>();
   public DbSet<SsoHandoff> SsoHandoffs => Set<SsoHandoff>();
   public DbSet<ServerSetting> ServerSettings => Set<ServerSetting>();
+  public DbSet<Goal> Goals => Set<Goal>();
+  public DbSet<DailyTarget> DailyTargets => Set<DailyTarget>();
+  public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+  public DbSet<Medication> Medications => Set<Medication>();
+  public DbSet<StrengthSet> StrengthSets => Set<StrengthSet>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -59,6 +64,7 @@ public class SelfKeptDbContext : DbContext
     ConfigureLabs(modelBuilder);
     ConfigureConnect(modelBuilder);
     ConfigureSso(modelBuilder);
+    ConfigureBody(modelBuilder);
 
     modelBuilder.Entity<User>(e =>
     {
@@ -474,6 +480,70 @@ public class SelfKeptDbContext : DbContext
       e.Property(x => x.Tier).HasMaxLength(16).IsRequired();
       e.Property(x => x.SourceUrl).IsRequired();
       e.Ignore(x => x.HasRange);
+    });
+  }
+
+  // Body, goals and the day log. Mirrors 0013_body.up.sql.
+  private static void ConfigureBody(ModelBuilder modelBuilder)
+  {
+    modelBuilder.Entity<Goal>(e =>
+    {
+      e.ToTable("goal");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Slot).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Kind).HasMaxLength(32).IsRequired();
+      e.Property(x => x.MetricKey).HasMaxLength(64);
+      e.Property(x => x.Status).HasMaxLength(16).IsRequired();
+      e.HasIndex(x => new { x.PersonId, x.StartedOn }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<DailyTarget>(e =>
+    {
+      e.ToTable("daily_target");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Label).HasMaxLength(48).IsRequired();
+      e.Property(x => x.Kind).HasMaxLength(16).IsRequired();
+      e.Property(x => x.MetricKey).HasMaxLength(64);
+      e.Property(x => x.Tag).HasMaxLength(32);
+      e.Property(x => x.Comparator).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Period).HasMaxLength(8).IsRequired();
+      e.HasIndex(x => new { x.PersonId, x.SortOrder });
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+      e.HasOne<Goal>().WithMany().HasForeignKey(x => x.GoalId).OnDelete(DeleteBehavior.SetNull);
+    });
+
+    modelBuilder.Entity<JournalEntry>(e =>
+    {
+      e.ToTable("journal_entry");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Kind).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Tags).HasColumnType("text[]");
+      e.Property(x => x.Portion).HasMaxLength(8);
+      e.Property(x => x.Source).HasMaxLength(16).IsRequired();
+      e.HasIndex(x => new { x.PersonId, x.Day }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<Medication>(e =>
+    {
+      e.ToTable("medication");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Kind).HasMaxLength(16).IsRequired();
+      e.Property(x => x.DetailCipher).IsRequired();
+      e.Property(x => x.Schedule).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Substances).HasColumnType("text[]");
+      e.HasIndex(x => new { x.PersonId, x.CreatedAt }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<StrengthSet>(e =>
+    {
+      e.ToTable("strength_set");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Lift).HasMaxLength(32).IsRequired();
+      e.HasIndex(x => new { x.PersonId, x.Day, x.Lift }).IsUnique();
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
     });
   }
 
