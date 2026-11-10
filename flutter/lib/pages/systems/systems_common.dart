@@ -16,6 +16,11 @@ String spokenDay(DateTime day) => DateFormat.yMMMd().format(day);
 /// "Nov 9".
 String shortDay(DateTime day) => DateFormat.MMMd().format(day);
 
+/// "Nov 8, 2026 to Nov 10, 2026", or the one date when both are the same day.
+String spokenSpan(DateTime from, DateTime to) => DateUtils.isSameDay(from, to)
+    ? spokenDay(from)
+    : '${spokenDay(from)} to ${spokenDay(to)}';
+
 /// A card that opens a page: an icon, a title, one line and a chevron.
 class LinkCard extends StatelessWidget {
   final IconData icon;

@@ -33,6 +33,8 @@ class SleepNightsPage extends StatefulWidget {
 
   static String emptyLine(SleepNights s) => s.from == null || s.to == null
       ? 'No nights recorded yet.'
+      : DateUtils.isSameDay(s.from, s.to)
+      ? 'No nights recorded on ${spokenDay(s.from!)}.'
       : 'No nights recorded from ${spokenDay(s.from!)} to ${spokenDay(s.to!)}.';
 
   /// "Deep 2 h · REM 3 h 15 · Light 2 h · Awake 15 min".
@@ -149,6 +151,8 @@ class WorkoutsPage extends StatefulWidget {
 
   static String emptyLine(Workouts w) => w.from == null || w.to == null
       ? 'No workouts recorded yet.'
+      : DateUtils.isSameDay(w.from, w.to)
+      ? 'No workouts recorded on ${spokenDay(w.from!)}.'
       : 'No workouts recorded from ${spokenDay(w.from!)} to ${spokenDay(w.to!)}.';
 
   /// "2 workouts, 1 h 45. 1 strength, 1 cardio."
@@ -236,10 +240,16 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(
-                                width: 96,
+                              // Lined up across weeks, and never broken
+                              // over two lines ("Week of Nov 30").
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minWidth: 112,
+                                ),
                                 child: Text(
                                   'Week of ${shortDay(weeks[i].weekOf)}',
+                                  key: ValueKey('week-label-$i'),
+                                  softWrap: false,
                                   style: theme.textTheme.titleSmall,
                                 ),
                               ),

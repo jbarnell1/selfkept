@@ -86,6 +86,27 @@ void main() {
       expect(TargetFormat.standing(t, null, Units.metric), '130 g');
     });
 
+    test('a limit of zero reads as none', () {
+      for (final period in ['week', 'day']) {
+        final t = target(
+          BodyFixtures.target(
+            metricKey: null,
+            comparator: 'at_most',
+            value: 0,
+            unit: 'entries',
+            period: period,
+          ),
+        );
+        expect(TargetFormat.rule(t, Units.metric), 'None in a $period');
+        expect(TargetFormat.standing(t, null, Units.metric), 'None so far');
+        expect(TargetFormat.standing(t, 0, Units.metric), 'None so far');
+        expect(
+          TargetFormat.standing(t, 2, Units.metric),
+          '2 logged, aiming for none',
+        );
+      }
+    });
+
     test('sleep reads in hours and steps have no unit', () {
       final sleep = target(
         BodyFixtures.target(metricKey: 'sleep_stage', value: 420, unit: 'min'),

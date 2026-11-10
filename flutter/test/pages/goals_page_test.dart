@@ -79,7 +79,7 @@ void main() {
 
     await scrollTo(tester, find.text('No late caffeine'));
     expect(find.text('Protein'), findsOneWidget);
-    expect(find.textContaining('At most 0 entries a week'), findsOneWidget);
+    expect(find.textContaining('None in a week'), findsOneWidget);
     expect(find.textContaining(GoalsPage.pausedText), findsOneWidget);
   });
 

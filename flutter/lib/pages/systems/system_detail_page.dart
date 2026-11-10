@@ -259,11 +259,15 @@ class _ReadingRow extends StatelessWidget {
             outside: outside,
           ),
           const SizedBox(width: Space.x3),
-          SizedBox(
-            width: 76,
+          // At least the width of "58 bpm" so values line up, wider for a
+          // long unit such as "15 breaths/min", which stays on one line.
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 76),
             child: Text(
               value,
+              key: ValueKey('reading-value-${reading.metric}'),
               textAlign: TextAlign.right,
+              softWrap: false,
               style: AppTheme.numeric(
                 context,
                 base: theme.textTheme.titleSmall,

@@ -35,10 +35,10 @@ class ContextSection extends StatelessWidget {
   static const String removeLabel = 'Remove';
   static const String menuTooltip = 'Change this';
 
-  /// "Since Nov 8, 2026" or "Nov 8, 2026 to Nov 10, 2026".
-  static String spanFor(DateTime since, DateTime? until) => until == null
-      ? 'Since ${spokenDay(since)}'
-      : '${spokenDay(since)} to ${spokenDay(until)}';
+  /// "Since Nov 8, 2026", "Nov 8, 2026 to Nov 10, 2026", or "Nov 9, 2026"
+  /// for a single day.
+  static String spanFor(DateTime since, DateTime? until) =>
+      until == null ? 'Since ${spokenDay(since)}' : spokenSpan(since, until);
 
   static Future<void> add(BuildContext context) async {
     final provider = context.read<ContextProvider>();

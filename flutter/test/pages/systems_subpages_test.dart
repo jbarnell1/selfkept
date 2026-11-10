@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:selfkept/models/weekly_review.dart';
 import 'package:selfkept/pages/systems/patterns_page.dart';
@@ -15,6 +16,23 @@ import '../helpers/pump.dart';
 import '../helpers/systems_fixtures.dart';
 
 const _notFound = ApiException('Not found', statusCode: 404);
+
+Future<void> use400Wide(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(400 * 3, 844 * 3);
+  tester.view.devicePixelRatio = 3;
+  addTearDown(tester.view.reset);
+}
+
+/// True when the text laid out in a single line: its height is one line of
+/// its own style, not two or three.
+bool isOneLine(WidgetTester tester, Finder text) {
+  final paragraph = tester.renderObject<RenderParagraph>(text);
+  final lineHeight = paragraph.getFullHeightForCaret(
+    const TextPosition(offset: 0),
+  );
+  return paragraph.size.height < lineHeight * 1.5;
+}
+
 const _down = ApiException('Down', statusCode: 500);
 
 void main() {
@@ -59,6 +77,27 @@ void main() {
       expect(find.text('160 mg/dL'), findsOneWidget);
       await scrollTo(tester, find.byType(InsightCard));
       expect(find.byType(InsightCard), findsOneWidget);
+    });
+
+    testWidgets('a long unit stays on one line at 400 px', (tester) async {
+      final body = SystemsFixtures.system(detail: true);
+      final reading = (body['readings'] as List).first as Map<String, dynamic>;
+      reading['metric'] = 'respiratory_rate_bpm';
+      reading['displayName'] = 'Respiratory rate';
+      reading['unit'] = 'breaths/min';
+      reading['latestValue'] = 15;
+      h.api.on('GET', '/systems/heart', (_) => body);
+      await use400Wide(tester);
+      await tester.pumpWidget(
+        h.wrap(const SystemDetailPage(systemKey: 'heart')),
+      );
+      await tester.pumpAndSettle();
+      final value = find.byKey(
+        const ValueKey('reading-value-respiratory_rate_bpm'),
+      );
+      expect(find.text('15 breaths/min'), findsOneWidget);
+      expect(isOneLine(tester, value), isTrue);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('loading, then an error with a retry', (tester) async {
@@ -110,6 +149,18 @@ void main() {
       );
       expect(find.text('Late meal'), findsOneWidget);
       expect(find.text('3 nights with, 40 without'), findsOneWidget);
+    });
+
+    testWidgets('a metric named with an acronym keeps its capitals', (
+      tester,
+    ) async {
+      final body = SystemsFixtures.patterns();
+      final first = (body['patterns'] as List).first as Map<String, dynamic>;
+      first['metric'] = 'hrv_rmssd_ms';
+      first['metricName'] = 'HRV (RMSSD)';
+      h.api.on('GET', '/patterns', (_) => body);
+      await pump(tester, const PatternsPage());
+      expect(find.text('Alcohol and HRV (RMSSD)'), findsOneWidget);
     });
 
     testWidgets('empty', (tester) async {
@@ -170,6 +221,19 @@ void main() {
         find.text('45 min · 7.2 km · 480 kcal · average 150 bpm, top 171 bpm'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('the week label stays on one line at 400 px', (tester) async {
+      h.api.on('GET', '/workouts', (_) => SystemsFixtures.workouts());
+      await use400Wide(tester);
+      await tester.pumpWidget(h.wrap(const WorkoutsPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('Week of Nov 9'), findsOneWidget);
+      expect(
+        isOneLine(tester, find.byKey(const ValueKey('week-label-0'))),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('workouts not shared for someone else', (tester) async {

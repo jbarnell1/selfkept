@@ -93,6 +93,21 @@ void main() {
     expect(find.text(SystemsPage.trendsTitle), findsOneWidget);
   });
 
+  test('a context span of one day shows the one date', () {
+    expect(
+      ContextSection.spanFor(DateTime(2026, 11, 9), DateTime(2026, 11, 9)),
+      'Nov 9, 2026',
+    );
+    expect(
+      ContextSection.spanFor(DateTime(2026, 11, 8), DateTime(2026, 11, 10)),
+      'Nov 8, 2026 to Nov 10, 2026',
+    );
+    expect(
+      ContextSection.spanFor(DateTime(2026, 11, 8), null),
+      'Since Nov 8, 2026',
+    );
+  });
+
   testWidgets('every trend opens the trends list', (tester) async {
     h.api.on('GET', '/trends', (_) => Fixtures.trends());
     await pumpPage(tester);
