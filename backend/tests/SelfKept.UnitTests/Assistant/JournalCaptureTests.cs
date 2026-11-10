@@ -121,6 +121,31 @@ public class JournalCaptureTests
     draft.Tags.Should().Contain([JournalTags.Caffeine, JournalTags.LateCaffeine]);
   }
 
+  [Theory]
+  [InlineData("Two coffees before noon.")]
+  [InlineData("A coffee in the morning.")]
+  public void Extract_CoffeeWithAMorningTime_SentInTheEvening_IsNotLate(string message)
+  {
+    var evening = new DateTime(2026, 11, 10, 21, 30, 0, DateTimeKind.Utc);
+
+    var draft = _capture.Extract(message, evening, London).Drafts.Single();
+
+    draft.Tags.Should().Contain(JournalTags.Caffeine).And.NotContain(JournalTags.LateCaffeine);
+  }
+
+  [Fact]
+  public void Extract_LookingBackInTheEvening_OnlyAStatedTimeMakesCoffeeLate()
+  {
+    var evening = new DateTime(2026, 11, 10, 21, 30, 0, DateTimeKind.Utc);
+
+    _capture.Extract("Two coffees", evening, London, CheckinTopics.Drinks, lookingBack: true).Drafts.Single()
+      .Tags.Should().Contain(JournalTags.Caffeine).And.NotContain(JournalTags.LateCaffeine);
+    _capture.Extract("A coffee at 4pm", evening, London, CheckinTopics.Drinks, lookingBack: true).Drafts.Single()
+      .Tags.Should().Contain(JournalTags.LateCaffeine, "a stated time still counts");
+    _capture.Extract("Just had a coffee.", evening, London).Drafts.Single()
+      .Tags.Should().Contain(JournalTags.LateCaffeine, "in chat the message time is the drink time");
+  }
+
   [Fact]
   public void Extract_MorningCoffee_IsNotLate()
   {

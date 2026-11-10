@@ -95,7 +95,8 @@ public sealed record CaptureResult(IReadOnlyList<CaptureDraft> Drafts, IReadOnly
 public interface IJournalCapture
 {
   /// <param name="topic">A check-in topic hint (eating, training, drinks, symptoms): fragments count as statements about it.</param>
-  CaptureResult Extract(string message, DateTime nowUtc, TimeZoneInfo zone, string? topic = null);
+  /// <param name="lookingBack">The message sums up the day (an evening check-in answer), so the time it was sent says nothing about when a drink was had.</param>
+  CaptureResult Extract(string message, DateTime nowUtc, TimeZoneInfo zone, string? topic = null, bool lookingBack = false);
 }
 
 /// <summary>What a reply may draw on: the numbers it may state and the text that names allowed units and remedies.</summary>

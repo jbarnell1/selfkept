@@ -177,9 +177,17 @@ public static partial class CheckinHarvest
     }
 
     var kind = KindOf(topic);
-    var drafts = capture.Extract(text, nowUtc, zone, topic).Drafts.ToList();
+    var drafts = capture.Extract(text, nowUtc, zone, topic, lookingBack: true).Drafts.ToList();
     var ofTopic = drafts.Where(d => d.Kind == kind).ToList();
     var bareNo = BareNo().IsMatch(lower);
+
+    // The lexicon found something, but none of it answers this question (a run given for the
+    // eating question). It is not filed under the topic in the person's words: the flow keeps
+    // what was found and asks once more.
+    if (ofTopic.Count == 0 && !bareNo && !SaysNone(topic, lower) && drafts.Any(d => TopicOf(d.Kind) != null))
+    {
+      return new CheckinHarvestResult([], null, CheckinOutcome.Retry, CheckinTones.Noted);
+    }
 
     switch (topic)
     {
@@ -264,6 +272,15 @@ public static partial class CheckinHarvest
     JournalKinds.Drink => CheckinTopics.Drinks,
     JournalKinds.Symptom => CheckinTopics.Symptoms,
     _ => null,
+  };
+
+  /// <summary>True when the answer says there was none of the topic ("no training", "feeling fine").</summary>
+  private static bool SaysNone(string topic, string lower) => topic switch
+  {
+    CheckinTopics.Drinks => NoAlcohol().IsMatch(lower) || NoCaffeine().IsMatch(lower),
+    CheckinTopics.Training => NoTraining().IsMatch(lower),
+    CheckinTopics.Symptoms => FeelingFine().IsMatch(lower),
+    _ => NotEating().IsMatch(lower),
   };
 
   private static string KindOf(string topic) => topic switch

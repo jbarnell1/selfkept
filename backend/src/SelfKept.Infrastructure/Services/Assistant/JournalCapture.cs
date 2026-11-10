@@ -80,7 +80,7 @@ public sealed partial class JournalCapture : IJournalCapture
     L(JournalKinds.Sleep, JournalTags.LateNight, @"late night|stayed up(?: late)?|went to bed late|bed (?:late|after midnight)|up (?:late|till|until) (?:\d|midnight)|night out"),
   ];
 
-  public CaptureResult Extract(string message, DateTime nowUtc, TimeZoneInfo zone, string? topic = null)
+  public CaptureResult Extract(string message, DateTime nowUtc, TimeZoneInfo zone, string? topic = null, bool lookingBack = false)
   {
     if (string.IsNullOrWhiteSpace(message)) return CaptureResult.Empty;
     var drafts = new List<CaptureDraft>();
@@ -125,7 +125,9 @@ public sealed partial class JournalCapture : IJournalCapture
         if (isPrimary && tags.Count == 0 && text == null) continue;
 
         var at = When(lower, kind, now, zone);
-        if (kind == JournalKinds.Drink && tags.Contains(JournalTags.Caffeine) && !tags.Contains(JournalTags.LateCaffeine) && LocalHour(at, zone) >= 15)
+        // Looking back over the day, only a time the person stated can make a coffee late.
+        var timeKnown = !lookingBack || at != now;
+        if (kind == JournalKinds.Drink && tags.Contains(JournalTags.Caffeine) && !tags.Contains(JournalTags.LateCaffeine) && timeKnown && LocalHour(at, zone) >= 15)
         {
           tags.Add(JournalTags.LateCaffeine);
         }
@@ -384,7 +386,7 @@ public sealed partial class JournalCapture : IJournalCapture
   [GeneratedRegex(@"\blast night\b", RegexOptions.CultureInvariant)]
   private static partial Regex LastNight();
 
-  [GeneratedRegex(@"\b(?:this morning|for breakfast|at breakfast)\b", RegexOptions.CultureInvariant)]
+  [GeneratedRegex(@"\b(?:this morning|in the morning|before noon|before lunch|for breakfast|at breakfast|with breakfast)\b", RegexOptions.CultureInvariant)]
   private static partial Regex BreakfastTime();
 
   [GeneratedRegex(@"\b(?:for lunch|at lunch|lunchtime|at midday|at noon)\b", RegexOptions.CultureInvariant)]

@@ -175,7 +175,9 @@ A few rules apply to particular tags:
 
 - `hard_session` needs a training word beside it. "A brutal day at work" is not a session.
 - `late_caffeine` is added for a caffeine drink at or after 15:00 local. The time comes from a
-  clock time ("at 4pm"), a part of the day ("this afternoon"), or the time the message was sent.
+  clock time ("at 4pm"), a part of the day ("this afternoon", "before noon"), or the time the
+  message was sent. A check-in answer looks back over the day, so there only a stated time counts:
+  "two coffees" said at 21:00 is caffeine, not late caffeine.
 
 Portion (food and drink only) is set only when the person says it:
 
@@ -311,7 +313,10 @@ The flow:
 2. Answer. The answer is saved as a user message and harvested at once by `CheckinHarvest`. It
    goes through the capture lexicon with the topic as a hint, so fragments such as "salmon, rice
    and greens" count, and it is saved with source `checkin`. If the lexicon finds nothing to tag,
-   the answer is saved in the person's own words as an entry of the topic's kind.
+   the answer is saved in the person's own words as an entry of the topic's kind. If it finds
+   only other kinds (a run given for the eating question), the answer is off topic: what was
+   found is saved, nothing is filed under the question's kind, and the question is asked once
+   more.
 3. None. An answer of "none today" saves a marker entry, so a target can count the day as known
    (`TargetTally` treats a journal day as unknown when it has no entry at all):
    - training: `rest_day` (built-in)

@@ -143,6 +143,33 @@ public class CheckinMachineTests
     result.Drafts.Single().Text.Should().Be("Mostly leftovers");
   }
 
+  [Fact]
+  public void Interpret_ARunGivenForEating_IsNotFiledAsFood()
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Eating, "Went for a 40 minute run after work, legs felt good", Now, TimeZoneInfo.Utc);
+
+    result.Outcome.Should().Be(CheckinOutcome.Retry);
+    result.Drafts.Should().BeEmpty();
+  }
+
+  [Fact]
+  public void Interpret_FoodAndARunGivenForEating_KeepsBoth()
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Eating, "Chicken salad at lunch, then went for a run", Now, TimeZoneInfo.Utc);
+
+    result.Outcome.Should().Be(CheckinOutcome.Harvested);
+    result.Drafts.Select(d => d.Kind).Should().Contain([JournalKinds.Food, JournalKinds.Training]);
+  }
+
+  [Fact]
+  public void Interpret_NoTrainingWithAMeal_StillRegistersRestDay()
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Training, "No training today, just a big pasta dinner", Now, TimeZoneInfo.Utc);
+
+    result.Outcome.Should().Be(CheckinOutcome.None);
+    result.Drafts.Should().Contain(d => d.Kind == JournalKinds.Training && d.Tags.Contains(JournalTags.RestDay));
+  }
+
   [Theory]
   [InlineData("great", 6)]
   [InlineData("pretty good thanks", 5)]

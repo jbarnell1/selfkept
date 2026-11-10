@@ -107,6 +107,19 @@ public sealed class CheckinFlowTests : IAsyncDisposable
   }
 
   [Fact]
+  public async Task TurnAsync_ARunGivenForEating_IsSavedAsTrainingAndEatingIsAskedAgain()
+  {
+    (await SayAsync(null)).Topic.Should().Be(CheckinTopics.Eating);
+
+    var turn = await SayAsync("Went for a 40 minute run after work, legs felt good");
+
+    _saved.Should().ContainSingle().Which.Kind.Should().Be(JournalKinds.Training, "a run is not a meal");
+    turn.Topic.Should().Be(CheckinTopics.Eating, "the eating question was not answered");
+    turn.Reply.Should().Be(AssistantTemplates.Join(AssistantTemplates.OffTopicSaved([JournalKinds.Training], false), AssistantTemplates.Question(CheckinTopics.Eating)));
+    turn.Done.Should().Contain(CheckinTopics.Training, "the run is on the log, so training is not asked");
+  }
+
+  [Fact]
   public async Task TurnAsync_OffTopicAnswerWithNothingToKeep_GetsTheRetryText()
   {
     await LoggedAsync(JournalKinds.Food, JournalKinds.Training, JournalKinds.Drink, JournalKinds.Symptom);

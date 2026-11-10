@@ -149,7 +149,7 @@ public sealed class CheckinFlowService : ICheckinFlowService
         // An answer that does not fit the question (a meal given for the mood) is still read the
         // way chat reads it, so the conversation keeps whatever it can. The topic harvest saved
         // nothing in that case, so nothing is saved twice.
-        var found = harvest.Outcome == CheckinOutcome.Retry ? _capture.Extract(answer, now, zone) : new CaptureResult(harvest.Drafts, []);
+        var found = harvest.Outcome == CheckinOutcome.Retry ? _capture.Extract(answer, now, zone, lookingBack: true) : new CaptureResult(harvest.Drafts, []);
         var (entries, remembered) = await _saver.SaveAsync(actor, found, JournalSources.Checkin, userMessage.Id, ct);
         captured.AddRange(entries);
         refs.AddRange(CaptureSaver.Refs(entries, remembered));
@@ -183,7 +183,7 @@ public sealed class CheckinFlowService : ICheckinFlowService
       else
       {
         // Nothing is being asked (the day is done, or the person left): still keep what they said.
-        var found = _capture.Extract(answer, now, zone);
+        var found = _capture.Extract(answer, now, zone, lookingBack: true);
         var (entries, remembered) = await _saver.SaveAsync(actor, found, JournalSources.Checkin, userMessage.Id, ct);
         captured.AddRange(entries);
         refs.AddRange(CaptureSaver.Refs(entries, remembered));
