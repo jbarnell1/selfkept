@@ -97,3 +97,13 @@ Notes:
 - The nightly job runs from 03:30 in each person's time zone and interprets yesterday once; `recompute` does the same on demand for any day up to today.
 - Audit actions: `insight.reaction`, `insight.dismiss`, `interpret.recompute`. Model calls go to `ai_call`, never to the audit log.
 - `GET /api/system/version` lists `insights.rules` and, when `Ai:Enabled` is true with a base URL and model set, `insights.model`.
+
+## Context, patterns and the rules that read them
+
+`docs/context-design.md` adds context (stored events and context derived from the record) to the
+rule context, and nine kinds: `yesterday_last_night`, `target_slipping`, `early_signs`,
+`cold_starting`, `short_sleep_diet`, `recovery_strain`, `strength_on_track`, `mood_deficit` and
+`personal_pattern`. Under a context that explains them, `hrv_low_run`, `rhr_elevated`,
+`illness_pattern`, `sleep_debt`, `activity_dip` and `weight_trend` add a line saying so and step
+down one severity; `spo2_low` adds the line and keeps its tier. With no context active they behave
+as described above.
