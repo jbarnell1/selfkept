@@ -43,7 +43,7 @@ Rules:
 - `value` is numeric. Categorical readings carry a small integer in `value` and the label in `meta` (see sleep stages below).
 - `unit` must match the catalogue unit for that metric; the server converts a short allowlist (`count/min` to `bpm`, `mi` to `m`, `lb` to `kg`, `F` to `C`) and rejects anything else.
 - Samples are attributed to the source's person. A client cannot post for another person.
-- Daily summaries are never posted by clients; the server derives them.
+- Daily summaries are never posted by clients; the server derives them. Sleep counts towards a sleep day that runs from 18:00 local the evening before to 18:00 local on the day, by each segment's end, so a night belongs to the morning it ended and an afternoon nap to its own day.
 - Heart rate older than the retention window (12 months by default, `docs/retention-design.md`) is kept as one row per source per minute. A resent reading for a minute its source already has there counts as a duplicate. A source never seen before keeps its old readings, and they are folded on the next nightly run.
 
 ## Metric catalogue, first release
@@ -121,7 +121,7 @@ All read endpoints take an optional `personId`. Absent means the caller. Present
 
 | Method | Path | Returns |
 | --- | --- | --- |
-| GET | `/api/data/daily?metric&from&to&personId?` | `{ metric, unit, days: [{ day, value, min?, max?, count }] }` one row per calendar day in the person's time zone |
+| GET | `/api/data/daily?metric&from&to&personId?` | `{ metric, unit, days: [{ day, value, min?, max?, count }] }` one row per calendar day in the person's time zone (for `sleep_stage`, the 18:00 to 18:00 sleep day) |
 | GET | `/api/data/samples?metric&from&to&limit?&cursor?&personId?` | `{ items: SampleDto[], nextCursor? }` newest first, limit max 2,000 |
 | GET | `/api/data/overview?personId?` | `{ metrics: [{ metric, unit, firstAt, lastAt, count, lastValue }] }` for the Sources and Trends screens |
 | GET | `/api/catalogue/metrics` | the metric catalogue: `{ key, unit, kind, category: ShareCategory, displayName, blurb, goodDirection }[]` |

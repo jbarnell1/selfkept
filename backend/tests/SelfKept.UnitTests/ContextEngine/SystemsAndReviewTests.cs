@@ -147,6 +147,27 @@ public class SystemsAndReviewTests
   }
 
   [Fact]
+  public void Nights_TenThirtyToSixThirtyInStages_IsOneNightOnTheWakeDay()
+  {
+    var samples = new[]
+    {
+      Stage("2026-11-08 22:30", "2026-11-08 23:30", SleepStages.Light),
+      Stage("2026-11-08 23:30", "2026-11-09 01:00", SleepStages.Deep),
+      Stage("2026-11-09 01:00", "2026-11-09 03:00", SleepStages.Rem),
+      Stage("2026-11-09 03:00", "2026-11-09 06:30", SleepStages.Light),
+    };
+
+    var nights = ReadBackService.Nights(samples, TimeZoneInfo.Utc, new DateOnly(2026, 11, 7), new DateOnly(2026, 11, 10));
+
+    var night = nights.Should().ContainSingle().Subject;
+    night.Day.Should().Be(new DateOnly(2026, 11, 9));
+    night.Bedtime.Should().Be(new DateTime(2026, 11, 8, 22, 30, 0, DateTimeKind.Utc));
+    night.WakeTime.Should().Be(new DateTime(2026, 11, 9, 6, 30, 0, DateTimeKind.Utc));
+    night.InBedMinutes.Should().Be(480);
+    night.AsleepMinutes.Should().Be(480);
+  }
+
+  [Fact]
   public void Nights_TwoDevices_UsesTheOneWithMoreSleep_AndNoStagesMeansNullStageMinutes()
   {
     var samples = new[]

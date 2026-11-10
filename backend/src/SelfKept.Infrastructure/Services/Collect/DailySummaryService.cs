@@ -31,7 +31,8 @@ public sealed class DailySummaryService : IDailySummaryService
     foreach (var (metricKey, day) in touched.Distinct())
     {
       if (!DailySummaryRules.HasRule(metricKey)) continue;
-      var (fromUtc, toUtc) = DayBoundaries.UtcWindow(day, zone);
+      // The same window DayFor files samples by, so the day reads back exactly the samples that touched it.
+      var (fromUtc, toUtc) = DailySummaryRules.UtcWindow(metricKey, day, zone);
       var samples = await _samples.GetOwnInWindowAsync(personId, metricKey, fromUtc, toUtc, DailySummaryRules.AttributesByEnd(metricKey), ct);
       // A late reading for a folded day must not replace the day with just itself.
       var minutes = DenseMetrics.Contains(metricKey)

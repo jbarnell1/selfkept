@@ -16,7 +16,7 @@ A nightly job (job-locked hosted service, 03:30 in the person's time zone, and o
 
 Baselines are stored in `baseline (person_id, metric_key, computed_for date, ...)` with one row per day so history is replayable. A metric needs `n28 >= 14` before any rule may fire on it; before that the Today sentence says the app is still learning the person's normal.
 
-Metrics with baselines in v0.1: `sleep_stage` (as nightly minutes asleep), `hrv_sdnn_ms` or `hrv_rmssd_ms` (whichever the person has), `resting_hr_bpm`, `respiratory_rate_bpm`, `spo2_pct`, `wrist_temp_delta_c`, `steps`, `active_energy_kcal`, `exercise_min`, `weight_kg`, `checkin_mood`, `oura_readiness`, `oura_sleep_score`.
+Metrics with baselines in v0.1: `sleep_stage` (as nightly minutes asleep, per sleep day: 18:00 local the evening before to 18:00 local on the day), `hrv_sdnn_ms` or `hrv_rmssd_ms` (whichever the person has), `resting_hr_bpm`, `respiratory_rate_bpm`, `spo2_pct`, `wrist_temp_delta_c`, `steps`, `active_energy_kcal`, `exercise_min`, `weight_kg`, `checkin_mood`, `oura_readiness`, `oura_sleep_score`.
 
 ## Rule set
 

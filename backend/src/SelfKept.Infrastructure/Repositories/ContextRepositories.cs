@@ -103,7 +103,9 @@ public sealed class ReadBackRepository : IReadBackRepository
   {
     if (!await ViewerAccess.AllowedAsync(_policy, viewerPersonId, targetPersonId, ShareCategory.Sleep, ct)) return null;
     return await _context.Samples.AsNoTracking()
-      .Where(s => s.PersonId == targetPersonId && s.MetricKey == MetricKeys.SleepStage && s.StartAt >= fromUtc && s.StartAt < toUtc)
+      // By end, like the daily summary; start is bounded too so the (person, metric, start_at) index is used.
+      .Where(s => s.PersonId == targetPersonId && s.MetricKey == MetricKeys.SleepStage
+        && s.EndAt != null && s.EndAt >= fromUtc && s.EndAt < toUtc && s.StartAt >= fromUtc.AddDays(-2))
       .OrderBy(s => s.StartAt)
       .ToListAsync(ct);
   }

@@ -187,7 +187,7 @@ Full shapes and checks: `docs/context-design.md`, "API". Migration 0018.
 | PATCH | `/context/{id}` | `UpdateContextEventRequest` (a missing field keeps its value) | `ContextEventDto`; 404 "No such context event." | own |
 | DELETE | `/context/{id}` | | 204; 404 "No such context event." | own |
 | GET | `/patterns?personId` | | `PatternsDto`: established patterns and the tags still building | insights |
-| GET | `/sleep?from&to&personId` | | `SleepNightsDto`; default the last 14 nights, at most 92 days | sleep |
+| GET | `/sleep?from&to&personId` | | `SleepNightsDto`; default the last 14 nights, at most 92 days. A night's `day` is its sleep day, 18:00 local the evening before to 18:00 local on the day | sleep |
 | GET | `/workouts?from&to&personId` | | `WorkoutsDto` with weekly totals; default the last 28 days, at most 92 | activity |
 | GET | `/systems?personId` | | `SystemsDto`; a system with nothing shared is left out | each part under its own category |
 | GET | `/systems/{key}?personId` | | `SystemDto` with 28 days of each reading, lab history and 30 days of cards. Keys `heart`, `sleep`, `metabolism`, `hormones`, `body`, `cycle`, any case. 404 "No such system or person, or they have not shared this with you." | each part under its own category |
