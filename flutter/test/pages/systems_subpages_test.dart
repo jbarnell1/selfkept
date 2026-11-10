@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:selfkept/models/weekly_review.dart';
 import 'package:selfkept/pages/systems/patterns_page.dart';
 import 'package:selfkept/pages/systems/readback_pages.dart';
 import 'package:selfkept/pages/systems/system_detail_page.dart';
@@ -180,6 +181,26 @@ void main() {
   });
 
   group('weekly review', () {
+    test('a week target says which days added to it', () {
+      expect(
+        WeeklyReviewPage.targetLine(
+          const ReviewTarget(
+            targetId: 't1',
+            period: 'week',
+            metDays: 2,
+            knownDays: 7,
+          ),
+        ),
+        'Logged on 2 of 7 days',
+      );
+      expect(
+        WeeklyReviewPage.targetLine(
+          const ReviewTarget(targetId: 't2', metDays: 6, knownDays: 7),
+        ),
+        '6 of 7 days',
+      );
+    });
+
     testBothThemes('each section in the server words', (tester, theme) async {
       h.api.on('GET', '/review/weekly', (_) => SystemsFixtures.review());
       await pump(

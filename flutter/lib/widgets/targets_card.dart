@@ -54,11 +54,16 @@ class TargetsCard extends StatelessWidget {
     };
   }
 
-  /// The week in words, for the line beside the dots and for a reader.
-  static String weekFor(TargetTally tally) => tally.knownDays == 0
-      ? 'No days counted yet'
-      : '${tally.metDays} of ${tally.knownDays} '
-            '${tally.knownDays == 1 ? 'day' : 'days'} met';
+  /// The week in words, for the line beside the dots and for a reader. A day
+  /// target's dots are days it was met; a week target's dots are the days
+  /// that added to it, so "met" would be the wrong word there.
+  static String weekFor(TargetTally tally) {
+    if (tally.knownDays == 0) return 'No days counted yet';
+    final days = tally.knownDays == 1 ? 'day' : 'days';
+    return tally.target.period == TargetPeriod.week
+        ? 'Logged on ${tally.metDays} of ${tally.knownDays} $days'
+        : '${tally.metDays} of ${tally.knownDays} $days met';
+  }
 
   @override
   Widget build(BuildContext context) {

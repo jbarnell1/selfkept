@@ -164,4 +164,30 @@ void main() {
     expect(find.text(TargetsCard.noTargetsLine), findsOneWidget);
     expect(find.text(TargetsCard.addTargetLabel), findsOneWidget);
   });
+
+  test('a week target counts the days that added to it, not days met', () {
+    final week = TargetTally.fromJson(
+      BodyFixtures.targetTally(
+        target: BodyFixtures.target(
+          label: 'Two drinks a week at most',
+          kind: 'journal',
+          metricKey: null,
+          tag: 'alcohol',
+          comparator: 'at_most',
+          value: 2,
+          period: 'week',
+          unit: 'entries',
+        ),
+        current: 2,
+        met: true,
+        week: const [false, false, true, true, false, false, false],
+        metDays: 2,
+        knownDays: 7,
+      ),
+    );
+    expect(TargetsCard.weekFor(week), 'Logged on 2 of 7 days');
+
+    final day = TargetTally.fromJson(BodyFixtures.targetTally());
+    expect(TargetsCard.weekFor(day), '3 of 4 days met');
+  });
 }

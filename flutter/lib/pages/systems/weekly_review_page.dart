@@ -46,9 +46,12 @@ class WeeklyReviewPage extends StatefulWidget {
   static String rangeFor(WeeklyReview r) =>
       '${shortDay(r.weekOf)} to ${spokenDay(r.weekEnd)}';
 
-  /// "6 of 7 days".
+  /// "6 of 7 days" for a day target; a week target's days are the days that
+  /// added to it, so it reads "Logged on 2 of 7 days".
   static String targetLine(ReviewTarget t) => t.knownDays == 0
       ? 'No days known'
+      : t.period == 'week'
+      ? 'Logged on ${t.metDays} of ${t.knownDays} days'
       : '${t.metDays} of ${t.knownDays} days';
 
   @override
