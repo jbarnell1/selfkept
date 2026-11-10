@@ -25,6 +25,7 @@ import '../widgets/surface_card.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/targets_card.dart';
 import 'systems/weekly_review_page.dart';
+import '../widgets/assistant/assistant_today_cards.dart';
 
 /// Today: the place a day begins. A greeting, the day's sentence against
 /// your own baseline, three readiness chips, the day's targets, the day log,
@@ -149,6 +150,8 @@ class _TodayPageState extends State<TodayPage> {
               style: theme.textTheme.displaySmall,
             ),
             const SizedBox(height: Space.x4),
+            // The morning brief and the evening check-in, when the server has them.
+            const AssistantTodayCards(),
             const _Hero(),
             const SizedBox(height: Space.x6),
             const TargetsCard(),

@@ -8,6 +8,7 @@ import '../../theme/tokens.dart';
 import '../../widgets/page_body.dart';
 import '../../widgets/surface_card.dart';
 import 'account_section.dart';
+import 'assistant_section.dart';
 import 'assistants_section.dart';
 import 'household_section.dart';
 import 'profile_section.dart';
@@ -47,6 +48,7 @@ class _YouPageState extends State<YouPage> {
           const PageHeading(title: 'You'),
           const ProfileSection(),
           const AboutYouSection(),
+          const AssistantYouSection(),
           const SourcesSection(),
           const HouseholdSection(),
           const SharingSection(),
