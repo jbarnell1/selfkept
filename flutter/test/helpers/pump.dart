@@ -8,6 +8,13 @@ import 'package:selfkept/offline/sync_engine.dart';
 import 'package:selfkept/providers/auth_provider.dart';
 import 'package:selfkept/providers/checkins_provider.dart';
 import 'package:selfkept/providers/collector_provider.dart';
+import 'package:selfkept/providers/goals_provider.dart';
+import 'package:selfkept/providers/journal_provider.dart';
+import 'package:selfkept/providers/medications_provider.dart';
+import 'package:selfkept/providers/progress_provider.dart';
+import 'package:selfkept/providers/record_changes.dart';
+import 'package:selfkept/providers/tally_provider.dart';
+import 'package:selfkept/providers/viewed_person.dart';
 import 'package:selfkept/providers/connect_provider.dart';
 import 'package:selfkept/providers/household_provider.dart';
 import 'package:selfkept/providers/insights_provider.dart';
@@ -23,7 +30,14 @@ import 'package:selfkept/providers/sources_provider.dart';
 import 'package:selfkept/providers/startup_provider.dart';
 import 'package:selfkept/providers/today_provider.dart';
 import 'package:selfkept/providers/trends_provider.dart';
+import 'package:selfkept/services/body_service.dart';
 import 'package:selfkept/services/checkins_service.dart';
+import 'package:selfkept/services/goals_service.dart';
+import 'package:selfkept/services/journal_service.dart';
+import 'package:selfkept/services/medications_service.dart';
+import 'package:selfkept/services/progress_service.dart';
+import 'package:selfkept/services/strength_service.dart';
+import 'package:selfkept/services/targets_service.dart';
 import 'package:selfkept/services/connect_service.dart';
 import 'package:selfkept/services/export_service.dart';
 import 'package:selfkept/services/household_service.dart';
@@ -78,6 +92,13 @@ class TestHarness {
   final RecentProblemsProvider recentProblems;
   final RetentionProvider retention;
   final SsoProvider sso;
+  final RecordChanges recordChanges;
+  final ViewedPerson viewing;
+  final TallyProvider tally;
+  final JournalProvider journal;
+  final GoalsProvider goals;
+  final MedicationsProvider medications;
+  final ProgressProvider progress;
 
   /// Stands in for the browser everywhere a page opens a link.
   final UrlOpener openUrl;
@@ -108,6 +129,13 @@ class TestHarness {
     required this.recentProblems,
     required this.retention,
     required this.sso,
+    required this.recordChanges,
+    required this.viewing,
+    required this.tally,
+    required this.journal,
+    required this.goals,
+    required this.medications,
+    required this.progress,
     required this.openUrl,
   });
 
@@ -154,7 +182,46 @@ class TestHarness {
       service: InsightsService(client),
       auth: auth,
     );
+    final changes = RecordChanges();
+    final viewing = ViewedPerson(auth: auth);
+    final goalsService = GoalsService(client);
+    final targetsService = TargetsService(client);
     return TestHarness._(
+      recordChanges: changes,
+      viewing: viewing,
+      tally: TallyProvider(
+        service: targetsService,
+        auth: auth,
+        changes: changes,
+      ),
+      journal: JournalProvider(
+        service: JournalService(client),
+        auth: auth,
+        changes: changes,
+        now: () => DateTime(2026, 11, 10, 12),
+      ),
+      goals: GoalsProvider(
+        goals: goalsService,
+        targets: targetsService,
+        auth: auth,
+        changes: changes,
+        viewing: viewing,
+      ),
+      medications: MedicationsProvider(
+        service: MedicationsService(client),
+        auth: auth,
+        viewing: viewing,
+      ),
+      progress: ProgressProvider(
+        service: ProgressService(client),
+        goals: goalsService,
+        targets: targetsService,
+        body: BodyService(client),
+        strength: StrengthService(client),
+        auth: auth,
+        changes: changes,
+        viewing: viewing,
+      ),
       api: client,
       auth: auth,
       startup: startup,
@@ -243,6 +310,13 @@ class TestHarness {
         ChangeNotifierProvider.value(value: recentProblems),
         ChangeNotifierProvider.value(value: retention),
         ChangeNotifierProvider.value(value: sso),
+        ChangeNotifierProvider.value(value: recordChanges),
+        ChangeNotifierProvider.value(value: viewing),
+        ChangeNotifierProvider.value(value: tally),
+        ChangeNotifierProvider.value(value: journal),
+        ChangeNotifierProvider.value(value: goals),
+        ChangeNotifierProvider.value(value: medications),
+        ChangeNotifierProvider.value(value: progress),
         Provider<UrlOpener>.value(value: openUrl),
       ],
       child: router == null
@@ -255,6 +329,13 @@ class TestHarness {
   }
 
   void dispose() {
+    progress.dispose();
+    medications.dispose();
+    goals.dispose();
+    journal.dispose();
+    tally.dispose();
+    viewing.dispose();
+    recordChanges.dispose();
     sso.dispose();
     retention.dispose();
     recentProblems.dispose();

@@ -10,6 +10,9 @@ class Person {
   final Units units;
   final String timeZone;
 
+  /// Stored in centimetres whatever the units; null when not set.
+  final double? heightCm;
+
   const Person({
     required this.id,
     required this.displayName,
@@ -17,6 +20,7 @@ class Person {
     this.birthDate,
     this.units = Units.metric,
     this.timeZone = 'UTC',
+    this.heightCm,
   });
 
   factory Person.fromJson(Map<String, dynamic> json) {
@@ -28,16 +32,20 @@ class Person {
       birthDate: r.dateTime('birthDate'),
       units: Units.fromString(r.stringOrNull('units')),
       timeZone: r.string('timeZone', fallback: 'UTC'),
+      heightCm: readDouble(r.raw('heightCm')),
     );
   }
 
-  /// Body of PUT /me/profile: the DTO without its id.
+  /// Body of PUT /me/profile: the DTO without its id. The server keeps the
+  /// stored height when the field is null and clears it on 0, so "not set"
+  /// is sent as 0.
   Map<String, dynamic> toUpdateJson() => {
     'displayName': displayName,
     'sexAtBirth': sexAtBirth.wireValue,
     'birthDate': birthDate == null ? null : _dateOnly(birthDate!),
     'units': units.wireValue,
     'timeZone': timeZone,
+    'heightCm': heightCm ?? 0,
   };
 
   Person copyWith({
@@ -47,6 +55,8 @@ class Person {
     bool clearBirthDate = false,
     Units? units,
     String? timeZone,
+    double? heightCm,
+    bool clearHeight = false,
   }) => Person(
     id: id,
     displayName: displayName ?? this.displayName,
@@ -54,6 +64,7 @@ class Person {
     birthDate: clearBirthDate ? null : (birthDate ?? this.birthDate),
     units: units ?? this.units,
     timeZone: timeZone ?? this.timeZone,
+    heightCm: clearHeight ? null : (heightCm ?? this.heightCm),
   );
 
   static String _dateOnly(DateTime date) {

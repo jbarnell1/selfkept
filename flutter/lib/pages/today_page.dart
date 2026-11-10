@@ -7,12 +7,15 @@ import '../offline/sync_engine.dart';
 import '../providers/auth_provider.dart';
 import '../providers/checkins_provider.dart';
 import '../providers/collector_provider.dart';
+import '../providers/journal_provider.dart';
 import '../providers/sources_provider.dart';
+import '../providers/tally_provider.dart';
 import '../providers/today_provider.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../utils/relative_time.dart';
 import '../widgets/check_in_entry.dart';
+import '../widgets/day_log.dart';
 import '../widgets/insight_actions.dart';
 import '../widgets/insight_card.dart';
 import '../widgets/page_body.dart';
@@ -20,10 +23,11 @@ import '../widgets/readiness_row.dart';
 import '../widgets/status_views.dart';
 import '../widgets/surface_card.dart';
 import '../widgets/dialogs.dart';
+import '../widgets/targets_card.dart';
 
 /// Today: the place a day begins. A greeting, the day's sentence against
-/// your own baseline, three readiness chips, at most two cards, the check-in,
-/// and where the readings come from.
+/// your own baseline, three readiness chips, the day's targets, the day log,
+/// at most two cards, the check-in, and where the readings come from.
 class TodayPage extends StatefulWidget {
   const TodayPage({super.key});
 
@@ -84,6 +88,10 @@ class _TodayPageState extends State<TodayPage> {
       if (!checkins.hasLoaded && !checkins.isLoading) checkins.load();
       final sources = context.read<SourcesProvider>();
       if (!sources.hasLoaded && !sources.isLoading) sources.load();
+      final tally = context.read<TallyProvider>();
+      if (!tally.hasLoaded && !tally.isLoading) tally.load();
+      final journal = context.read<JournalProvider>();
+      if (!journal.hasLoaded && !journal.isLoading) journal.load();
     });
   }
 
@@ -92,6 +100,8 @@ class _TodayPageState extends State<TodayPage> {
       context.read<TodayProvider>().refresh(),
       context.read<CheckinsProvider>().load(),
       context.read<SourcesProvider>().load(),
+      context.read<TallyProvider>().load(),
+      context.read<JournalProvider>().load(),
     ]);
   }
 
@@ -139,6 +149,10 @@ class _TodayPageState extends State<TodayPage> {
             ),
             const SizedBox(height: Space.x4),
             const _Hero(),
+            const SizedBox(height: Space.x6),
+            const TargetsCard(),
+            const SizedBox(height: Space.x3),
+            const AddToToday(),
             const SizedBox(height: Space.x6),
             const _Cards(),
             CheckInEntry(key: ValueKey(_entryGeneration), onKeep: _keep),

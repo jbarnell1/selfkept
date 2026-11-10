@@ -139,3 +139,28 @@ class AttentionLine extends StatelessWidget {
     );
   }
 }
+
+/// What a page shows when the server answered 404 for someone else's
+/// record: they have not shared it, or they are not in the household.
+class NotSharedView extends StatelessWidget {
+  /// Whose record it was, when known.
+  final String name;
+  final VoidCallback? onBack;
+
+  const NotSharedView({super.key, this.name = '', this.onBack});
+
+  static const String title = 'Not shared with you';
+  static const String backLabel = 'Back to yours';
+
+  static String detailFor(String name) => name.isEmpty
+      ? 'This person has not shared this part of their record with you.'
+      : '$name has not shared this part of their record with you.';
+
+  @override
+  Widget build(BuildContext context) => ErrorView(
+    title: title,
+    detail: detailFor(name),
+    onRetry: onBack,
+    retryLabel: backLabel,
+  );
+}
