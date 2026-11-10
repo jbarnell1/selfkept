@@ -12,6 +12,7 @@ using SelfKept.Infrastructure.Repositories;
 using SelfKept.Infrastructure.Security;
 using SelfKept.Infrastructure.Services.Body;
 using SelfKept.Infrastructure.Services.Collect;
+using SelfKept.Infrastructure.Services.ContextEngine;
 using SelfKept.Infrastructure.Services.Connect;
 using SelfKept.Infrastructure.Services.Export;
 using SelfKept.Infrastructure.Services.Sso;
@@ -139,6 +140,12 @@ public static class DependencyInjection
     services.AddScoped<IMeasurementService, MeasurementService>();
     services.AddScoped<IProgressService, ProgressService>();
     services.AddScoped<IBodyContextLoader, BodyContextLoader>();
+
+    // Context, patterns, systems, read-backs and the weekly review (docs/context-design.md).
+    services.AddScoped<IContextEventRepository, ContextEventRepository>();
+    services.AddScoped<IReadBackRepository, ReadBackRepository>();
+    services.AddScoped<IContextLoader, ContextLoader>();
+    services.AddScoped<IContextService, ContextService>();
 
     // Package 5 (Connect): the OAuth server for /mcp, personal tokens, assistant memory, the tools.
     services.AddSingleton(McpSettings.From(configuration));

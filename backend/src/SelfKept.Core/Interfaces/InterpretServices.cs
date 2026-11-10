@@ -6,7 +6,7 @@ namespace SelfKept.Core.Interfaces;
 /// <summary>What one rule saw, pre-loaded once per person per day so rules stay pure.</summary>
 public sealed class RuleContext
 {
-  public RuleContext(Person person, DateOnly day, IReadOnlyDictionary<string, Baseline> baselines, IReadOnlyDictionary<string, IReadOnlyList<DailySummary>> series, LabContext? labs = null, BodyContext? body = null)
+  public RuleContext(Person person, DateOnly day, IReadOnlyDictionary<string, Baseline> baselines, IReadOnlyDictionary<string, IReadOnlyList<DailySummary>> series, LabContext? labs = null, BodyContext? body = null, ContextState? context = null)
   {
     Person = person;
     Day = day;
@@ -14,6 +14,7 @@ public sealed class RuleContext
     Series = series;
     Labs = labs ?? LabContext.Empty;
     Body = body ?? BodyContext.Empty;
+    Context = context ?? ContextState.Empty;
     // HRV: rmssd when the person has it, else sdnn (design, "whichever the person has").
     HrvMetricKey = series.TryGetValue(MetricKeys.HrvRmssdMs, out var rmssd) && rmssd.Count > 0 ? MetricKeys.HrvRmssdMs : MetricKeys.HrvSdnnMs;
   }
@@ -36,6 +37,9 @@ public sealed class RuleContext
 
   /// <summary>Goals, the weigh-in series, the week of targets and what the person takes. Empty when none are stored.</summary>
   public BodyContext Body { get; }
+
+  /// <summary>What is going on in the person's life that explains readings (docs/context-design.md). Empty when nothing applies.</summary>
+  public ContextState Context { get; }
 
   public Baseline? BaselineFor(string metricKey) => Baselines.TryGetValue(metricKey, out var b) ? b : null;
 

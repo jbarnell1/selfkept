@@ -122,6 +122,15 @@ public static class InsightKinds
   public const string TargetWeek = "target_week";
   public const string WaistHeight = "waist_height";
   public const string Learning = "learning";
+  public const string YesterdayLastNight = "yesterday_last_night";
+  public const string TargetSlipping = "target_slipping";
+  public const string EarlySigns = "early_signs";
+  public const string ColdStarting = "cold_starting";
+  public const string ShortSleepDiet = "short_sleep_diet";
+  public const string RecoveryStrain = "recovery_strain";
+  public const string StrengthOnTrack = "strength_on_track";
+  public const string MoodDeficit = "mood_deficit";
+  public const string PersonalPattern = "personal_pattern";
 }
 
 public static class InsightSeverities

@@ -27,10 +27,10 @@ public sealed class SleepDebtRule : RuleBase
   {
     if (!Fires(context, out var shortNights, out var baseline)) return null;
     var distance = BaselineMath.BandDistance(shortNights.Average(), baseline!.P25_28!.Value, baseline.P75_28!.Value, baseline.P25_28.Value, baseline.P75_28.Value);
-    return Candidate(InsightSeverities.Watch, MetricsUsed(context),
+    return ContextNotes.Explain(context, Candidate(InsightSeverities.Watch, MetricsUsed(context),
       "Three short nights in four. Sleep debt shows up in HRV and mood within days.",
       distance,
-      ("shortNightsMinutes", shortNights.Select(v => Round(v, 0)).ToArray()), ("p25Minutes", Round(baseline.P25_28.Value, 0)), ("days", IsoDays(context, [3, 2, 1, 0])));
+      ("shortNightsMinutes", shortNights.Select(v => Round(v, 0)).ToArray()), ("p25Minutes", Round(baseline.P25_28.Value, 0)), ("days", IsoDays(context, [3, 2, 1, 0]))), demote: true, ContextNotes.Sleep);
   }
 }
 

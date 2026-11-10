@@ -18,10 +18,10 @@ public sealed class ActivityDipRule : RuleBase
     var baseline = context.BaselineFor(MetricKeys.Steps);
     if (baseline is not { Median7: { } median7, Median28: { } median28 } || baseline.N7 < MinDays || median28 <= 0) return null;
     if (median7 >= median28 / 2) return null;
-    return Candidate(InsightSeverities.Notice, MetricsUsed(context),
+    return ContextNotes.Explain(context, Candidate(InsightSeverities.Notice, MetricsUsed(context),
       "A quieter week than your norm. Nothing wrong with that; just noting it.",
       (median28 / 2 - median7) / Iqr(baseline),
-      ("median7Steps", Round(median7, 0)), ("median28Steps", Round(median28, 0)), ("days", baseline.N7));
+      ("median7Steps", Round(median7, 0)), ("median28Steps", Round(median28, 0)), ("days", baseline.N7)), demote: true, ContextNotes.Activity);
   }
 }
 
@@ -69,9 +69,9 @@ public sealed class WeightTrendRule : RuleBase
     if (Math.Abs(delta) <= ThresholdKg) return null;
     var direction = delta < 0 ? "down" : "up";
     var magnitude = BodyUnits.Format(Math.Abs(delta), "kg", context.Person.Units);
-    return Candidate(InsightSeverities.Notice, MetricsUsed(context),
+    return ContextNotes.Explain(context, Candidate(InsightSeverities.Notice, MetricsUsed(context),
       $"Weight has moved {direction} by about {magnitude} over the month.",
       (Math.Abs(delta) - ThresholdKg) / Iqr(baseline),
-      ("deltaKg", Round(delta)), ("slopeKgPerDay", Round(slope, 3)), ("days", baseline.N28));
+      ("deltaKg", Round(delta)), ("slopeKgPerDay", Round(slope, 3)), ("days", baseline.N28)), demote: true, ContextNotes.Weight);
   }
 }
