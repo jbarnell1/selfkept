@@ -1,3 +1,4 @@
+using SelfKept.Core.Entities;
 using FluentAssertions;
 using SelfKept.Infrastructure.Data;
 using SelfKept.Infrastructure.Services.Labs;
@@ -12,13 +13,43 @@ public class LabParserTests
   private static readonly LabParser Parser = new(new SeedCatalogue(), LabSeed.Aliases);
 
   [Fact]
+  public void Parse_WiderCatalogueLines_MatchEachNewMarker_WithItsUnit()
+  {
+    const string text = """
+      ALT (SGPT) 31 U/L
+      AST (SGOT) 27 U/L
+      Platelet count 250 10^9/L
+      WBC 6.1 10^9/L
+      RBC 4.9 10^12/L
+      MCV 88 fL
+      Hemoglobin A1c 5.4 %
+      Glucose, fasting 5.2 mmol/L
+      Cystatin C 0.82 mg/L
+      Transferrin saturation 31 %
+      Serum iron 96 ug/dL
+      Total iron binding capacity 310 ug/dL
+      """;
+
+    var result = Parser.Parse(text);
+
+    result.Candidates.Select(c => c.MetricKey).Should().BeEquivalentTo(LabMetricKeys.CrossReferenceAdditions);
+    var byKey = result.Candidates.ToDictionary(c => c.MetricKey);
+    byKey[LabMetricKeys.FastingGlucose].Unit.Should().Be("mmol/L");
+    byKey[LabMetricKeys.Iron].Value.Should().Be(96);
+    byKey[LabMetricKeys.Tibc].Value.Should().Be(310);
+    byKey[LabMetricKeys.TransferrinSaturation].Value.Should().Be(31);
+  }
+
+  [Fact]
   public void Parse_FullRythmPanel_MatchesAllThirtyMarkers_WithUnitsAndFlags()
   {
     var result = Parser.Parse(RythmText.FullPanel);
 
     result.Candidates.Should().HaveCount(30);
     result.Candidates.Select(c => c.MetricKey).Should().OnlyHaveUniqueItems();
-    result.Candidates.Select(c => c.MetricKey).Should().BeEquivalentTo(MetricSeed.All.Where(m => m.IsLab).Select(m => m.Key));
+    result.Candidates.Select(c => c.MetricKey).Should().BeEquivalentTo(
+      MetricSeed.All.Where(m => m.IsLab && !LabMetricKeys.CrossReferenceAdditions.Contains(m.Key)).Select(m => m.Key),
+      "the Rythm panel carries the 30 original markers; the wider catalogue is not on it");
     result.Candidates.Should().OnlyContain(c => c.Confidence == LabParser.ConfidenceFull, "every line carries a unit (ratios imply theirs)");
 
     var byKey = result.Candidates.ToDictionary(c => c.MetricKey);

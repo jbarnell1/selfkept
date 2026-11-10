@@ -40,6 +40,9 @@ public static class AuditActions
   public const string InterpretRecompute = "interpret.recompute";
   public const string LabReportCreated = "lab.report.created";
   public const string LabReportDeleted = "lab.report.deleted";
+  public const string LabReportConditionsUpdated = "lab.report.conditions";
+  public const string TrialSaved = "trial.saved";
+  public const string TrialDeleted = "trial.deleted";
   public const string LabSummaryExported = "lab.summary.exported";
   public const string McpClientRegistered = "mcp.client.registered";
   public const string McpGrantApproved = "mcp.grant.approved";

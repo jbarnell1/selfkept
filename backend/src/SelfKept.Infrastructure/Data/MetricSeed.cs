@@ -6,13 +6,13 @@ namespace SelfKept.Infrastructure.Data;
 
 /// <summary>
 /// The metric catalogue as code: the one list that generates the SQL seed migration
-/// (0014_metric_reseed.up.sql, checked for drift by MetricSeedTests) and seeds the InMemory test
+/// (0019_metric_reseed.up.sql, checked for drift by MetricSeedTests) and seeds the InMemory test
 /// database, which runs no SQL. On Postgres the metric table is authoritative and the catalogue
 /// loads from it.
 /// </summary>
 public static class MetricSeed
 {
-  public const string SeedScriptName = "0014_metric_reseed.up.sql";
+  public const string SeedScriptName = "0019_metric_reseed.up.sql";
 
   private const string Instant = MetricKinds.Instant;
   private const string Interval = MetricKinds.Interval;
@@ -125,6 +125,20 @@ public static class MetricSeed
     Add("lab.ggt", "U/L", Instant, ShareCategory.Labs, "GGT", "A liver enzyme that rises with alcohol and some medicines.", Down, "2324-2");
     Add("lab.egfr", "mL/min/1.73m2", Instant, ShareCategory.Labs, "eGFR", "An estimate of how well the kidneys filter, from creatinine, age and sex.", Up, "62238-1");
 
+    // Added with the cross-reference package (docs/lab-ranges.md). No LOINC codes: none were verified.
+    Add("lab.alt", "U/L", Instant, ShareCategory.Labs, "ALT", "Alanine aminotransferase, an enzyme found mostly in the liver.", Down);
+    Add("lab.ast", "U/L", Instant, ShareCategory.Labs, "AST", "Aspartate aminotransferase, an enzyme found in the liver and in muscle.", Down);
+    Add("lab.platelets", "10^9/L", Instant, ShareCategory.Labs, "Platelets", "The cell fragments that help blood clot.", Range);
+    Add("lab.wbc", "10^9/L", Instant, ShareCategory.Labs, "White cell count", "The number of white cells, the cells that fight infection.", Range);
+    Add("lab.rbc", "10^12/L", Instant, ShareCategory.Labs, "Red cell count", "The number of red cells, the cells that carry oxygen.", Range);
+    Add("lab.mcv", "fL", Instant, ShareCategory.Labs, "MCV", "Mean corpuscular volume: the average size of your red cells.", Range);
+    Add("lab.hba1c", "%", Instant, ShareCategory.Labs, "HbA1c", "The share of hemoglobin with glucose attached; it reflects average blood sugar over recent months.", Down);
+    Add("lab.glucose_fasting", "mg/dL", Instant, ShareCategory.Labs, "Fasting glucose", "Blood sugar measured after a fast.", Down);
+    Add("lab.cystatin_c", "mg/L", Instant, ShareCategory.Labs, "Cystatin C", "A protein the kidneys clear; a second read on kidney function that does not depend on muscle.", Down);
+    Add("lab.transferrin_saturation", "%", Instant, ShareCategory.Labs, "Transferrin saturation", "The share of the iron transport protein that is carrying iron.", Range);
+    Add("lab.iron", "ug/dL", Instant, ShareCategory.Labs, "Iron", "Iron circulating in the blood on the day of the draw.", Range);
+    Add("lab.tibc", "ug/dL", Instant, ShareCategory.Labs, "TIBC", "Total iron binding capacity: how much iron the blood could carry.", Range);
+
     return list;
   }
 
@@ -132,8 +146,8 @@ public static class MetricSeed
   public static string ToSql()
   {
     var sb = new StringBuilder();
-    sb.Append("-- 0014_metric_reseed: the whole metric catalogue (docs/ingest-contract.md plus the lab markers), seeded again\n");
-    sb.Append("-- so an install that ran 0004 gains the metrics added since. 0004 stays as it shipped.\n");
+    sb.Append("-- 0019_metric_reseed: the whole metric catalogue (docs/ingest-contract.md plus the lab markers), seeded again\n");
+    sb.Append("-- so an install that ran 0004 and 0014 gains the metrics added since. 0004 and 0014 stay as they shipped.\n");
     sb.Append("-- GENERATED from MetricSeed.cs (MetricSeedTests checks for drift). Edit the C# list, then regenerate.\n");
     sb.Append("-- Idempotent: re-running updates display text and classification but never removes a key.\n\n");
     sb.Append("INSERT INTO metric (key, unit, kind, category, display_name, blurb, good_direction, loinc, value_labels, sex_applicability) VALUES\n");

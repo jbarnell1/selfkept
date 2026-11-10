@@ -225,7 +225,7 @@ public class LabsFlowTests
 
     // Markers: panel order, latest and previous, population range for a male, tier, last three.
     var markers = await (await ada.GetAsync("/api/labs/markers")).ReadJsonAsync();
-    markers.GetArrayLength().Should().Be(30);
+    markers.GetArrayLength().Should().Be(42);
     markers[0].GetProperty("metricKey").GetString().Should().Be("lab.total_testosterone");
     var byKey = markers.EnumerateArray().ToDictionary(m => m.GetProperty("metricKey").GetString()!);
     var apob = byKey["lab.apob"];
@@ -300,7 +300,7 @@ public class LabsFlowTests
     (await ada.PutJsonAsync($"/api/household/shares/{bobPerson}", new { categories = new[] { "labs" } })).StatusCode.Should().Be(HttpStatusCode.OK);
     (await (await bob.GetAsync($"/api/labs/reports?personId={adaPerson}")).ReadJsonAsync()).GetArrayLength().Should().Be(2);
     (await bob.GetAsync($"/api/labs/reports/{reportId}")).StatusCode.Should().Be(HttpStatusCode.OK);
-    (await (await bob.GetAsync($"/api/labs/markers?personId={adaPerson}")).ReadJsonAsync()).GetArrayLength().Should().Be(30);
+    (await (await bob.GetAsync($"/api/labs/markers?personId={adaPerson}")).ReadJsonAsync()).GetArrayLength().Should().Be(42);
     var bobPdf = await bob.GetAsync($"/api/labs/summary.pdf?personId={adaPerson}");
     bobPdf.StatusCode.Should().Be(HttpStatusCode.OK);
     bobPdf.Content.Headers.ContentType!.MediaType.Should().Be("application/pdf");
@@ -343,7 +343,7 @@ public class LabsFlowTests
 
     var markers = await (await ada.GetAsync("/api/labs/markers")).ReadJsonAsync();
 
-    markers.GetArrayLength().Should().Be(30);
+    markers.GetArrayLength().Should().Be(42);
     markers.EnumerateArray().Should().OnlyContain(m => m.GetProperty("latestValue").ValueKind == JsonValueKind.Null && m.GetProperty("lastThree").GetArrayLength() == 0);
     var tsh = markers.EnumerateArray().Single(m => m.GetProperty("metricKey").GetString() == "lab.tsh");
     tsh.GetProperty("populationRange").GetProperty("low").GetDouble().Should().Be(0.3, "a both row applies whatever the sex");

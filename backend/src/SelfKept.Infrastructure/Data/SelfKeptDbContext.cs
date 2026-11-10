@@ -40,6 +40,7 @@ public class SelfKeptDbContext : DbContext
   public DbSet<LabResult> LabResults => Set<LabResult>();
   public DbSet<LabMarkerAlias> LabMarkerAliases => Set<LabMarkerAlias>();
   public DbSet<LabReference> LabReferences => Set<LabReference>();
+  public DbSet<Trial> Trials => Set<Trial>();
   public DbSet<OAuthClient> OAuthClients => Set<OAuthClient>();
   public DbSet<OAuthAuthorizationRequest> OAuthAuthorizationRequests => Set<OAuthAuthorizationRequest>();
   public DbSet<OAuthRefreshToken> OAuthRefreshTokens => Set<OAuthRefreshToken>();
@@ -457,6 +458,9 @@ public class SelfKeptDbContext : DbContext
       e.HasIndex(x => new { x.PersonId, x.CollectedOn }).IsDescending(false, true);
       e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
       e.HasMany(x => x.Results).WithOne().HasForeignKey(r => r.ReportId).OnDelete(DeleteBehavior.Cascade);
+      // Draw conditions, 0017_labs_review.
+      e.Property(x => x.Fasting).HasMaxLength(8);
+      e.Property(x => x.DrawPeriod).HasMaxLength(16);
     });
 
     modelBuilder.Entity<LabResult>(e =>
@@ -488,6 +492,19 @@ public class SelfKeptDbContext : DbContext
       e.Property(x => x.Tier).HasMaxLength(16).IsRequired();
       e.Property(x => x.SourceUrl).IsRequired();
       e.Ignore(x => x.HasRange);
+    });
+
+    // Trials, 0017_labs_review.
+    modelBuilder.Entity<Trial>(e =>
+    {
+      e.ToTable("trial");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.TitleCipher).IsRequired();
+      e.Property(x => x.MetricKeys).HasColumnType("text[]");
+      e.Property(x => x.Status).HasMaxLength(16).IsRequired();
+      e.Ignore(x => x.HasLabMarkers);
+      e.HasIndex(x => new { x.PersonId, x.StartedOn }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
     });
   }
 

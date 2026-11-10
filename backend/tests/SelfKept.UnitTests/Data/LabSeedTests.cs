@@ -18,13 +18,13 @@ public class LabSeedTests
     var labKeys = MetricSeed.All.Where(m => m.IsLab).Select(m => m.Key).ToList();
     var byKey = LabSeed.References.GroupBy(r => r.MetricKey).ToDictionary(g => g.Key, g => g.Select(r => r.Sex).ToList());
 
-    byKey.Keys.Should().BeEquivalentTo(labKeys, "every marker has a row (docs/lab-ranges.md lists all 30)");
+    byKey.Keys.Should().BeEquivalentTo(labKeys, "every marker has a row (docs/lab-ranges.md lists all 42)");
     foreach (var (key, sexes) in byKey)
     {
       if (sexes.Contains(SexApplicabilities.Both)) sexes.Should().ContainSingle($"{key}: a both row stands alone");
       else sexes.Should().BeEquivalentTo(new[] { SexApplicabilities.Male, SexApplicabilities.Female }, $"{key}: sex-split rows come in pairs");
     }
-    LabSeed.References.Should().HaveCount(44, "the CSV block has 44 rows");
+    LabSeed.References.Should().HaveCount(61, "the CSV block has 61 rows");
   }
 
   [Fact]
@@ -48,12 +48,30 @@ public class LabSeedTests
   [InlineData("lab.ldl", "both", null, 100.0, "watch")]
   [InlineData("lab.egfr", "both", 90.0, null, "clinician")]
   [InlineData("lab.ldl_apob_ratio", "both", null, null, "none")]
+  [InlineData("lab.alt", "male", 7.0, 55.0, "watch")]
+  [InlineData("lab.alt", "female", 7.0, 45.0, "watch")]
+  [InlineData("lab.platelets", "female", 157.0, 371.0, "watch")]
+  [InlineData("lab.hba1c", "both", 4.0, 5.6, "watch")]
+  [InlineData("lab.glucose_fasting", "both", null, 100.0, "watch")]
+  [InlineData("lab.transferrin_saturation", "both", 14.0, 50.0, "watch")]
+  [InlineData("lab.iron", "female", 35.0, 145.0, "watch")]
   public void References_MatchTheCsv(string key, string sex, double? low, double? high, string tier)
   {
     var row = LabSeed.References.Single(r => r.MetricKey == key && r.Sex == sex);
     row.Low.Should().Be(low);
     row.High.Should().Be(high);
     row.Tier.Should().Be(tier);
+  }
+
+  [Fact]
+  public void CystatinC_CarriesTheAgeSplit_AndNoOtherRowDoes()
+  {
+    var row = LabSeed.References.Single(r => r.MetricKey == LabMetricKeys.CystatinC);
+
+    (row.Low, row.High).Should().Be((0.63, 1.03));
+    row.AgeSplitAt.Should().Be(50);
+    (row.OlderLow, row.OlderHigh).Should().Be((0.67, 1.21));
+    LabSeed.References.Where(r => r.AgeSplitAt != null).Should().ContainSingle();
   }
 
   [Fact]

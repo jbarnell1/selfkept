@@ -29,6 +29,8 @@ public static class UnitConversion
   public const double NgMlPerNmolVitaminD = 0.4;
   public const double MgDlPerUmolCreatinine = 0.0113;
   public const double MgDlPerUmolUricAcid = 0.0168;
+  public const double MgDlPerMmolGlucose = 18.016;
+  public const double UgDlPerUmolIron = 5.585;
 
   /// <summary>(metric key, posted unit) to factor into the catalogue unit, for the lab markers.</summary>
   private static readonly Dictionary<(string Key, string Unit), double> LabFactors = new()
@@ -53,6 +55,19 @@ public static class UnitConversion
     [(LabMetricKeys.Hemoglobin, "g/l")] = 0.1,
     [(LabMetricKeys.Creatinine, "umol/l")] = MgDlPerUmolCreatinine,
     [(LabMetricKeys.UricAcid, "umol/l")] = MgDlPerUmolUricAcid,
+    [(LabMetricKeys.FastingGlucose, "mmol/l")] = MgDlPerMmolGlucose,
+    [(LabMetricKeys.Iron, "umol/l")] = UgDlPerUmolIron,
+    [(LabMetricKeys.Tibc, "umol/l")] = UgDlPerUmolIron,
+    // Cell counts printed per microlitre are the same number as per litre at the catalogue scale.
+    [(LabMetricKeys.Platelets, "10^3/ul")] = 1,
+    [(LabMetricKeys.Platelets, "k/ul")] = 1,
+    [(LabMetricKeys.Platelets, "x10e3/ul")] = 1,
+    [(LabMetricKeys.Wbc, "10^3/ul")] = 1,
+    [(LabMetricKeys.Wbc, "k/ul")] = 1,
+    [(LabMetricKeys.Wbc, "x10e3/ul")] = 1,
+    [(LabMetricKeys.Rbc, "10^6/ul")] = 1,
+    [(LabMetricKeys.Rbc, "m/ul")] = 1,
+    [(LabMetricKeys.Rbc, "x10e6/ul")] = 1,
   };
 
   /// <summary>

@@ -34,7 +34,8 @@ public class MigrationUpgradeTests
      "sample_minute", "sample_rollup_month",
      "goal", "daily_target", "journal_entry", "medication", "strength_set",
      "context_event",
-     "assistant_conversation", "assistant_message", "assistant_brief", "nudge_setting", "nudge_log"];
+     "assistant_conversation", "assistant_message", "assistant_brief", "nudge_setting", "nudge_log",
+     "trial"];
 
   [RequiresPostgresFact]
   public async Task EmptyDatabase_ToHead_CreatesEveryTable_AndIsIdempotent()
