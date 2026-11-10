@@ -192,11 +192,20 @@ minutes asleep, `hrv_rmssd_ms`, `hrv_sdnn_ms`, `resting_hr_bpm`, `wrist_temp_del
    percentile.
 7. Overlaps named in the sentence: "with" nights whose tag day was a Friday or Saturday, and those
    whose tag day or night fell in logged illness or travel or on a day with an illness symptom tag.
-8. Established when there are at least 8 "with" nights and 16 "without" nights and the difference
-   is larger than the noise line (and not zero).
+8. Rank test: a two-sided Mann-Whitney U test between the "with" and "without" nights, by the
+   normal approximation with the tie correction and a continuity correction of a half.
+9. Established when there are at least 8 "with" nights and 16 "without" nights, the difference is
+   larger than the noise line (and not zero), and the rank test's |z| is at least 2.58 (two-sided
+   p below 0.01). When every value is the same the test has nothing to go on and the pattern is not
+   established.
+
+The noise line asks whether the difference is big enough to matter; the rank test asks whether it
+is bigger than the nights would throw up by chance with no effect behind the tag. The noise line
+alone let too many chance differences through at these counts, so both must hold.
 
 The 8 and 16 are the proposal's own floor: no published standard exists for a minimum count in one
-person's data. The 120 days and the half interquartile range are ours. All are starting points.
+person's data. The 120 days, the half interquartile range and the 2.58 are ours. All are starting
+points.
 
 Patterns are worked out on every read (two queries: the day log's days and tags, never the text,
 and the overnight figures). That is cheap, so nothing is cached. Every pattern says "A pattern in
@@ -280,6 +289,7 @@ Every number below is a starting point, not a published threshold.
 | `PatternMath.WindowDays` | 120 days | patterns |
 | `PatternMath.MinNightsWith`, `MinNightsWithout` | 8, 16 | patterns |
 | `PatternMath.NoiseLineIqrShare` | 0.5 | patterns |
+| `PatternMath.MinRankTestZ` | 2.58 | patterns |
 | `WeeklyReviewService.StandoutIqrShare` | 0.5 | weekly standouts |
 
 Left out of this package: the proposal's longer "recovery strain" (heart rate up 5 or HRV down half
@@ -436,7 +446,8 @@ PatternsDto = {
 }
 ```
 
-A tag with enough nights but no difference past the noise line is in neither list.
+A tag with enough nights but no difference past the noise line, or one the rank test cannot tell
+from chance, is in neither list.
 
 ### Sleep read-back
 

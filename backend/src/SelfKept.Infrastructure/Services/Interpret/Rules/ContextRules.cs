@@ -378,8 +378,9 @@ public sealed class MoodDeficitRule : BodyRuleBase
 
 /// <summary>
 /// A personal pattern that became established today: nights after a tag differ from the rest by
-/// more than the noise line, with at least 8 nights with and 16 without (our own floor; no
-/// published standard exists). Notice, said once, always "a pattern, not proof".
+/// more than the noise line and by more than chance alone would explain (a rank test), with at
+/// least 8 nights with and 16 without (our own floor; no published standard exists). Notice, said
+/// once, always "a pattern, not proof".
 /// </summary>
 public sealed class PersonalPatternRule : RuleBase
 {

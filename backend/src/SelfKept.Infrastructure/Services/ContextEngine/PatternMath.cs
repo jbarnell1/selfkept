@@ -11,8 +11,10 @@ namespace SelfKept.Infrastructure.Services.ContextEngine;
 /// day with the tag against the night after a logged day without it. A day with nothing logged is
 /// unknown, never "without", the same rule the tally uses. Pure maths over what the caller read.
 ///
-/// No published minimum count exists for a pattern in one person's data. The floors and the noise
-/// line here are the proposal's own and ours: a starting point, not a published threshold.
+/// Established needs the count floors, a difference past the noise line and a rank test that the
+/// difference is unlikely to be chance alone. No published minimum count exists for a pattern in
+/// one person's data. The floors, the noise line and the rank test line here are the proposal's own
+/// and ours: a starting point, not a published threshold.
 /// </summary>
 public static class PatternMath
 {
@@ -27,6 +29,13 @@ public static class PatternMath
 
   /// <summary>The noise line is this share of the interquartile range of the "without" nights. A starting point.</summary>
   public const double NoiseLineIqrShare = 0.5;
+
+  /// <summary>
+  /// The sampling-noise check: a two-sided Mann-Whitney U test between the "with" and "without"
+  /// nights must reach at least this |z| (two-sided p below 0.01 on the normal approximation).
+  /// Our own choice, a starting point, not a published threshold for personal data.
+  /// </summary>
+  public const double MinRankTestZ = 2.58;
 
   public const string Note = "A pattern in your own data, not proof.";
 
@@ -85,12 +94,46 @@ public static class PatternMath
       noise = NoiseLineIqrShare * (withoutHigh - withoutLow);
     }
     var difference = medianWith - medianWithout;
-    var established = with.Count >= MinNightsWith && without.Count >= MinNightsWithout && Math.Abs(difference) > noise && difference != 0;
+    var established = with.Count >= MinNightsWith && without.Count >= MinNightsWithout && Math.Abs(difference) > noise && difference != 0
+      && MannWhitneyZ(withValues, without) is { } z && Math.Abs(z) >= MinRankTestZ;
     var weekend = with.Count(w => w.Day.DayOfWeek is DayOfWeek.Friday or DayOfWeek.Saturday);
     var inContext = contextDays == null ? 0 : with.Count(w => contextDays.Contains(w.Day) || contextDays.Contains(w.Day.AddDays(1)));
     return new PatternStats(tag, metric, with.Count, without.Count,
       R(medianWith), R(medianWithout), R(difference), R(withLow), R(withHigh), R(withoutLow), R(withoutHigh),
       Math.Round(overlap, 2), R(noise), weekend, inContext, established);
+  }
+
+  /// <summary>
+  /// The z of a two-sided Mann-Whitney U test of <paramref name="with"/> against <paramref name="without"/>,
+  /// by the normal approximation with the tie correction and a continuity correction of a half.
+  /// Positive when the "with" values tend higher. Null when either group is empty or every value
+  /// is the same (no variance), so nothing can be said.
+  /// </summary>
+  public static double? MannWhitneyZ(IReadOnlyList<double> with, IReadOnlyList<double> without)
+  {
+    var n1 = with.Count;
+    var n2 = without.Count;
+    if (n1 == 0 || n2 == 0) return null;
+    var all = with.Select(v => (Value: v, With: true)).Concat(without.Select(v => (Value: v, With: false))).OrderBy(x => x.Value).ToArray();
+    var n = all.Length;
+    double rankSumWith = 0, tieTerm = 0;
+    for (var i = 0; i < n;)
+    {
+      var j = i;
+      while (j + 1 < n && all[j + 1].Value == all[i].Value) j++;
+      // Tied values share the mean of the ranks they span (ranks start at 1).
+      var rank = (i + j) / 2.0 + 1;
+      double t = j - i + 1;
+      tieTerm += t * t * t - t;
+      for (var k = i; k <= j; k++) if (all[k].With) rankSumWith += rank;
+      i = j + 1;
+    }
+    var u = rankSumWith - n1 * (n1 + 1) / 2.0;
+    var mean = n1 * (double)n2 / 2;
+    var variance = n1 * (double)n2 / 12 * (n + 1 - tieTerm / (n * (double)(n - 1)));
+    if (variance <= 0) return null;
+    var distance = Math.Max(Math.Abs(u - mean) - 0.5, 0);
+    return Math.Sign(u - mean) * distance / Math.Sqrt(variance);
   }
 
   /// <summary>Patterns established on <paramref name="day"/> and on none of the <paramref name="lookback"/> days before.</summary>
