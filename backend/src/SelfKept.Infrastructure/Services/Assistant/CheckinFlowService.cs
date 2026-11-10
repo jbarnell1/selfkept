@@ -108,6 +108,12 @@ public sealed class CheckinFlowService : ICheckinFlowService
     else
     {
       state = CheckinState.FromJson(conversation.State);
+      // Back after leaving: pick up whatever is still missing before anything else.
+      if (state.Left && request.Leave != true)
+      {
+        CheckinMachine.Resume(state, missing);
+        opening = true;
+      }
     }
 
     var answer = string.IsNullOrWhiteSpace(request.Answer) ? null : request.Answer.Trim();
@@ -179,7 +185,7 @@ public sealed class CheckinFlowService : ICheckinFlowService
         MessageOrigins.Code, false, now, ct);
     }
 
-    if (answer == null && (state.Left || state.Complete) && !opening)
+    if (answer == null && state.Complete && !opening)
     {
       CheckinMachine.Resume(state, missing);
       opening = true;
