@@ -139,7 +139,7 @@ public static class PatternMath
     else
     {
       var decimals = p.MetricKey == MetricKeys.WristTempDeltaC ? 2 : 0;
-      change = $"your {MetricNames.For(p.MetricKey).ToLowerInvariant()} ran {Num(Math.Abs(p.Difference), decimals)} {UnitWords(unit)} {(p.Difference < 0 ? "lower" : "higher")}";
+      change = $"your {MetricWords(p.MetricKey)} ran {Num(Math.Abs(p.Difference), decimals)} {UnitWords(unit)} {(p.Difference < 0 ? "lower" : "higher")}";
     }
     var places = p.MetricKey == MetricKeys.WristTempDeltaC ? 2 : 0;
     var ranges = $" ({Num(p.WithLow, places)} to {Num(p.WithHigh, places)} {UnitWords(unit)} on those nights, {Num(p.WithoutLow, places)} to {Num(p.WithoutHigh, places)} {UnitWords(unit)} on the rest).";
@@ -147,6 +147,14 @@ public static class PatternMath
     var context = p.ContextNights > 0 ? $" {p.ContextNights} fell while you were unwell or travelling." : string.Empty;
     return after + change + ranges + weekend + context + " " + Note;
   }
+
+  /// <summary>How a metric reads inside a sentence: "HRV", "resting heart rate", "wrist temperature change".</summary>
+  public static string MetricWords(string metric) => metric switch
+  {
+    MetricKeys.HrvRmssdMs or MetricKeys.HrvSdnnMs => "HRV",
+    MetricKeys.SleepStage => "sleep",
+    _ => MetricNames.For(metric).ToLowerInvariant(),
+  };
 
   private static string TagWords(string tag) => JournalTags.DisplayName(tag).ToLowerInvariant();
 

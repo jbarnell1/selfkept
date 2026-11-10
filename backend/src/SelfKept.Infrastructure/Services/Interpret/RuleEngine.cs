@@ -42,6 +42,15 @@ public sealed class RuleEngine : IRuleEngine
     new TargetWeekRule(),
     new WaistHeightRule(),
     new LearningRule(),
+    new YesterdayLastNightRule(),
+    new TargetSlippingRule(),
+    new EarlySignsRule(),
+    new ColdStartingRule(),
+    new ShortSleepDietRule(),
+    new RecoveryStrainRule(),
+    new StrengthOnTrackRule(),
+    new MoodDeficitRule(),
+    new PersonalPatternRule(),
   ];
 
   public IReadOnlyList<InsightCandidate> Evaluate(RuleContext context)
