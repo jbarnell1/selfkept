@@ -68,4 +68,6 @@ public static class AuditActions
   public const string StrengthDeleted = "strength.deleted";
   public const string MeasurementCreated = "measurement.created";
   public const string MeasurementDeleted = "measurement.deleted";
+  public const string ContextSaved = "context.saved";
+  public const string ContextDeleted = "context.deleted";
 }

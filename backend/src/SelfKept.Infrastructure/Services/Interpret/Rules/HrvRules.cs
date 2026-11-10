@@ -30,10 +30,10 @@ public sealed class HrvLowRunRule : RuleBase
     if (!RunEndsOn(context, context.Day, out var values)) return null;
     var baseline = context.BaselineFor(context.HrvMetricKey)!;
     var distance = BaselineMath.BandDistance(values.Average(), baseline.P10_28!.Value, baseline.P90_28!.Value, baseline.P25_28!.Value, baseline.P75_28!.Value);
-    return Candidate(InsightSeverities.Watch, MetricsUsed(context),
+    return ContextNotes.Explain(context, Candidate(InsightSeverities.Watch, MetricsUsed(context),
       "HRV has sat below your usual range for three nights. That often follows poor sleep, a hard training block or the start of an illness.",
       distance,
-      ("metric", context.HrvMetricKey), ("nights", values.Select(v => Round(v)).ToArray()), ("p10", Round(baseline.P10_28.Value)), ("days", IsoDays(context, [2, 1, 0])));
+      ("metric", context.HrvMetricKey), ("nights", values.Select(v => Round(v)).ToArray()), ("p10", Round(baseline.P10_28.Value)), ("days", IsoDays(context, [2, 1, 0]))), demote: true, ContextNotes.Recovery);
   }
 }
 

@@ -15,7 +15,8 @@ NNNN_short_description.down.sql   committed for manual, reviewed rollback (never
 
 - Only `*.up.sql` files are embedded (see the `.csproj` `EmbeddedResource` glob) and run on
   startup, in filename order. Keep the numeric prefix zero-padded and monotonic. The next free
-  number is 0016.
+  number is 0016. Numbers 0016 to 0020 are taken by packages in flight; `0018_context`
+  (context events, docs/context-design.md) is one of them.
 - `*.down.sql` is the reviewed reverse of the up script. Downs are not auto-run: rolling back a
   schema is a deliberate, supervised act. Apply a down by hand (psql) and delete the matching
   `schemaversions` row.

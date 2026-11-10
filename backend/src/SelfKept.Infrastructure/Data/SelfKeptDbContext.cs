@@ -56,6 +56,7 @@ public class SelfKeptDbContext : DbContext
   public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
   public DbSet<Medication> Medications => Set<Medication>();
   public DbSet<StrengthSet> StrengthSets => Set<StrengthSet>();
+  public DbSet<ContextEvent> ContextEvents => Set<ContextEvent>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -65,6 +66,7 @@ public class SelfKeptDbContext : DbContext
     ConfigureConnect(modelBuilder);
     ConfigureSso(modelBuilder);
     ConfigureBody(modelBuilder);
+    ConfigureContext(modelBuilder);
 
     modelBuilder.Entity<User>(e =>
     {
@@ -543,6 +545,21 @@ public class SelfKeptDbContext : DbContext
       e.HasKey(x => x.Id);
       e.Property(x => x.Lift).HasMaxLength(32).IsRequired();
       e.HasIndex(x => new { x.PersonId, x.Day, x.Lift }).IsUnique();
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+  }
+
+  // Context events. Mirrors 0018_context.up.sql.
+  private static void ConfigureContext(ModelBuilder modelBuilder)
+  {
+    modelBuilder.Entity<ContextEvent>(e =>
+    {
+      e.ToTable("context_event");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Kind).HasMaxLength(32).IsRequired();
+      e.Property(x => x.Source).HasMaxLength(16).IsRequired();
+      e.Ignore(x => x.LastDay);
+      e.HasIndex(x => new { x.PersonId, x.StartedOn }).IsDescending(false, true);
       e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
     });
   }
