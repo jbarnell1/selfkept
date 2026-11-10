@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SelfKept.Core.Entities;
@@ -165,6 +166,50 @@ public sealed class InsightRepository : IInsightRepository
       .Where(i => i.PersonId == personId && i.Day >= from && i.Day <= to && i.DismissedAt == null)
       .OrderByDescending(i => i.Day).ThenByDescending(i => i.CreatedAt)
       .ToListAsync(ct);
+
+  public async Task<int> RemoveOwnNotProducedAsync(Guid personId, DateOnly day, IReadOnlyCollection<string> producedKinds, CancellationToken ct = default)
+  {
+    var kinds = producedKinds.ToList();
+    var stale = await _context.Insights
+      .Where(i => i.PersonId == personId && i.Day == day && i.DismissedAt == null && !kinds.Contains(i.Kind))
+      .ToListAsync(ct);
+    return await RemoveAsync(stale, ct);
+  }
+
+  public async Task<int> RemoveOwnForReportAsync(Guid personId, Guid reportId, CancellationToken ct = default)
+  {
+    var kinds = InsightKinds.AboutAPanel.ToList();
+    var candidates = await _context.Insights
+      .Where(i => i.PersonId == personId && i.DismissedAt == null && kinds.Contains(i.Kind))
+      .ToListAsync(ct);
+    return await RemoveAsync(candidates.Where(i => NamesReport(i.Evidence, reportId)).ToList(), ct);
+  }
+
+  private async Task<int> RemoveAsync(List<Insight> rows, CancellationToken ct)
+  {
+    if (rows.Count == 0) return 0;
+    _context.Insights.RemoveRange(rows);
+    await _context.SaveChangesAsync(ct);
+    return rows.Count;
+  }
+
+  private static bool NamesReport(string evidence, Guid reportId)
+  {
+    try
+    {
+      using var doc = JsonDocument.Parse(evidence);
+      if (doc.RootElement.ValueKind != JsonValueKind.Object) return false;
+      foreach (var key in new[] { "reportId", "previousReportId" })
+      {
+        if (doc.RootElement.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String && value.TryGetGuid(out var id) && id == reportId) return true;
+      }
+      return false;
+    }
+    catch (JsonException)
+    {
+      return false;
+    }
+  }
 }
 
 /// <summary>Like the audit log: its own short-lived context, and a failed write is logged, never thrown.</summary>

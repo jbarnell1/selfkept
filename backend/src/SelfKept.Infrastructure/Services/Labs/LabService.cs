@@ -16,7 +16,8 @@ namespace SelfKept.Infrastructure.Services.Labs;
 /// <summary>
 /// Lab reports end to end: parsing, the confirmed write (results, derived ratios, encrypted
 /// image, lab.* samples under the "Lab results" source, Today cache, an interpret run for
-/// today), the reads for the Labs screen and the clinician PDF. Access is decided in the
+/// today), the delete (its samples and the cards about it go, then today is interpreted again),
+/// the reads for the Labs screen and the clinician PDF. Access is decided in the
 /// repositories: labs for reports and markers, each metric's own category for the PDF trend rows.
 /// </summary>
 public sealed class LabService : ILabService
@@ -36,6 +37,7 @@ public sealed class LabService : ILabService
   private readonly ISampleRepository _samples;
   private readonly IDailySummaryRepository _summaries;
   private readonly ITodayCacheRepository _todayCache;
+  private readonly IInsightRepository _insights;
   private readonly IInterpretRunner _runner;
   private readonly IEncryptionService _encryption;
   private readonly IAuditService _audit;
@@ -54,6 +56,7 @@ public sealed class LabService : ILabService
     ISampleRepository samples,
     IDailySummaryRepository summaries,
     ITodayCacheRepository todayCache,
+    IInsightRepository insights,
     IInterpretRunner runner,
     IEncryptionService encryption,
     IAuditService audit,
@@ -71,6 +74,7 @@ public sealed class LabService : ILabService
     _samples = samples;
     _summaries = summaries;
     _todayCache = todayCache;
+    _insights = insights;
     _runner = runner;
     _encryption = encryption;
     _audit = audit;
@@ -216,6 +220,8 @@ public sealed class LabService : ILabService
         await _sources.UpdateAsync(source, ct);
       }
       await _reports.RemoveAsync(report, ct);
+      // Cards about the panel go with it, on every day; a dismissed one stays dismissed.
+      await _insights.RemoveOwnForReportAsync(personId, report.Id, ct);
       await _todayCache.InvalidateAsync(personId, ct);
       return true;
     }, ct: ct);
@@ -223,6 +229,20 @@ public sealed class LabService : ILabService
     await _audit.RecordAsync(new AuditEvent(
       AuditActions.LabReportDeleted, userId, householdId, "lab_report", report.Id.ToString(),
       new { collectedOn = report.CollectedOn.ToIso(), results = report.Results.Count }, info.IpAddress), ct);
+
+    // The lab rules run today against the panels that are left, as after a save; a failure is logged only.
+    var person = await _persons.GetByIdAsync(personId, ct);
+    if (person != null)
+    {
+      try
+      {
+        await _runner.RunForPersonAsync(personId, Today(person), ct);
+      }
+      catch (Exception ex) when (ex is not OperationCanceledException)
+      {
+        _logger.LogError(ex, "Interpret run after deleting lab report {ReportId} failed for person {PersonId}", report.Id, personId);
+      }
+    }
     return true;
   }
 

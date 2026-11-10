@@ -58,6 +58,19 @@ public interface IInsightRepository
 
   /// <summary>Server-internal: the person's own cards that are not dismissed, newest first.</summary>
   Task<IReadOnlyList<Insight>> ListOwnAsync(Guid personId, DateOnly from, DateOnly to, CancellationToken ct = default);
+
+  /// <summary>
+  /// Server-internal, for the interpret run: removes the person's cards for the day whose kind the
+  /// run did not produce. Dismissed cards stay, so a dismissal outlives the rule going quiet.
+  /// Returns how many went.
+  /// </summary>
+  Task<int> RemoveOwnNotProducedAsync(Guid personId, DateOnly day, IReadOnlyCollection<string> producedKinds, CancellationToken ct = default);
+
+  /// <summary>
+  /// Server-internal, for a deleted lab report: removes the person's cards on any day whose
+  /// evidence names the report as reportId or previousReportId. Dismissed cards stay. Returns how many went.
+  /// </summary>
+  Task<int> RemoveOwnForReportAsync(Guid personId, Guid reportId, CancellationToken ct = default);
 }
 
 public interface IAiCallRepository

@@ -22,7 +22,7 @@ Images and notes are encrypted with the existing `IEncryptionService`. A result 
 | POST | `/api/labs/reports` | `{ provider, collectedOn, results: [{ metricKey, value, unit, flag?, rawText?, referenceLow?, referenceHigh? }], image?: base64 }` | `LabReportDto` confirmed in one call |
 | GET | `/api/labs/reports?personId?` | | `LabReportDto[]` newest first |
 | GET | `/api/labs/reports/{id}` | | report with results |
-| DELETE | `/api/labs/reports/{id}` | | 204, own reports only |
+| DELETE | `/api/labs/reports/{id}` | | 204, own reports only; its samples and every undismissed card whose evidence names it (`reportId` or `previousReportId`) go too, then today is interpreted again |
 | GET | `/api/labs/markers?personId?` | | per marker: display name, unit, group, sex applicability, latest value and date, previous value, population range for the person's sex, optimal range, tier, direction of good, last three values |
 | GET | `/api/labs/markers/{metricKey}?personId?` | | full history for one marker plus the blurb and "what moves it" text |
 | GET | `/api/labs/summary.pdf?from&to&personId?` | | clinician PDF (QuestPDF, two pages: trends table and lab table with flags) |
@@ -54,7 +54,7 @@ One row per catalogue marker applicable to the person's sex, in panel order: nam
 
 ## Insights
 
-Package 3's stubs become real: `lab_out_of_range` compares each confirmed value with `lab_reference` for the person's sex, tier from the table; `lab_trend` fires on a 15 percent move in the direction of worse across two consecutive panels for ApoB, LDL, hsCRP, fructosamine, triglycerides, ferritin, TSH and GGT. Both cards mention the two dates and values and say what to bring to a clinician.
+Package 3's stubs become real: `lab_out_of_range` compares each confirmed value with `lab_reference` for the person's sex, tier from the table; `lab_trend` fires on a 15 percent move in the direction of worse across two consecutive panels for ApoB, LDL, hsCRP, fructosamine, triglycerides, ferritin, TSH and GGT. Both cards mention the two dates and values and say what to bring to a clinician. Lab cards speak about the newest panel by collection date and the one before it, so the order panels are entered in does not change which cards end up open.
 
 ## Labs screen
 

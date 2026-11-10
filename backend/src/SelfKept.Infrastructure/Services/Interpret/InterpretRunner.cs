@@ -9,7 +9,8 @@ namespace SelfKept.Infrastructure.Services.Interpret;
 /// <summary>
 /// One person, one day: compute and store the baselines, load the 28-day series, run the rules,
 /// store each candidate as a card (created once per (person, kind, day), re-ranked on a rerun),
-/// phrase the two that will lead Today, and drop the Today cache. Idempotent per (person, day).
+/// remove the day's cards the rules no longer produce (a dismissed card stays), phrase the two
+/// that will lead Today, and drop the Today cache. Idempotent per (person, day).
 /// </summary>
 public sealed class InterpretRunner : IInterpretRunner
 {
@@ -136,6 +137,11 @@ public sealed class InterpretRunner : IInterpretRunner
       }
       kinds.Add(candidate.Kind);
     }
+
+    // The run is the whole answer for the day: a card it no longer produces (a pattern that is no
+    // longer established, a comparison that is no longer the newest pair) goes. Other days are
+    // their own runs' history and are not touched.
+    await _insights.RemoveOwnNotProducedAsync(personId, day, kinds, ct);
 
     await _cache.InvalidateAsync(personId, ct);
     _logger.LogInformation("Interpreted {Day} for person {PersonId}: {Baselines} baselines, {Insights} insights ({Kinds})",

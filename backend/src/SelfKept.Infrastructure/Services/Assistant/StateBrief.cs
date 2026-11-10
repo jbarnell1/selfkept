@@ -142,6 +142,8 @@ public sealed class StateBriefBuilder : IStateBriefBuilder
       .Where(i => i.Kind != InsightKinds.Learning)
       .OrderByDescending(i => SeverityRank(i.Severity))
       .ThenByDescending(i => i.Day)
+      .ThenByDescending(InterpretMapping.BandDistanceOf)
+      .ThenBy(i => i.Kind, StringComparer.Ordinal)
       .Take(4)
       .ToList();
     sections.Add(new BriefSection("Insights from the rules", ranked.Select(i => $"{i.Severity}: {i.Generated ?? i.Templated}").ToList()));

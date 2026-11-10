@@ -44,7 +44,7 @@ Rules never use the word diagnosis. Clinician-tier cards always name what to bri
 
 ## Insight cards
 
-`insight (id, person_id, day, kind, severity, metrics text[], evidence jsonb, templated text, generated text nullable, model text nullable, shown_at, dismissed_at, reaction)` with `reaction` in `helpful`, `knew`, `wrong`. A card is created once per `(person, kind, day)` and re-ranked, not duplicated, when its rule keeps firing. Reactions feed ranking: a kind the person marked `wrong` twice in 30 days is demoted to the Insights archive and off Today.
+`insight (id, person_id, day, kind, severity, metrics text[], evidence jsonb, templated text, generated text nullable, model text nullable, shown_at, dismissed_at, reaction)` with `reaction` in `helpful`, `knew`, `wrong`. A card is created once per `(person, kind, day)` and re-ranked, not duplicated, when its rule keeps firing. A run for a day is the whole answer for that day: a card of that day whose rule no longer fires on a rerun (the nightly job, `recompute`, or the run after a lab save, a draw-conditions edit or a lab delete) is removed, so a pattern that is no longer established or a lab comparison that is no longer the newest pair leaves Today and the brief. A dismissed card is never removed and stays dismissed when its rule fires again, and a run never touches another day's cards, which stay as that day's history. Reactions feed ranking: a kind the person marked `wrong` twice in 30 days is demoted to the Insights archive and off Today.
 
 ## The Today sentence
 

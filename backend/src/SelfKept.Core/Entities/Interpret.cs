@@ -146,6 +146,14 @@ public static class InsightKinds
   public const string HematocritTestosterone = "hematocrit_testosterone";
   public const string ExpectedSwing = "expected_swing";
   public const string LabReviewReady = "lab_review_ready";
+
+  /// <summary>The kinds whose evidence names a lab report (reportId, and previousReportId where two panels are compared).</summary>
+  public static readonly IReadOnlySet<string> AboutAPanel = new HashSet<string>(StringComparer.Ordinal)
+  {
+    LabOutOfRange, LabTrend, TrialReady, DrawConditionsDiffer, ApoBLdlDisagree, CalculatedLdlUnreliable,
+    FerritinInflammation, HighFerritinContext, ThyroidCholesterol, FreeTestosteroneShbg, CreatinineMuscle,
+    HematocritTestosterone, ExpectedSwing, LabReviewReady,
+  };
 }
 
 public static class InsightSeverities

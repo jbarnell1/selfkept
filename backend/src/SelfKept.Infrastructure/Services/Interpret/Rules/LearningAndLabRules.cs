@@ -116,7 +116,7 @@ public sealed class LabOutOfRangeRule : RuleBase
       : " Worth rechecking on next month's panel before reading much into it.";
 
     return Candidate(severity, ordered.Select(h => h.Result.MetricKey).ToList(), text, lead.Assessment.Distance,
-      ("reportId", panel.ReportId), ("collectedOn", LabRules.Iso(panel.CollectedOn)),
+      ("reportId", panel.ReportId), ("collectedOn", LabRules.Iso(panel.CollectedOn)), ("previousReportId", previous?.ReportId),
       ("markers", ordered.Select(h => new { metric = h.Result.MetricKey, value = h.Result.Value, unit = h.Result.Unit, position = h.Assessment.Position, low = h.Reference.Low, high = h.Reference.High, severity = h.Assessment.Severity }).ToArray()),
       ("previousCollectedOn", previous == null ? null : LabRules.Iso(previous.CollectedOn)),
       ("previousValue", previousResult?.Value));
@@ -177,7 +177,7 @@ public sealed class LabTrendRule : RuleBase
       : $" Two panels make a direction, not a verdict; keep both dates ({LabRules.Spoken(previous.CollectedOn)} and {LabRules.Spoken(panel.CollectedOn)}) to hand for your next appointment.";
 
     return Candidate(severity, ordered.Select(m => m.Metric).ToList(), text, Math.Abs(lead.Percent) / 100,
-      ("reportId", panel.ReportId), ("collectedOn", LabRules.Iso(panel.CollectedOn)), ("previousCollectedOn", LabRules.Iso(previous.CollectedOn)),
+      ("reportId", panel.ReportId), ("previousReportId", previous.ReportId), ("collectedOn", LabRules.Iso(panel.CollectedOn)), ("previousCollectedOn", LabRules.Iso(previous.CollectedOn)),
       ("moves", ordered.Select(m => new { metric = m.Metric, from = m.Old.Value, to = m.New.Value, percent = Math.Round(m.Percent, 1), unit = m.New.Unit }).ToArray()));
   }
 }
