@@ -102,7 +102,7 @@ public sealed class GetDailySummaryTool(IDataService data, IMetricCatalogue cata
 {
   public string Name => "get_daily_summary";
   public string Description =>
-    "One value per day for one metric over a window of up to 90 days: totals for steps, distance, energy and exercise minutes; the day's average with its low and high for heart rate, HRV, SpO2, weight and mood; minutes asleep for sleep_stage (attributed to the morning the sleep ended). Use list_metrics for the keys.";
+    "One value per day for one metric over a window of up to 90 days: totals for steps, distance, energy and exercise minutes; the day's average with its low and high for heart rate, HRV, SpO2, weight and mood; minutes asleep for sleep_stage (a sleep day runs from 18:00 the evening before to 18:00 on the day, so a night counts for the morning it ended). Use list_metrics for the keys.";
   public bool ReadOnly => true;
   public bool AcceptsPerson => true;
   public IReadOnlyDictionary<string, McpParameter> Parameters { get; } = new Dictionary<string, McpParameter>

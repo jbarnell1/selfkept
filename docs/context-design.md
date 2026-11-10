@@ -180,7 +180,8 @@ For each day log tag seen in the last 120 days, and for each overnight reading (
 minutes asleep, `hrv_rmssd_ms`, `hrv_sdnn_ms`, `resting_hr_bpm`, `wrist_temp_delta_c`):
 
 1. Tag days are the logged days from 120 days before the reference day up to the day before it.
-   The night after day D is the daily figure of D + 1 (a night belongs to the day it ended).
+   The night after day D is the daily figure of D + 1 (a sleep day runs from 18:00 local on D to
+   18:00 local on D + 1, so the night after D belongs to the morning it ended).
 2. "With" nights follow a logged day carrying the tag. "Without" nights follow a logged day without
    it. A day with nothing in the day log is unknown and never counts as "without", the same rule
    the tally uses. A day with no figure the night after is left out of both.
@@ -204,8 +205,8 @@ your own data, not proof."
 
 ## Read-backs
 
-- Sleep: the stored `sleep_stage` samples, night by night. A night belongs to the local day it
-  ended. Of several apps or devices the one with the most minutes asleep is used (the daily summary
+- Sleep: the stored `sleep_stage` samples, night by night. Each sample counts for the sleep day
+  its end falls in, 18:00 local the evening before to 18:00 local on the day. Of several apps or devices the one with the most minutes asleep is used (the daily summary
   rule). Bedtime is the first sample's start, wake time the last sample's end, in-bed minutes the
   span between them. Stage minutes merge overlapping samples of a stage. A night with no light, deep
   or REM minutes has `hasStages` false and null stage minutes.
@@ -452,7 +453,7 @@ SleepNightsDto = {
   "from": "2026-10-28",
   "to": "2026-11-10",
   "nights": [{
-    "day": "2026-11-09",                 // the day the night ended
+    "day": "2026-11-09",                 // the sleep day: 18:00 on the 8th to 18:00 on the 9th
     "bedtime": "2026-11-08T23:00:00Z",
     "wakeTime": "2026-11-09T06:30:00Z",
     "inBedMinutes": 450,

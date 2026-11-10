@@ -157,6 +157,126 @@ public class DailySummaryRulesTests
   }
 
   [Fact]
+  public void DayFor_SleepStageEndingBeforeMidnight_CountsForTheNextDay()
+  {
+    var early = At("sleep_stage", "2026-10-28 22:30", SleepStages.Light, "2026-10-28 23:30");
+
+    DailySummaryRules.DayFor(early, PlusTwo).Should().Be(Day, "the stage starts the night that ends on the 29th");
+  }
+
+  [Fact]
+  public void DayFor_SleepAtSixPm_StartsTheNextSleepDay()
+  {
+    DailySummaryRules.DayFor(At("sleep_stage", "2026-10-29 17:00", SleepStages.Light, "2026-10-29 17:59"), PlusTwo).Should().Be(Day);
+    DailySummaryRules.DayFor(At("sleep_stage", "2026-10-29 17:00", SleepStages.Light, "2026-10-29 18:00"), PlusTwo).Should().Be(Day.AddDays(1));
+  }
+
+  [Fact]
+  public void DayFor_AfternoonNap_CountsForTheSameDay()
+  {
+    DailySummaryRules.DayFor(At("sleep_stage", "2026-10-29 13:20", SleepStages.Light, "2026-10-29 14:00"), PlusTwo).Should().Be(Day);
+  }
+
+  [Fact]
+  public void Derive_NightFromTenThirtyToSixThirtyInStages_IsOneDayWithAllItsMinutes()
+  {
+    var night = new[]
+    {
+      At("sleep_stage", "2026-10-28 22:30", SleepStages.Light, "2026-10-28 23:30"),
+      At("sleep_stage", "2026-10-28 23:30", SleepStages.Deep, "2026-10-29 01:00"),
+      At("sleep_stage", "2026-10-29 01:00", SleepStages.Rem, "2026-10-29 03:00"),
+      At("sleep_stage", "2026-10-29 03:00", SleepStages.Light, "2026-10-29 06:30"),
+    };
+
+    var days = night.GroupBy(s => DailySummaryRules.DayFor(s, PlusTwo)).ToList();
+
+    days.Should().ContainSingle().Which.Key.Should().Be(Day);
+    DailySummaryRules.Derive(Person, "sleep_stage", Day, night, Computed)!.Value.Should().Be(480);
+  }
+
+  [Fact]
+  public void DayFor_NightOverTheSpringClockChange_IsOneDayWithItsRealMinutes()
+  {
+    // New York moves its clocks forward at 02:00 on 8 March 2026: 22:30 EST to 06:30 EDT is seven hours.
+    var zone = DayBoundaries.Resolve("America/New_York");
+    Sample Stage(string startUtc, string endUtc, int stage) => new()
+    {
+      MetricKey = "sleep_stage", Value = stage,
+      StartAt = DateTime.Parse(startUtc, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal),
+      EndAt = DateTime.Parse(endUtc, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal),
+    };
+    var night = new[]
+    {
+      Stage("2026-03-08 03:30", "2026-03-08 04:45", SleepStages.Light), // 22:30 to 23:45 EST on the 7th
+      Stage("2026-03-08 04:45", "2026-03-08 07:30", SleepStages.Deep),  // to 03:30 EDT
+      Stage("2026-03-08 07:30", "2026-03-08 10:30", SleepStages.Rem),   // to 06:30 EDT
+    };
+
+    night.Select(s => DailySummaryRules.DayFor(s, zone)).Distinct().Should().Equal(new DateOnly(2026, 3, 8));
+    DailySummaryRules.Derive(Person, "sleep_stage", new DateOnly(2026, 3, 8), night, Computed)!.Value.Should().Be(420);
+  }
+
+  [Fact]
+  public void UtcWindow_Sleep_RunsFromSixPmTheEveningBeforeToSixPm()
+  {
+    var (start, end) = DailySummaryRules.UtcWindow("sleep_stage", Day, PlusTwo);
+
+    start.Should().Be(Local("2026-10-28 18:00"));
+    end.Should().Be(Local("2026-10-29 18:00"));
+  }
+
+  [Fact]
+  public void UtcWindow_NotSleep_IsTheCalendarDayAsBefore()
+  {
+    foreach (var metric in new[] { "steps", "heart_rate_bpm", "weight_kg", "checkin_mood" })
+    {
+      DailySummaryRules.UtcWindow(metric, Day, PlusTwo).Should().Be(DayBoundaries.UtcWindow(Day, PlusTwo));
+      DailySummaryRules.UtcWindow(metric, Day, PlusTwo).StartUtc.Should().Be(Local("2026-10-29 00:00"));
+    }
+  }
+
+  [Fact]
+  public void UtcWindow_SpringForwardDay_IsTwentyThreeHours()
+  {
+    var zone = DayBoundaries.Resolve("America/New_York");
+
+    var (start, end) = DailySummaryRules.UtcWindow("sleep_stage", new DateOnly(2026, 3, 8), zone);
+
+    start.Should().Be(new DateTime(2026, 3, 7, 23, 0, 0, DateTimeKind.Utc), "18:00 EST");
+    end.Should().Be(new DateTime(2026, 3, 8, 22, 0, 0, DateTimeKind.Utc), "18:00 EDT");
+  }
+
+  // A zone whose clocks change at 18:00 itself: forward 18:00 to 19:00 in March, back 19:00 to 18:00 in November.
+  private static readonly TimeZoneInfo ChangesAtSix = TimeZoneInfo.CreateCustomTimeZone("Test-6pm", TimeSpan.FromHours(-5), "Test-6pm", "Test-6pm", "Test-6pm summer",
+  [
+    TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(new DateTime(2020, 1, 1), new DateTime(2035, 12, 31), TimeSpan.FromHours(1),
+      TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 18, 0, 0), 3, 2, DayOfWeek.Sunday),
+      TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 19, 0, 0), 11, 1, DayOfWeek.Sunday)),
+  ]);
+
+  [Theory]
+  [InlineData("America/New_York", "2026-03-06")]
+  [InlineData("America/New_York", "2026-10-30")]
+  [InlineData("Europe/London", "2026-03-27")]
+  [InlineData("Test-6pm", "2026-03-06")]
+  [InlineData("Test-6pm", "2026-10-30")]
+  public void DayFor_EveryQuarterHourAcrossAClockChange_AgreesWithUtcWindow(string zoneId, string fromDay)
+  {
+    var zone = zoneId == "Test-6pm" ? ChangesAtSix : DayBoundaries.Resolve(zoneId);
+    var from = DateOnly.Parse(fromDay, System.Globalization.CultureInfo.InvariantCulture).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
+    for (var end = from; end < from.AddDays(4); end = end.AddMinutes(15))
+    {
+      var sample = new Sample { MetricKey = "sleep_stage", StartAt = end.AddMinutes(-15), EndAt = end, Value = SleepStages.Light };
+      var day = DailySummaryRules.DayFor(sample, zone)!.Value;
+      var (start, stop) = DailySummaryRules.UtcWindow("sleep_stage", day, zone);
+      end.Should().BeOnOrAfter(start, $"{end:u} in {zoneId} is filed under {day}");
+      end.Should().BeBefore(stop, $"{end:u} in {zoneId} is filed under {day}");
+      DailySummaryRules.UtcWindow("sleep_stage", day.AddDays(1), zone).StartUtc.Should().Be(stop, "sleep days leave no gap and do not overlap");
+    }
+  }
+
+  [Fact]
   public void Derive_OnlyAwakeSegments_IsNull()
   {
     var samples = new[] { At("sleep_stage", "2026-10-29 03:00", SleepStages.Awake, "2026-10-29 03:15") };

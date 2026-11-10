@@ -36,9 +36,9 @@ public sealed class ReadBackService : IReadBackService
     var zone = DayBoundaries.Resolve(person.TimeZone);
     var (first, last) = Range(from, to, DefaultSleepDays, zone);
 
-    // A night belongs to the day it ended, so it can start the evening before the first day.
-    var (fromUtc, _) = DayBoundaries.UtcWindow(first.AddDays(-1), zone);
-    var (_, toUtc) = DayBoundaries.UtcWindow(last, zone);
+    // Sleep days run 18:00 to 18:00, so the first night starts the evening before the first day.
+    var (fromUtc, _) = DailySummaryRules.UtcWindow(MetricKeys.SleepStage, first, zone);
+    var (_, toUtc) = DailySummaryRules.UtcWindow(MetricKeys.SleepStage, last, zone);
     var samples = await _readBack.GetSleepSamplesAsync(viewerPersonId, targetPersonId, fromUtc, toUtc, ct);
     if (samples == null) return null;
     return new SleepNightsDto(first, last, Nights(samples, zone, first, last));
@@ -92,8 +92,9 @@ public sealed class ReadBackService : IReadBackService
   }
 
   /// <summary>
-  /// One row per night in [first, last], built the way the daily summary is: the night belongs to
-  /// the day it ended, and of several apps or devices the one with the most minutes asleep is used.
+  /// One row per night in [first, last], built the way the daily summary is: each segment counts
+  /// for the sleep day its end falls in (18:00 the evening before to 18:00 on the day), and of
+  /// several apps or devices the one with the most minutes asleep is used.
   /// </summary>
   public static IReadOnlyList<SleepNightDto> Nights(IReadOnlyList<Sample> samples, TimeZoneInfo zone, DateOnly first, DateOnly last)
   {

@@ -231,6 +231,8 @@ public static class DependencyInjection
     services.AddJobLockedHostedService<HousekeepingJob>();
     services.AddJobLockedHostedService<InterpretNightlyJob>();
     services.AddJobLockedHostedService<OuraPollJob>();
+    services.AddScoped<SleepDayRecompute>();
+    services.AddJobLockedHostedService<SleepDayRecomputeJob>();
 
     // The in-app assistant (docs/assistant-design.md), including its nudge job.
     services.AddAssistant();

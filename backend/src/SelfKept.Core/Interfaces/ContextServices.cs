@@ -131,7 +131,7 @@ public interface IReadBackRepository
   /// <summary>Logged days and the overnight figures over [from, to]. Null when the viewer may not see the target's insights.</summary>
   Task<PatternInputs?> GetPatternInputsAsync(Guid viewerPersonId, Guid targetPersonId, IReadOnlyCollection<string> metricKeys, DateOnly from, DateOnly to, CancellationToken ct = default);
 
-  /// <summary>sleep_stage samples starting in [fromUtc, toUtc), oldest first. Null when the viewer may not see the target's sleep.</summary>
+  /// <summary>sleep_stage samples ending in [fromUtc, toUtc), oldest first. Null when the viewer may not see the target's sleep.</summary>
   Task<IReadOnlyList<Sample>?> GetSleepSamplesAsync(Guid viewerPersonId, Guid targetPersonId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
 
   /// <summary>Server-internal: the person's own workouts starting in [fromUtc, toUtc).</summary>

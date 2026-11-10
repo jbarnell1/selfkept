@@ -339,4 +339,74 @@ public class CollectFlowTests
     sleep.GetProperty("day").GetString().Should().Be("2026-10-29", "a night belongs to the day it ended");
     sleep.GetProperty("value").GetDouble().Should().Be(435, "awake minutes are excluded");
   }
+
+  [Fact]
+  public async Task Sleep_StagedNightAcrossMidnight_IsOneNightOnTheWakeDay_AndAResendChangesNothing()
+  {
+    await using var factory = new ApiFactory();
+    var (ada, _, _, _) = await HouseholdAsync(factory);
+    var sourceId = (await (await ada.PostJsonAsync("/api/sources", new { kind = "healthkit", deviceName = "Watch", platform = "ios" })).ReadJsonAsync()).GetProperty("id").GetGuid();
+
+    // Ada's zone is UTC: in bed 22:30 on 7 Nov, awake 06:30 on 8 Nov, two stages before midnight and two after.
+    var batch = new
+    {
+      sourceId,
+      samples = new[]
+      {
+        Sample("n-1", "sleep_stage", "2026-11-07T22:30:00Z", 2, "stage", "2026-11-07T23:15:00Z"),
+        Sample("n-2", "sleep_stage", "2026-11-07T23:15:00Z", 3, "stage", "2026-11-07T23:55:00Z"),
+        Sample("n-3", "sleep_stage", "2026-11-07T23:55:00Z", 4, "stage", "2026-11-08T03:00:00Z"),
+        Sample("n-4", "sleep_stage", "2026-11-08T03:00:00Z", 2, "stage", "2026-11-08T06:30:00Z"),
+      },
+    };
+    (await (await ada.PostJsonAsync("/api/ingest/batch", batch)).ReadJsonAsync()).GetProperty("accepted").GetInt32().Should().Be(4);
+
+    async Task ShouldBeOneNightAsync()
+    {
+      var daily = (await (await ada.GetAsync("/api/data/daily?metric=sleep_stage&from=2026-11-06&to=2026-11-09")).ReadJsonAsync()).GetProperty("days").EnumerateArray().ToList();
+      var day = daily.Should().ContainSingle("nothing is left on the 7th").Subject;
+      day.GetProperty("day").GetString().Should().Be("2026-11-08");
+      day.GetProperty("value").GetDouble().Should().Be(480);
+
+      var sleep = await ada.GetAsync("/api/sleep?from=2026-11-07&to=2026-11-09");
+      sleep.StatusCode.Should().Be(HttpStatusCode.OK, await sleep.Content.ReadAsStringAsync());
+      var night = (await sleep.ReadJsonAsync()).GetProperty("nights").EnumerateArray().Should().ContainSingle().Subject;
+      night.GetProperty("day").GetString().Should().Be("2026-11-08");
+      night.GetProperty("bedtime").GetDateTime().ToUniversalTime().Should().Be(new DateTime(2026, 11, 7, 22, 30, 0, DateTimeKind.Utc));
+      night.GetProperty("wakeTime").GetDateTime().ToUniversalTime().Should().Be(new DateTime(2026, 11, 8, 6, 30, 0, DateTimeKind.Utc));
+      night.GetProperty("inBedMinutes").GetDouble().Should().Be(480);
+      night.GetProperty("asleepMinutes").GetDouble().Should().Be(480);
+    }
+
+    await ShouldBeOneNightAsync();
+
+    var resent = await (await ada.PostJsonAsync("/api/ingest/batch", batch)).ReadJsonAsync();
+    resent.GetProperty("accepted").GetInt32().Should().Be(0);
+    resent.GetProperty("duplicates").GetInt32().Should().Be(4);
+    await ShouldBeOneNightAsync();
+  }
+
+  [Fact]
+  public async Task Sleep_FirstNightOfTheRange_StartsTheEveningBefore_AndIsReadInFull()
+  {
+    await using var factory = new ApiFactory();
+    var (ada, _, _, _) = await HouseholdAsync(factory);
+    var sourceId = (await (await ada.PostJsonAsync("/api/sources", new { kind = "healthkit", deviceName = "Watch", platform = "ios" })).ReadJsonAsync()).GetProperty("id").GetGuid();
+
+    // A long night that began at 18:30 the evening before the range starts.
+    var batch = new
+    {
+      sourceId,
+      samples = new[]
+      {
+        Sample("e-1", "sleep_stage", "2026-11-07T18:30:00Z", 2, "stage", "2026-11-07T19:30:00Z"),
+        Sample("e-2", "sleep_stage", "2026-11-07T19:30:00Z", 3, "stage", "2026-11-08T02:30:00Z"),
+      },
+    };
+    (await (await ada.PostJsonAsync("/api/ingest/batch", batch)).ReadJsonAsync()).GetProperty("accepted").GetInt32().Should().Be(2);
+
+    var night = (await (await ada.GetAsync("/api/sleep?from=2026-11-08&to=2026-11-08")).ReadJsonAsync()).GetProperty("nights").EnumerateArray().Should().ContainSingle().Subject;
+    night.GetProperty("bedtime").GetDateTime().ToUniversalTime().Should().Be(new DateTime(2026, 11, 7, 18, 30, 0, DateTimeKind.Utc));
+    night.GetProperty("asleepMinutes").GetDouble().Should().Be(480);
+  }
 }

@@ -187,8 +187,9 @@ Days:
 
 - "yesterday" moves an entry to the day before. Without a time it is placed at 12:00 local.
 - "last night" also moves an entry to the day before, at 21:00.
-- Sleep entries are the exception: a night is credited to the day it ended, like the sleep
-  readings, so "slept badly last night" stays on today.
+- Sleep entries are the exception: a night is credited to the morning it ended, like the sleep
+  readings (whose sleep day runs from 18:00 the evening before to 18:00), so "slept badly last
+  night" stays on today.
 - No time is ever later than now.
 
 No calorie or macro estimate is ever made. Phrases such as "600 calorie" and "40g of protein" are
