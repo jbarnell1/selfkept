@@ -52,6 +52,7 @@ abstract final class AssistantFixtures {
     String origin = 'code',
     List<Map<String, dynamic>> captures = const [],
     bool undone = false,
+    bool redFlag = false,
   }) => {
     'id': id,
     'role': role,
@@ -60,6 +61,7 @@ abstract final class AssistantFixtures {
     'createdAt': '2026-11-10T08:00:00Z',
     'captures': captures,
     'capturesUndone': undone,
+    'redFlag': redFlag,
   };
 
   static Map<String, dynamic> conversation({
@@ -235,6 +237,7 @@ void streamReply(
   List<String> deltas = const ['Noted.'],
   String? doneText,
   String origin = 'model',
+  bool redFlag = false,
 }) {
   streams.frame('capture', StreamFixtures.capture(entries: entries));
   for (final d in deltas) {
@@ -242,6 +245,10 @@ void streamReply(
   }
   streams.frame(
     'done',
-    StreamFixtures.done(text: doneText ?? deltas.join(), origin: origin),
+    StreamFixtures.done(
+      text: doneText ?? deltas.join(),
+      origin: origin,
+      redFlag: redFlag,
+    ),
   );
 }

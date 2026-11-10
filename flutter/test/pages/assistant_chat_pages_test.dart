@@ -145,6 +145,7 @@ void main() {
               role: 'assistant',
               content: care,
               origin: 'guard',
+              redFlag: true,
             ),
           ],
         ),

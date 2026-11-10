@@ -205,19 +205,34 @@ void main() {
     );
   });
 
-  test('a guard reply is a safety reply unless it is the refused template', () {
-    expect(
-      isSafetyReply(MessageOrigin.guard, 'Call your local emergency number.'),
-      isTrue,
-    );
-    expect(
-      isSafetyReply(
-        MessageOrigin.guard,
-        'Saved to today\'s log. I held that answer back because it did not pass my checks.',
-      ),
-      isFalse,
-    );
-    expect(isSafetyReply(MessageOrigin.model, 'Call someone.'), isFalse);
+  test('the server says which replies answer a red flag', () {
+    for (final key in ['redFlag', 'RedFlag']) {
+      final message = AssistantMessage.fromJson({
+        'id': 'm1',
+        'role': 'assistant',
+        'content': 'Call your local emergency number.',
+        'origin': 'guard',
+        key: true,
+      });
+      expect(message.redFlag, isTrue);
+      final done = DoneEvent.fromJson({
+        'conversationId': 'c1',
+        'messageId': 'm1',
+        'userMessageId': 'u1',
+        'origin': 'guard',
+        'text': 'Call your local emergency number.',
+        key: true,
+      });
+      expect(done.redFlag, isTrue);
+    }
+    // A refused model answer is origin guard too, and is not a red flag.
+    final refused = AssistantMessage.fromJson({
+      'id': 'm2',
+      'role': 'assistant',
+      'content': 'Here is what your record says.',
+      'origin': 'guard',
+    });
+    expect(refused.redFlag, isFalse);
   });
 
   test('the update body keeps null to mean "keep what is stored"', () {

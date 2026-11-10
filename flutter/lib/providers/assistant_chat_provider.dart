@@ -102,7 +102,7 @@ class AssistantChatProvider extends ChatSession {
                   ..origin = event.origin
                   ..messageId = event.messageId
                   ..state = ChatItemState.done
-                  ..safety = isSafetyReply(event.origin, event.text);
+                  ..safety = event.redFlag;
                 user.messageId ??= event.userMessageId;
             }
             notify();

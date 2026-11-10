@@ -220,7 +220,11 @@ public class AssistantFlowTests
     var done = events[^1].Data;
     done.GetProperty("origin").GetString().Should().Be("guard");
     done.GetProperty("text").GetString().Should().Be(ReplyGuard.EmergencyReply);
+    done.GetProperty("redFlag").GetBoolean().Should().BeTrue();
     model.Calls.Should().Be(0);
+    var stored = await (await ada.GetAsync($"/api/assistant/conversations/{conversation}")).ReadJsonAsync();
+    stored.GetProperty("messages")[1].GetProperty("redFlag").GetBoolean().Should().BeTrue();
+    stored.GetProperty("messages")[0].GetProperty("redFlag").GetBoolean().Should().BeFalse();
   }
 
   [Fact]

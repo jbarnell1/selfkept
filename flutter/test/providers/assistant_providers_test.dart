@@ -151,6 +151,7 @@ void main() {
         h.streams,
         deltas: ['Call your local emergency number now.'],
         origin: 'guard',
+        redFlag: true,
       );
       await h.streams.close();
       await sent;

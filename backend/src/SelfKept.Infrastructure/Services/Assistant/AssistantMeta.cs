@@ -17,6 +17,9 @@ public sealed record AssistantMeta(
   public const string Memory = "memory";
   public const string Mood = "mood";
 
+  /// <summary>The reason on a reply that code wrote for a red flag (urgent care or crisis lines).</summary>
+  public const string RedFlagReason = "red flag";
+
   private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
   {
     DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,

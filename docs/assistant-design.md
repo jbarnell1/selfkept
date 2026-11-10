@@ -535,7 +535,8 @@ AssistantMessageDto = {
   origin: "model" | "template" | "guard" | "code",
   createdAt: datetime,
   captures: CaptureRefDto[],    // what this user message saved; [] for replies
-  capturesUndone: bool          // true once Undo ran for this message
+  capturesUndone: bool,         // true once Undo ran for this message
+  redFlag: bool                 // true on a reply code wrote for a red flag; shown prominently and in full
 }
 404 "No such conversation."
 ```
@@ -596,7 +597,8 @@ data: {
   "messageId": uuid,                 // the stored reply
   "userMessageId": uuid,
   "origin": "model" | "template" | "guard",
-  "text": string                     // the final reply, the same as what is stored
+  "text": string,                    // the final reply, the same as what is stored
+  "redFlag": bool                    // true when code answered a red flag
 }
 ```
 
@@ -608,7 +610,8 @@ data: {
   action that calls `DELETE /api/assistant/messages/{messageId}/captures`.
 - `done.origin`:
   - `template` when the model is off, or could not be reached;
-  - `guard` when a red flag was answered by code, or the model's answer was refused;
+  - `guard` when a red flag was answered by code (`redFlag` is true), or the model's answer was
+    refused (`redFlag` is false);
   - `model` otherwise.
 - When the model is off, a single `delta` carries the template. With a red flag the model is
   never called.

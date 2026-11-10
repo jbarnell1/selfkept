@@ -61,8 +61,7 @@ class ChatItem {
     messageId: m.id,
     captures: [...m.captures],
     capturesUndone: m.capturesUndone,
-    safety:
-        m.role == MessageRole.assistant && isSafetyReply(m.origin, m.content),
+    safety: m.role == MessageRole.assistant && m.redFlag,
   );
 }
 

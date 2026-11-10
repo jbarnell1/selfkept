@@ -84,12 +84,14 @@ abstract final class StreamFixtures {
   static Map<String, dynamic> done({
     String text = 'Noted.',
     String origin = 'model',
+    bool redFlag = false,
   }) => {
     'conversationId': 'c1',
     'messageId': 'm-reply',
     'userMessageId': 'm-user',
     'origin': origin,
     'text': text,
+    'redFlag': redFlag,
   };
 
   static Map<String, dynamic> entry({

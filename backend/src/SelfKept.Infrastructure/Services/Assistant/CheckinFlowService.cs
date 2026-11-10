@@ -220,7 +220,7 @@ public sealed class CheckinFlowService : ICheckinFlowService
     List<JournalEntryDto> captured, int? mood, Guid? userMessageId, string origin, bool redFlag, DateTime now, CancellationToken ct)
   {
     var reply = AssistantTemplates.Join(encouragement, closing);
-    var message = await AddMessageAsync(conversation, MessageRoles.Assistant, reply, origin, new AssistantMeta(Topic: state.Current), now, ct);
+    var message = await AddMessageAsync(conversation, MessageRoles.Assistant, reply, origin, new AssistantMeta(Topic: state.Current, Reason: redFlag ? AssistantMeta.RedFlagReason : null), now, ct);
     conversation.State = state.ToJson();
     conversation.UpdatedAt = now;
     conversation.EndedAt = state.Complete || state.Left ? now : null;

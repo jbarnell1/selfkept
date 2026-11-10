@@ -215,7 +215,7 @@ public sealed class AssistantService : IAssistantService
     if (turn.FixedReply != null)
     {
       yield return Delta(turn.FixedReply);
-      yield return await FinishAsync(turn, turn.FixedReply, MessageOrigins.Guard, "red flag", ct);
+      yield return await FinishAsync(turn, turn.FixedReply, MessageOrigins.Guard, AssistantMeta.RedFlagReason, ct);
       yield break;
     }
     if (!_model.Enabled)
@@ -365,7 +365,7 @@ public sealed class AssistantService : IAssistantService
       conversation.UpdatedAt = now;
       await _repository.UpdateOwnConversationAsync(conversation, ct);
     }
-    return new AssistantStreamEvent(AssistantStreamEvent.Done, new DoneEventDto(turn.ConversationId, reply.Id, turn.UserMessageId, origin, text));
+    return new AssistantStreamEvent(AssistantStreamEvent.Done, new DoneEventDto(turn.ConversationId, reply.Id, turn.UserMessageId, origin, text, reason == AssistantMeta.RedFlagReason));
   }
 
   private static AssistantStreamEvent Delta(string text) => new(AssistantStreamEvent.Delta, new DeltaEventDto(text));
@@ -389,6 +389,7 @@ public sealed class AssistantService : IAssistantService
       m.Origin,
       m.CreatedAt,
       meta.Captures ?? [],
-      meta.Undone == true);
+      meta.Undone == true,
+      meta.Reason == AssistantMeta.RedFlagReason);
   }
 }

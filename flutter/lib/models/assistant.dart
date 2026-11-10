@@ -212,6 +212,10 @@ class AssistantMessage {
   /// True once Undo ran for this message.
   final bool capturesUndone;
 
+  /// True for a reply that code wrote for a red flag (urgent care or crisis
+  /// lines). It is shown prominently and in full.
+  final bool redFlag;
+
   const AssistantMessage({
     required this.id,
     required this.role,
@@ -220,6 +224,7 @@ class AssistantMessage {
     this.createdAt,
     this.captures = const [],
     this.capturesUndone = false,
+    this.redFlag = false,
   });
 
   factory AssistantMessage.fromJson(Map<String, dynamic> json) {
@@ -232,19 +237,10 @@ class AssistantMessage {
       createdAt: r.dateTime('createdAt'),
       captures: [for (final c in r.objects('captures')) CaptureRef.fromJson(c)],
       capturesUndone: r.boolean('capturesUndone'),
+      redFlag: r.boolean('redFlag'),
     );
   }
 }
-
-/// The opening words of the server's refused-reply template. The API marks
-/// both a refused model answer and a red-flag answer as origin `guard`; this
-/// is how the two are told apart (see [isSafetyReply]).
-const String refusedReplyOpening = 'I held that answer back';
-
-/// True for a reply that code wrote for a red flag (urgent care or crisis
-/// lines). It is shown prominently and in full.
-bool isSafetyReply(MessageOrigin origin, String text) =>
-    origin == MessageOrigin.guard && !text.contains(refusedReplyOpening);
 
 /// GET /assistant/conversations/{id}.
 class Conversation {
@@ -337,12 +333,16 @@ class DoneEvent extends AssistantStreamEvent {
   final MessageOrigin origin;
   final String text;
 
+  /// True when code answered a red flag.
+  final bool redFlag;
+
   const DoneEvent({
     required this.conversationId,
     required this.messageId,
     required this.userMessageId,
     required this.origin,
     required this.text,
+    this.redFlag = false,
   });
 
   factory DoneEvent.fromJson(Map<String, dynamic> json) {
@@ -353,6 +353,7 @@ class DoneEvent extends AssistantStreamEvent {
       userMessageId: r.string('userMessageId'),
       origin: MessageOrigin.fromString(r.stringOrNull('origin')),
       text: r.string('text'),
+      redFlag: r.boolean('redFlag'),
     );
   }
 }

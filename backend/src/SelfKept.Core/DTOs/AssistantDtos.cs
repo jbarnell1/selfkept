@@ -25,7 +25,8 @@ public sealed record AssistantMessageDto(
   string Origin,
   DateTime CreatedAt,
   IReadOnlyList<CaptureRefDto> Captures,
-  bool CapturesUndone);
+  bool CapturesUndone,
+  bool RedFlag = false);
 
 public sealed record ConversationDto(
   Guid Id,
@@ -53,8 +54,11 @@ public sealed record DeltaEventDto(string Text);
 /// <summary>SSE event "replace": throw away everything shown so far and show this instead.</summary>
 public sealed record ReplaceEventDto(string Text, string Reason);
 
-/// <summary>SSE event "done": the stored reply. Origin is model, template or guard.</summary>
-public sealed record DoneEventDto(Guid ConversationId, Guid MessageId, Guid UserMessageId, string Origin, string Text);
+/// <summary>
+/// SSE event "done": the stored reply. Origin is model, template or guard. RedFlag is true when
+/// code answered a red flag, so the client shows the reply prominently and in full.
+/// </summary>
+public sealed record DoneEventDto(Guid ConversationId, Guid MessageId, Guid UserMessageId, string Origin, string Text, bool RedFlag = false);
 
 public sealed record UndoResultDto(Guid MessageId, int RemovedEntries, int RemovedMemories, int RemovedCheckins);
 
