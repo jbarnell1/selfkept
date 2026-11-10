@@ -29,6 +29,7 @@ import '../providers/startup_provider.dart';
 import '../theme/tokens.dart';
 import '../utils/return_path.dart';
 import '../widgets/subpage_app_bar.dart';
+import 'systems_routes.dart';
 
 /// Public paths an unauthenticated person may visit once startup is ready.
 const Set<String> publicPaths = {'/login', '/join'};
@@ -241,6 +242,9 @@ GoRouter buildRouter({
                 path: '/systems',
                 builder: (context, state) => const SystemsPage(),
               ),
+              // Systems detail, context, patterns, review, trials and lab
+              // review (lib/router/systems_routes.dart).
+              ...systemsRoutes(),
               GoRoute(
                 path: '/trends',
                 builder: (context, state) => const SystemsPage(),

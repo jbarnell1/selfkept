@@ -4,11 +4,13 @@ import 'package:provider/provider.dart';
 import '../../models/household.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/household_provider.dart';
+import '../../providers/systems_scope.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/invite_block.dart';
 import '../../widgets/page_body.dart';
 import '../../widgets/status_views.dart';
 import '../../widgets/surface_card.dart';
+import 'household_overview_page.dart';
 
 /// The household, its members and, for the admin, invites.
 class HouseholdSection extends StatelessWidget {
@@ -112,6 +114,22 @@ class HouseholdSection extends StatelessWidget {
                                 style: theme.textTheme.labelSmall,
                               ),
                           ],
+                        ),
+                      ),
+                    if (SystemsFeatures.has(
+                      context,
+                      SystemsFeatures.labsReview,
+                    ))
+                      Padding(
+                        padding: const EdgeInsets.only(top: Space.x2),
+                        child: TextButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const HouseholdOverviewPage(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.groups_outlined, size: 18),
+                          label: const Text(HouseholdOverviewPage.title),
                         ),
                       ),
                     if (isAdmin) ...[
