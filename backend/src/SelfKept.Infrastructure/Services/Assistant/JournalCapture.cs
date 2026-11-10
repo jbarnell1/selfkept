@@ -139,7 +139,7 @@ public sealed partial class JournalCapture : IJournalCapture
   // --- sentences ---------------------------------------------------------------------------------
 
   private static string Normalise(string text) =>
-    MultiSpace().Replace(text.Replace('’', '\'').Replace('‘', '\'').Replace('—', ',').Replace('–', '-'), " ").Trim();
+    MultiSpace().Replace(text.Replace('\u2019', '\'').Replace('\u2018', '\'').Replace('\u2014', ',').Replace('\u2013', '-'), " ").Trim();
 
   private static IEnumerable<string> Sentences(string text) =>
     SentenceSplit().Split(text).Select(s => s.Trim()).Where(s => s.Length > 0);
@@ -372,7 +372,7 @@ public sealed partial class JournalCapture : IJournalCapture
   [GeneratedRegex(@"\b(?:usual|normal|regular|standard) (?:portion|amount|size|helping|plate|bowl|one)\b|\bthe usual\b", RegexOptions.CultureInvariant)]
   private static partial Regex UsualPortion();
 
-  [GeneratedRegex(@"(?:about |around |roughly |approximately |~)?\d+(?:[.,]\d+)?\s*(?:k?cals?|kilocalories|calories)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+  [GeneratedRegex(@"(?:about |around |roughly |approximately |~)?\d+(?:[.,]\d+)?[\s-]*(?:k?cals?|kilocalories?|calories?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
   private static partial Regex CalorieCount();
 
   [GeneratedRegex(@"(?:about |around |roughly |~)?\d+(?:[.,]\d+)?\s*(?:g|grams?)\s+(?:of\s+)?(?:protein|carbs?|carbohydrates?|fat|fibre|fiber|sugar)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]

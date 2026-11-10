@@ -259,7 +259,7 @@ public static partial class CheckinHarvest
   [GeneratedRegex(@"^\s*(?:skip|pass|next|rather not(?: say)?|prefer not to say|no comment|not telling|n/?a)\s*[.!]*\s*$", RegexOptions.CultureInvariant)]
   private static partial Regex SkipAnswer();
 
-  [GeneratedRegex(@"^\s*(?:no|nope|nah|none|nothing|not really|not today|no not today|zero|neither|no to both|nothing at all)\s*[.!,]*\s*(?:thanks|thank you)?[.!]*\s*$", RegexOptions.CultureInvariant)]
+  [GeneratedRegex(@"^\s*(?:(?:no|nope|nah|none|nothing|not really|not today|zero|neither|no to both|nothing at all|not at all)[\s.!,]*)+(?:thanks|thank you)?[\s.!]*$", RegexOptions.CultureInvariant)]
   private static partial Regex BareNo();
 
   [GeneratedRegex(@"\bno (?:alcohol|drinks?|booze|beer|wine)\b|\bdidn'?t drink\b|\bdid not drink\b|\bsober\b|\bdry (?:day|night)\b|\bnothing to drink\b|\bno to (?:both|alcohol)\b|\bneither\b", RegexOptions.CultureInvariant)]

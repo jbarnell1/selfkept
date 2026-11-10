@@ -141,12 +141,12 @@ public sealed partial class ReplyGuard : IReplyGuard
     if (string.IsNullOrWhiteSpace(text)) return string.Empty;
     var t = Normalise(text);
     t = SpacedDash().Replace(t, ", ");
-    t = t.Replace('–', '-').Replace("—", ", ");
+    t = t.Replace('\u2013', '-').Replace("\u2014", ", ");
     return MultiSpace().Replace(t, " ").Trim();
   }
 
   private static string Normalise(string text) =>
-    text.Replace('’', '\'').Replace('‘', '\'').Replace('“', '"').Replace('”', '"');
+    text.Replace('\u2019', '\'').Replace('\u2018', '\'').Replace('\u201C', '"').Replace('\u201D', '"');
 
   private static bool Negated(string text, int index)
   {
@@ -161,7 +161,7 @@ public sealed partial class ReplyGuard : IReplyGuard
   private static string UnitKey(string unit) => unit switch
   {
     "milligram" or "milligrams" => "mg",
-    "microgram" or "micrograms" or "µg" or "ug" => "mcg",
+    "microgram" or "micrograms" or "\u00b5g" or "ug" => "mcg",
     "gram" or "grams" => "g",
     "unit" or "units" => "iu",
     "tablet" or "tablets" or "pill" or "pills" or "capsule" or "capsules" => "tablet",
@@ -201,7 +201,7 @@ public sealed partial class ReplyGuard : IReplyGuard
   private static partial Regex NegationBefore();
 
   // Reply rules. Matched on lowercased text.
-  [GeneratedRegex(@"(?<![a-z])(?<amount>\d+(?:[.,]\d+)?)\s*(?<unit>mg|mcg|µg|ug|g|iu|ml|units?|tablets?|capsules?|pills?|drops?|milligrams?|micrograms?|grams?)(?![a-z])", RegexOptions.CultureInvariant)]
+  [GeneratedRegex(@"(?<![a-z])(?<amount>\d+(?:[.,]\d+)?)\s*(?<unit>mg|mcg|\u00b5g|ug|g|iu|ml|units?|tablets?|capsules?|pills?|drops?|milligrams?|micrograms?|grams?)(?![a-z])", RegexOptions.CultureInvariant)]
   private static partial Regex DoseUnit();
 
   [GeneratedRegex(@"\bdiagnos\w*", RegexOptions.CultureInvariant)]
@@ -246,7 +246,7 @@ public sealed partial class ReplyGuard : IReplyGuard
   [GeneratedRegex(@"(?:\b(?:will|'ll)\s+(?:definitely\s+|surely\s+|certainly\s+)?(?:show|improve|boost|raise|lower|fix|cure|help|make|be\s+(?:better|higher|lower|up|down|fine))\b)|\bguarantee|\bdefinitely\b|\bfor\s+sure\b|\bsure\s+to\b|\bbound\s+to\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
   private static partial Regex Promise();
 
-  [GeneratedRegex(@"\s+[—–]\s+")]
+  [GeneratedRegex(@"\s+[\u2014\u2013]\s+")]
   private static partial Regex SpacedDash();
 
   [GeneratedRegex(@"[ \t]{2,}")]
