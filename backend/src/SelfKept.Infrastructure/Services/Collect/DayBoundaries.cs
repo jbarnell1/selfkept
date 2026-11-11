@@ -31,9 +31,15 @@ public static class DayBoundaries
     _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
   };
 
-  private static DateTime LocalMidnightUtc(DateOnly day, TimeZoneInfo zone)
+  private static DateTime LocalMidnightUtc(DateOnly day, TimeZoneInfo zone) => LocalTimeUtc(day, TimeOnly.MinValue, zone);
+
+  /// <summary>
+  /// The UTC instant of a local wall-clock time. A time the clocks skip (a zone that switches at
+  /// that hour) moves on an hour; a time the clocks repeat is the later, standard-time one.
+  /// </summary>
+  public static DateTime LocalTimeUtc(DateOnly day, TimeOnly time, TimeZoneInfo zone)
   {
-    var local = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+    var local = day.ToDateTime(time, DateTimeKind.Unspecified);
     // A zone that switches at midnight has no 00:00 that day; the day then starts at 01:00.
     if (zone.IsInvalidTime(local)) local = local.AddHours(1);
     return TimeZoneInfo.ConvertTimeToUtc(local, zone);

@@ -68,6 +68,50 @@ void main() {
     expect(h.startup.needsSetup, isFalse);
   });
 
+  group('refreshVersion', () {
+    Map<String, dynamic> newer() => {
+      ...Fixtures.version(v: '0.1.6'),
+      'features': ['labs', 'mcp', 'assistant.chat'],
+    };
+
+    test('a server updated while the app is open shows its features', () async {
+      h.api.on('GET', '/system/version', (_) => Fixtures.version());
+      await h.startup.run();
+      expect(h.startup.versionInfo?.hasFeature('assistant.chat'), isFalse);
+      var notified = 0;
+      h.startup.addListener(() => notified++);
+      h.api.on('GET', '/system/version', (_) => newer());
+      expect(await h.startup.refreshVersion(), isTrue);
+      expect(h.startup.versionInfo?.version, '0.1.6');
+      expect(h.startup.versionInfo?.hasFeature('assistant.chat'), isTrue);
+      expect(h.startup.phase, StartupPhase.ready);
+      expect(notified, 1);
+    });
+
+    test('the same answer changes nothing and tells nobody', () async {
+      h.api.on('GET', '/system/version', (_) => Fixtures.version());
+      await h.startup.run();
+      var notified = 0;
+      h.startup.addListener(() => notified++);
+      expect(await h.startup.refreshVersion(), isFalse);
+      expect(notified, 0);
+    });
+
+    test('no answer keeps what was known', () async {
+      h.api.on('GET', '/system/version', (_) => newer());
+      await h.startup.run();
+      h.api.fail('GET', '/system/version', const ApiException.network());
+      expect(await h.startup.refreshVersion(), isFalse);
+      expect(h.startup.phase, StartupPhase.ready);
+      expect(h.startup.versionInfo?.hasFeature('assistant.chat'), isTrue);
+    });
+
+    test('before the first check it asks nothing', () async {
+      expect(await h.startup.refreshVersion(), isFalse);
+      expect(h.api.calls, isEmpty);
+    });
+  });
+
   test('signing in clears needsSetup', () async {
     h.api.on('GET', '/system/version', (_) => Fixtures.version());
     h.api.on(

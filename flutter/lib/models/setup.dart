@@ -44,7 +44,7 @@ enum SetupItem {
     household =>
       'They get their own account. Nothing is shared until each of you says so.',
     assistant =>
-      'Ask about your record in Open WebUI, with a model you run at home.',
+      'Also ask about your record from Open WebUI. The assistant in the app is already there.',
   };
 }
 

@@ -6,14 +6,15 @@ import '../../models/enums.dart';
 import '../../models/person.dart';
 import '../../providers/profile_provider.dart';
 import '../../theme/tokens.dart';
+import '../../utils/body_units.dart';
 import '../../utils/device_time_zone.dart';
 import '../../widgets/key_value_row.dart';
 import '../../widgets/page_body.dart';
 import '../../widgets/status_views.dart';
 import '../../widgets/surface_card.dart';
 
-/// Your profile: name, sex at birth, birth date, units and time zone, with an
-/// editor.
+/// Your profile: name, sex at birth, birth date, height, units and time
+/// zone, with an editor.
 class ProfileSection extends StatelessWidget {
   const ProfileSection({super.key});
 
@@ -59,6 +60,16 @@ class ProfileSection extends StatelessWidget {
                           : DateFormat.yMMMMd().format(person.birthDate!),
                       numeric: person.birthDate != null,
                     ),
+                    KeyValueRow(
+                      'Height',
+                      person.heightCm == null
+                          ? 'Not set'
+                          : BodyUnits.formatHeight(
+                              person.heightCm!,
+                              person.units,
+                            ),
+                      numeric: person.heightCm != null,
+                    ),
                     KeyValueRow('Units', person.units.displayName),
                     KeyValueRow('Time zone', person.timeZone),
                   ],
@@ -69,8 +80,15 @@ class ProfileSection extends StatelessWidget {
   }
 }
 
-/// Bottom sheet that edits display name, sex at birth, birth date and units.
+/// Bottom sheet that edits display name, sex at birth, birth date, height,
+/// units and time zone.
 class _ProfileEditor extends StatefulWidget {
+  static const double minHeightCm = 90;
+  static const double maxHeightCm = 250;
+  static const String heightRange = 'Height must be between 90 and 250 cm.';
+  static const String heightRangeImperial =
+      'Height must be between 2 ft 11 in and 8 ft 2 in.';
+
   final Person person;
 
   const _ProfileEditor({required this.person});
@@ -98,11 +116,16 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   late Units _units;
   late String _timeZone;
   DateTime? _birthDate;
+  final _heightCm = TextEditingController();
+  final _heightFt = TextEditingController();
+  final _heightIn = TextEditingController();
+  String _heightError = '';
 
   @override
   void initState() {
     super.initState();
     _name = TextEditingController(text: widget.person.displayName);
+    _fillHeight(widget.person.heightCm, widget.person.units);
     _sex = widget.person.sexAtBirth;
     _units = widget.person.units;
     _timeZone = widget.person.timeZone;
@@ -112,7 +135,48 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   @override
   void dispose() {
     _name.dispose();
+    _heightCm.dispose();
+    _heightFt.dispose();
+    _heightIn.dispose();
     super.dispose();
+  }
+
+  void _fillHeight(double? cm, Units units) {
+    _heightCm.text = '';
+    _heightFt.text = '';
+    _heightIn.text = '';
+    if (cm == null) return;
+    if (units == Units.metric) {
+      _heightCm.text = cm.round().toString();
+    } else {
+      final parts = BodyUnits.feetAndInches(cm);
+      _heightFt.text = parts.feet.toString();
+      _heightIn.text = parts.inches.toString();
+    }
+  }
+
+  /// The typed height in cm; null when the fields are empty, NaN when they
+  /// do not read as a height.
+  double? _typedHeight(Units units) {
+    if (units == Units.metric) {
+      if (_heightCm.text.trim().isEmpty) return null;
+      return BodyUnits.parse(_heightCm.text) ?? double.nan;
+    }
+    final ftText = _heightFt.text.trim();
+    final inText = _heightIn.text.trim();
+    if (ftText.isEmpty && inText.isEmpty) return null;
+    final feet = ftText.isEmpty ? 0 : int.tryParse(ftText);
+    final inches = inText.isEmpty ? 0 : BodyUnits.parse(inText);
+    if (feet == null || inches == null) return double.nan;
+    return BodyUnits.feetAndInchesToCm(feet, inches);
+  }
+
+  void _changeUnits(Units next) {
+    final cm = _typedHeight(_units);
+    setState(() {
+      _fillHeight(cm == null || cm.isNaN ? null : cm, next);
+      _units = next;
+    });
   }
 
   Future<void> _pickDate() async {
@@ -135,9 +199,24 @@ class _ProfileEditorState extends State<_ProfileEditor> {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) return;
+    final height = _typedHeight(_units);
+    if (height != null &&
+        (height.isNaN ||
+            height < _ProfileEditor.minHeightCm ||
+            height > _ProfileEditor.maxHeightCm)) {
+      setState(
+        () => _heightError = _units == Units.metric
+            ? _ProfileEditor.heightRange
+            : _ProfileEditor.heightRangeImperial,
+      );
+      return;
+    }
+    setState(() => _heightError = '');
     final profile = context.read<ProfileProvider>();
     final ok = await profile.save(
       widget.person.copyWith(
+        heightCm: height,
+        clearHeight: height == null,
         displayName: name,
         sexAtBirth: _sex,
         units: _units,
@@ -217,8 +296,56 @@ class _ProfileEditorState extends State<_ProfileEditor> {
             ],
             selected: {_units},
             showSelectedIcon: false,
-            onSelectionChanged: (v) => setState(() => _units = v.first),
+            onSelectionChanged: (v) => _changeUnits(v.first),
           ),
+          const SizedBox(height: Space.x6),
+          Text('Height', style: theme.textTheme.labelMedium),
+          const SizedBox(height: Space.x2),
+          if (_units == Units.metric)
+            TextField(
+              controller: _heightCm,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Height (optional)',
+                suffixText: 'cm',
+              ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _heightFt,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Feet',
+                      suffixText: 'ft',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: Space.x4),
+                Expanded(
+                  child: TextField(
+                    controller: _heightIn,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Inches',
+                      suffixText: 'in',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: Space.x1),
+          Text(
+            'Used for BMI and waist to height. Leave it empty to clear it.',
+            style: theme.textTheme.bodySmall,
+          ),
+          AttentionLine(_heightError),
           const SizedBox(height: Space.x6),
           Text('Time zone', style: theme.textTheme.labelMedium),
           const SizedBox(height: Space.x2),

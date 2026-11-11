@@ -16,7 +16,7 @@ A nightly job (job-locked hosted service, 03:30 in the person's time zone, and o
 
 Baselines are stored in `baseline (person_id, metric_key, computed_for date, ...)` with one row per day so history is replayable. A metric needs `n28 >= 14` before any rule may fire on it; before that the Today sentence says the app is still learning the person's normal.
 
-Metrics with baselines in v0.1: `sleep_stage` (as nightly minutes asleep), `hrv_sdnn_ms` or `hrv_rmssd_ms` (whichever the person has), `resting_hr_bpm`, `respiratory_rate_bpm`, `spo2_pct`, `wrist_temp_delta_c`, `steps`, `active_energy_kcal`, `exercise_min`, `weight_kg`, `checkin_mood`, `oura_readiness`, `oura_sleep_score`.
+Metrics with baselines in v0.1: `sleep_stage` (as nightly minutes asleep, per sleep day: 18:00 local the evening before to 18:00 local on the day), `hrv_sdnn_ms` or `hrv_rmssd_ms` (whichever the person has), `resting_hr_bpm`, `respiratory_rate_bpm`, `spo2_pct`, `wrist_temp_delta_c`, `steps`, `active_energy_kcal`, `exercise_min`, `weight_kg`, `checkin_mood`, `oura_readiness`, `oura_sleep_score`.
 
 ## Rule set
 
@@ -44,7 +44,7 @@ Rules never use the word diagnosis. Clinician-tier cards always name what to bri
 
 ## Insight cards
 
-`insight (id, person_id, day, kind, severity, metrics text[], evidence jsonb, templated text, generated text nullable, model text nullable, shown_at, dismissed_at, reaction)` with `reaction` in `helpful`, `knew`, `wrong`. A card is created once per `(person, kind, day)` and re-ranked, not duplicated, when its rule keeps firing. Reactions feed ranking: a kind the person marked `wrong` twice in 30 days is demoted to the Insights archive and off Today.
+`insight (id, person_id, day, kind, severity, metrics text[], evidence jsonb, templated text, generated text nullable, model text nullable, shown_at, dismissed_at, reaction)` with `reaction` in `helpful`, `knew`, `wrong`. A card is created once per `(person, kind, day)` and re-ranked, not duplicated, when its rule keeps firing. A run for a day is the whole answer for that day: a card of that day whose rule no longer fires on a rerun (the nightly job, `recompute`, or the run after a lab save, a draw-conditions edit or a lab delete) is removed, so a pattern that is no longer established or a lab comparison that is no longer the newest pair leaves Today and the brief. A dismissed card is never removed and stays dismissed when its rule fires again, and a run never touches another day's cards, which stay as that day's history. Reactions feed ranking: a kind the person marked `wrong` twice in 30 days is demoted to the Insights archive and off Today.
 
 ## The Today sentence
 
@@ -97,3 +97,41 @@ Notes:
 - The nightly job runs from 03:30 in each person's time zone and interprets yesterday once; `recompute` does the same on demand for any day up to today.
 - Audit actions: `insight.reaction`, `insight.dismiss`, `interpret.recompute`. Model calls go to `ai_call`, never to the audit log.
 - `GET /api/system/version` lists `insights.rules` and, when `Ai:Enabled` is true with a base URL and model set, `insights.model`.
+
+## Body and goals rules
+
+`docs/body-design.md`, "Rules", adds five kinds that read goals, targets and the typed body
+measurements: `loss_rate_fast`, `goal_reached`, `goal_off_course`, `target_week` and
+`waist_height`, all severity `notice`. When each fires, its wording and its evidence are given
+there, along with the change to `weight_trend` (quiet while an active goal is measured by
+`weight_kg`).
+
+## Context, patterns and the rules that read them
+
+`docs/context-design.md` adds context (stored events and context derived from the record) to the
+rule context, and nine kinds: `yesterday_last_night`, `target_slipping`, `early_signs`,
+`cold_starting`, `short_sleep_diet`, `recovery_strain`, `strength_on_track`, `mood_deficit` and
+`personal_pattern`. Under a context that explains them, `hrv_low_run`, `rhr_elevated`,
+`illness_pattern`, `sleep_debt`, `activity_dip` and `weight_trend` add a line saying so and step
+down one severity; `spo2_low` adds the line and keeps its tier. With no context active they behave
+as described above.
+
+## Lab review and cross-reference rules
+
+Added with the lab review package. Each reads the lab context (the two latest panels with their draw conditions and the substances active at each draw, the reference rows for the person's sex and age, and the active trials) and fires without the 28-day baseline gate. The thresholds, their sources and the rules left out are in `docs/cross-reference.md`, "Rules".
+
+| Kind | Fires when | Severity |
+| --- | --- | --- |
+| `trial_ready` | a panel collected after an active trial's start has just come in, or the trial's read date arrived (blood trials once a panel after the start exists) | notice |
+| `retest_due` | an active blood trial reached its read date with no panel since it started | notice |
+| `draw_conditions_differ` | the current and previous panel differ on fasting, time of day, hard training, illness, biotin or creatine | notice |
+| `apob_ldl_disagree` | ApoB and LDL sit on different sides of their lines, or moved in opposite directions by 15 percent or more each | notice |
+| `calculated_ldl_unreliable` | triglycerides 400 mg/dL or more with an LDL on the panel | notice |
+| `ferritin_inflammation` | ferritin under 70 ng/mL with hs-CRP above its usual range | notice |
+| `high_ferritin_context` | ferritin above 300 ng/mL (men) or 200 (women), shown with triglycerides, HDL, hs-CRP and transferrin saturation | clinician |
+| `thyroid_cholesterol` | TSH above range with LDL or total cholesterol above range or higher than last time | clinician |
+| `free_testosterone_shbg` | SHBG outside its usual range with a total testosterone on the panel | notice |
+| `creatinine_muscle` | creatine on the list at the draw with creatinine above range or eGFR below it | notice |
+| `hematocrit_testosterone` | testosterone on the list at the draw and haematocrit above its usual range | clinician |
+| `expected_swing` | a marker moved 15 percent or more but within its reference change value; `lab_trend` holds its card for that marker | notice |
+| `lab_review_ready` | a current panel with one before it; says how many markers got each verdict | notice |

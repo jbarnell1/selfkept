@@ -21,12 +21,25 @@ String formatMetricValue(String metric, num value, {String unit = ''}) {
   return value.toStringAsFixed(decimals);
 }
 
-/// Value with its unit, for captions: "58 bpm", "72.4 kg", "7 h 40".
+/// Value with its unit, for captions: "58 bpm", "72.4 kg", "7 h 40",
+/// "0.18 °C".
 String formatMetricWithUnit(String metric, num value, {String unit = ''}) {
   final text = formatMetricValue(metric, value, unit: unit);
   if (metric == 'sleep_stage' || unit.isEmpty || unit == 'count') return text;
   if (unit == '%') return '$text%';
+  if (unit == 'C') return '$text °C';
   return '$text $unit';
+}
+
+/// A name as it reads inside a sentence: "Resting heart rate" becomes
+/// "resting heart rate", while a name that opens with an acronym or a
+/// figure ("HRV (RMSSD)", "VO2 max") keeps its capitals.
+String nameInSentence(String name) {
+  if (name.isEmpty) return name;
+  final space = name.indexOf(' ');
+  final first = space < 0 ? name : name.substring(0, space);
+  if (RegExp(r'[A-Z0-9]').hasMatch(first.substring(1))) return name;
+  return name[0].toLowerCase() + name.substring(1);
 }
 
 int _decimalsFor(String metric, String unit) => switch (unit) {

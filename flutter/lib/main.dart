@@ -12,9 +12,17 @@ import 'collectors/health_collector.dart';
 import 'offline/open_outbox.dart';
 import 'offline/outbox_repository.dart';
 import 'offline/sync_engine.dart';
+import 'providers/assistant_providers.dart';
 import 'providers/auth_provider.dart';
 import 'providers/checkins_provider.dart';
 import 'providers/collector_provider.dart';
+import 'providers/goals_provider.dart';
+import 'providers/journal_provider.dart';
+import 'providers/medications_provider.dart';
+import 'providers/progress_provider.dart';
+import 'providers/record_changes.dart';
+import 'providers/tally_provider.dart';
+import 'providers/viewed_person.dart';
 import 'providers/household_provider.dart';
 import 'providers/insights_provider.dart';
 import 'providers/connect_provider.dart';
@@ -28,10 +36,18 @@ import 'providers/profile_provider.dart';
 import 'providers/server_settings.dart';
 import 'providers/sources_provider.dart';
 import 'providers/startup_provider.dart';
+import 'providers/systems_scope.dart';
 import 'providers/today_provider.dart';
 import 'providers/trends_provider.dart';
 import 'router/app_router.dart';
 import 'services/api_client.dart';
+import 'services/body_service.dart';
+import 'services/goals_service.dart';
+import 'services/journal_service.dart';
+import 'services/medications_service.dart';
+import 'services/progress_service.dart';
+import 'services/strength_service.dart';
+import 'services/targets_service.dart';
 import 'services/connect_service.dart';
 import 'services/export_service.dart';
 import 'services/checkins_service.dart';
@@ -190,6 +206,14 @@ class _AppState extends State<App> {
   late final SetupProvider _setup;
   late final RecentProblemsProvider _recentProblems;
   late final RetentionProvider _retention;
+  late final RecordChanges _recordChanges;
+  late final ViewedPerson _viewing;
+  late final TallyProvider _tally;
+  late final JournalProvider _journal;
+  late final GoalsProvider _goals;
+  late final MedicationsProvider _medications;
+  late final ProgressProvider _progress;
+  late final AssistantProviders _assistant;
   late final AppLifecycleListener _lifecycle;
   late final GoRouter _router;
   bool _collectorStarted = false;
@@ -255,11 +279,61 @@ class _AppState extends State<App> {
       service: RetentionService(client),
       auth: _auth,
     );
+    _recordChanges = RecordChanges();
+    _viewing = ViewedPerson(auth: _auth);
+    final goalsService = GoalsService(client);
+    final targetsService = TargetsService(client);
+    _tally = TallyProvider(
+      service: targetsService,
+      auth: _auth,
+      changes: _recordChanges,
+    );
+    _journal = JournalProvider(
+      service: JournalService(client),
+      auth: _auth,
+      changes: _recordChanges,
+    );
+    _goals = GoalsProvider(
+      goals: goalsService,
+      targets: targetsService,
+      auth: _auth,
+      changes: _recordChanges,
+      viewing: _viewing,
+    );
+    _medications = MedicationsProvider(
+      service: MedicationsService(client),
+      auth: _auth,
+      viewing: _viewing,
+    );
+    _progress = ProgressProvider(
+      service: ProgressService(client),
+      goals: goalsService,
+      targets: targetsService,
+      body: BodyService(client),
+      strength: StrengthService(client),
+      auth: _auth,
+      changes: _recordChanges,
+      viewing: _viewing,
+    );
+    _assistant = AssistantProviders.forClient(
+      client: client,
+      auth: _auth,
+      changes: _recordChanges,
+    );
     _auth.addListener(_onAuthChanged);
-    // A foreground pass every time the app comes back.
-    _lifecycle = AppLifecycleListener(onResume: _collector.onResume);
+    _lifecycle = AppLifecycleListener(onResume: _onResume);
     _router = buildRouter(auth: _auth, startup: _startup);
     widget.reporter.where = () => _router.state.uri.path;
+  }
+
+  /// A foreground pass every time the app comes back, and a fresh look at
+  /// the server: it may have been updated while the app was open, and the
+  /// pages that failed against the old one get another go.
+  void _onResume() {
+    _collector.onResume();
+    _startup.refreshVersion().then((changed) {
+      if (changed) _recordChanges.changed(_startup);
+    });
   }
 
   /// The collector needs a signed-in person (its source belongs to one), so
@@ -278,6 +352,14 @@ class _AppState extends State<App> {
     _lifecycle.dispose();
     _auth.removeListener(_onAuthChanged);
     _router.dispose();
+    _assistant.dispose();
+    _progress.dispose();
+    _medications.dispose();
+    _goals.dispose();
+    _journal.dispose();
+    _tally.dispose();
+    _viewing.dispose();
+    _recordChanges.dispose();
     _retention.dispose();
     _recentProblems.dispose();
     _setup.dispose();
@@ -327,7 +409,17 @@ class _AppState extends State<App> {
         ChangeNotifierProvider.value(value: _recentProblems),
         ChangeNotifierProvider.value(value: _retention),
         ChangeNotifierProvider.value(value: _sso),
+        ChangeNotifierProvider.value(value: _recordChanges),
+        ChangeNotifierProvider.value(value: _viewing),
+        ChangeNotifierProvider.value(value: _tally),
+        ChangeNotifierProvider.value(value: _journal),
+        ChangeNotifierProvider.value(value: _goals),
+        ChangeNotifierProvider.value(value: _medications),
+        ChangeNotifierProvider.value(value: _progress),
         Provider<UrlOpener>.value(value: openExternalUrl),
+        // Systems, context, weekly review, lab review and trials.
+        ...systemsProviders(widget.client),
+        ..._assistant.providers,
       ],
       child: MaterialApp.router(
         title: Brand.productName,

@@ -14,11 +14,13 @@ public sealed class HouseholdController : BaseController
 
   private readonly IHouseholdService _householdService;
   private readonly IInviteService _inviteService;
+  private readonly IHouseholdOverviewService _overview;
 
-  public HouseholdController(IHouseholdService householdService, IInviteService inviteService)
+  public HouseholdController(IHouseholdService householdService, IInviteService inviteService, IHouseholdOverviewService overview)
   {
     _householdService = householdService;
     _inviteService = inviteService;
+    _overview = overview;
   }
 
   [HttpGet]
@@ -67,6 +69,11 @@ public sealed class HouseholdController : BaseController
     HandleServiceResponse(
       await _householdService.ReplaceSharesAsync(GetCurrentUserId(), memberPersonId, request.Categories, CurrentRequestInfo(), ct),
       "That person is not a member of your household.");
+
+  /// <summary>Every member with a short summary per category the caller may see; a category without a grant is absent.</summary>
+  [HttpGet("overview")]
+  public async Task<IActionResult> Overview(CancellationToken ct) =>
+    HandleServiceResponse(await _overview.GetAsync(GetCurrentUserId(), GetCurrentPersonId(), ct), NoHousehold);
 
   [HttpGet("shared-with-me")]
   public async Task<IActionResult> GetSharedWithMe(CancellationToken ct) =>

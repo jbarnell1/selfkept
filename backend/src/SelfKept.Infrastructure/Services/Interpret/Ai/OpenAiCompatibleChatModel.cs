@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -10,11 +12,12 @@ namespace SelfKept.Infrastructure.Services.Interpret.Ai;
 
 /// <summary>
 /// POST {Ai:BaseUrl}/chat/completions in the OpenAI wire shape, which Ollama, LM Studio, vLLM and
-/// llama.cpp all speak. The only outbound HTTP in the app, and only to the host the user set.
+/// llama.cpp all speak. The only model the app talks to, and only on the host the user set.
 /// </summary>
 public sealed class OpenAiCompatibleChatModel : IChatModel
 {
   public const string HttpClientName = "ai";
+  private const string NotEnabled = "The model is not enabled (Ai:Enabled, Ai:BaseUrl and Ai:Model).";
 
   private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
   {
@@ -37,26 +40,18 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
 
   public string ModelName => _options.Model;
 
-  public async Task<ChatCompletion> CompleteAsync(string system, string user, ChatOptions options, CancellationToken ct = default)
+  public Task<ChatCompletion> CompleteAsync(string system, string user, ChatOptions options, CancellationToken ct = default) =>
+    CompleteAsync([new ChatTurn(ChatTurn.System, system), new ChatTurn(ChatTurn.User, user)], options, ct);
+
+  public async Task<ChatCompletion> CompleteAsync(IReadOnlyList<ChatTurn> turns, ChatOptions options, CancellationToken ct = default)
   {
-    if (!Enabled) throw new InvalidOperationException("The model is not enabled (Ai:Enabled, Ai:BaseUrl and Ai:Model).");
+    if (!Enabled) throw new InvalidOperationException(NotEnabled);
 
     var client = _httpClientFactory.CreateClient(HttpClientName);
     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-    timeout.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds)));
+    timeout.CancelAfter(Timeout);
 
-    using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint(_options.BaseUrl));
-    if (!string.IsNullOrWhiteSpace(_options.ApiKey))
-    {
-      request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
-    }
-    request.Content = JsonContent.Create(new ChatRequest(
-      _options.Model,
-      [new ChatMessage("system", system), new ChatMessage("user", user)],
-      options.Temperature,
-      options.MaxTokens,
-      false), options: Json);
-
+    using var request = BuildRequest(turns, options, stream: false);
     using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
     if (!response.IsSuccessStatusCode)
     {
@@ -69,7 +64,171 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
     return new ChatCompletion(content, body.Usage?.PromptTokens, body.Usage?.CompletionTokens);
   }
 
+  /// <summary>
+  /// The answer as it is written (stream: true, server-sent events). The configured timeout is the
+  /// longest silence allowed: it restarts with every piece, so a slow model on a home server may
+  /// take its time as long as it keeps writing.
+  /// </summary>
+  public async IAsyncEnumerable<string> StreamAsync(IReadOnlyList<ChatTurn> turns, ChatOptions options, [EnumeratorCancellation] CancellationToken ct = default)
+  {
+    if (!Enabled) throw new InvalidOperationException(NotEnabled);
+
+    var client = _httpClientFactory.CreateClient(HttpClientName);
+    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+    timeout.CancelAfter(Timeout);
+
+    using var request = BuildRequest(turns, options, stream: true);
+    using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+    if (!response.IsSuccessStatusCode)
+    {
+      throw new HttpRequestException($"The model endpoint answered {(int)response.StatusCode}.", null, response.StatusCode);
+    }
+    await using var body = await response.Content.ReadAsStreamAsync(timeout.Token);
+    await foreach (var piece in ReadStreamAsync(body, timeout.Token))
+    {
+      timeout.CancelAfter(Timeout);
+      yield return piece;
+    }
+  }
+
+  /// <summary>
+  /// Parses an OpenAI-style event stream: "data: {json}" lines carrying choices[0].delta.content,
+  /// ended by "data: [DONE]". Comment lines, blank lines and lines that are not JSON are skipped,
+  /// and anything inside think tags is dropped even when a tag is split across pieces.
+  /// </summary>
+  public static async IAsyncEnumerable<string> ReadStreamAsync(Stream body, [EnumeratorCancellation] CancellationToken ct = default)
+  {
+    using var reader = new StreamReader(body);
+    var filter = new ThinkFilter();
+    while (await reader.ReadLineAsync(ct) is { } line)
+    {
+      if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+      var payload = line["data:".Length..].Trim();
+      if (payload.Length == 0) continue;
+      if (payload == "[DONE]") break;
+
+      var content = DeltaContent(payload);
+      if (string.IsNullOrEmpty(content)) continue;
+      var visible = filter.Push(content);
+      if (visible.Length > 0) yield return visible;
+    }
+    var rest = filter.Flush();
+    if (rest.Length > 0) yield return rest;
+  }
+
+  /// <summary>GET {Ai:BaseUrl}/models with a short timeout: the server is up, nothing is generated.</summary>
+  public async Task<bool> PingAsync(CancellationToken ct = default)
+  {
+    if (!Enabled) return false;
+    var client = _httpClientFactory.CreateClient(HttpClientName);
+    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+    timeout.CancelAfter(TimeSpan.FromSeconds(Math.Min(5, Math.Max(1, _options.TimeoutSeconds))));
+    try
+    {
+      using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(_options.BaseUrl.TrimEnd('/') + "/models"));
+      if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+      {
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+      }
+      using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+      return response.IsSuccessStatusCode;
+    }
+    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+    {
+      throw;
+    }
+    catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or UriFormatException)
+    {
+      return false;
+    }
+  }
+
   public static Uri Endpoint(string baseUrl) => new(baseUrl.TrimEnd('/') + "/chat/completions");
+
+  private TimeSpan Timeout => TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds));
+
+  private static string? DeltaContent(string payload)
+  {
+    try
+    {
+      var chunk = JsonSerializer.Deserialize<StreamChunk>(payload, Json);
+      return chunk?.Choices is { Count: > 0 } choices ? choices[0].Delta?.Content : null;
+    }
+    catch (JsonException)
+    {
+      return null;
+    }
+  }
+
+  private HttpRequestMessage BuildRequest(IReadOnlyList<ChatTurn> turns, ChatOptions options, bool stream)
+  {
+    var request = new HttpRequestMessage(HttpMethod.Post, Endpoint(_options.BaseUrl));
+    if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+    {
+      request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+    }
+    request.Content = JsonContent.Create(new ChatRequest(
+      _options.Model,
+      turns.Select(t => new ChatMessage(t.Role, t.Content)).ToList(),
+      options.Temperature,
+      options.MaxTokens,
+      stream), options: Json);
+    return request;
+  }
+
+  /// <summary>
+  /// Removes think blocks from a stream of pieces. Text that could still turn out to be the start
+  /// of a tag is held back until the next piece settles it.
+  /// </summary>
+  public sealed class ThinkFilter
+  {
+    private const string Open = "<think>";
+    private const string Close = "</think>";
+
+    private readonly StringBuilder _pending = new();
+    private bool _thinking;
+
+    public string Push(string piece)
+    {
+      _pending.Append(piece);
+      var output = new StringBuilder();
+      while (true)
+      {
+        var text = _pending.ToString();
+        var tag = _thinking ? Close : Open;
+        var at = text.IndexOf(tag, StringComparison.Ordinal);
+        if (at >= 0)
+        {
+          if (!_thinking) output.Append(text, 0, at);
+          _pending.Clear().Append(text, at + tag.Length, text.Length - at - tag.Length);
+          _thinking = !_thinking;
+          continue;
+        }
+        // No whole tag: keep only a tail that could be the start of one.
+        var keep = PartialTagLength(text, tag);
+        if (!_thinking) output.Append(text, 0, text.Length - keep);
+        _pending.Clear().Append(text, text.Length - keep, keep);
+        return output.ToString();
+      }
+    }
+
+    /// <summary>What is left when the stream ends: held-back text that never became a tag.</summary>
+    public string Flush()
+    {
+      var rest = _thinking ? string.Empty : _pending.ToString();
+      _pending.Clear();
+      return rest;
+    }
+
+    private static int PartialTagLength(string text, string tag)
+    {
+      for (var length = Math.Min(tag.Length - 1, text.Length); length > 0; length--)
+      {
+        if (string.CompareOrdinal(text, text.Length - length, tag, 0, length) == 0) return length;
+      }
+      return 0;
+    }
+  }
 
   private sealed record ChatRequest(
     string Model,
@@ -78,11 +237,15 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
     [property: JsonPropertyName("max_tokens")] int MaxTokens,
     bool Stream);
 
-  private sealed record ChatMessage(string Role, string Content);
+  private sealed record ChatMessage(string? Role, string? Content);
 
   private sealed record ChatResponse(IReadOnlyList<ChatChoice>? Choices, ChatUsage? Usage);
 
   private sealed record ChatChoice(ChatMessage? Message);
+
+  private sealed record StreamChunk(IReadOnlyList<StreamChoice>? Choices);
+
+  private sealed record StreamChoice(ChatMessage? Delta);
 
   private sealed record ChatUsage(
     [property: JsonPropertyName("prompt_tokens")] int? PromptTokens,

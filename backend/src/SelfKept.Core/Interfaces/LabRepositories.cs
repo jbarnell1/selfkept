@@ -27,6 +27,9 @@ public interface ILabReportRepository
   /// <summary>Server-internal: the person's reports newest first, results included, for the rules. Not a viewer read.</summary>
   Task<IReadOnlyList<LabReport>> ListOwnAsync(Guid personId, int limit, CancellationToken ct = default);
 
+  /// <summary>Saves changes to a report fetched with <see cref="GetOwnAsync"/> (the draw conditions).</summary>
+  Task UpdateAsync(LabReport report, CancellationToken ct = default);
+
   /// <summary>Removes the report and its results.</summary>
   Task RemoveAsync(LabReport report, CancellationToken ct = default);
 }

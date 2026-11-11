@@ -26,6 +26,9 @@ public abstract class BaseController : ControllerBase
 
   protected RequestInfo CurrentRequestInfo() => new(HttpContext.Connection.RemoteIpAddress?.ToString());
 
+  /// <summary>Who is making a write: the account, their person, their household and where the request came from.</summary>
+  protected Actor CurrentActor() => new(GetCurrentUserId(), GetCurrentPersonId(), GetCurrentHouseholdId(), CurrentRequestInfo());
+
   /// <summary>200 with the data, or a 404 problem when the service returned null.</summary>
   protected IActionResult HandleServiceResponse<T>(T? response, string? notFoundDetail = null) =>
     response == null ? NotFoundProblem(notFoundDetail) : Ok(response);

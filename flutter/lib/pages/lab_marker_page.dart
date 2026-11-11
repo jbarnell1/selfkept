@@ -3,6 +3,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:provider/provider.dart';
 
 import '../models/lab.dart';
+import '../providers/systems_scope.dart';
 import '../services/labs_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
@@ -13,6 +14,7 @@ import '../widgets/page_body.dart';
 import '../widgets/status_views.dart';
 import '../widgets/surface_card.dart';
 import '../widgets/subpage_app_bar.dart';
+import 'labs/related_readings.dart';
 
 /// One marker: the latest value, where it sits, its ranges in words, what it
 /// is, what moves it and every value on record.
@@ -197,6 +199,8 @@ class _Detail extends StatelessWidget {
             style: theme.textTheme.bodyLarge?.copyWith(height: 1.55),
           ),
         ],
+        if (SystemsFeatures.has(context, SystemsFeatures.labsReview))
+          RelatedReadingsSection(metricKey: marker.metricKey),
         if (detail.history.isNotEmpty) ...[
           const SectionHeader(title: 'History'),
           SurfaceCard(

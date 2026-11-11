@@ -8,6 +8,7 @@ import 'package:selfkept/widgets/check_in_entry.dart';
 import 'package:selfkept/widgets/insight_card.dart';
 import 'package:selfkept/widgets/readiness_row.dart';
 
+import '../helpers/body_fixtures.dart';
 import '../helpers/fake_api_client.dart';
 import '../helpers/pump.dart';
 
@@ -20,6 +21,9 @@ void main() {
     await h.auth.login(email: 'a@b', password: 'x');
     h.api.on('GET', '/sources', (_) => [Fixtures.source()]);
     h.api.on('GET', '/today', (_) => Fixtures.today());
+    h.api.on('GET', '/targets/tally', (_) => BodyFixtures.tally());
+    h.api.on('GET', '/journal', (_) => <Map<String, dynamic>>[]);
+    h.api.on('GET', '/journal/tags', (_) => BodyFixtures.tagGroups());
   });
   tearDown(() => h.dispose());
 
@@ -174,6 +178,7 @@ void main() {
     await tester.pumpWidget(h.wrap(const TodayPage()));
     await tester.pumpAndSettle();
     expect(find.byType(InsightCard), findsNWidgets(2));
+    await scrollTo(tester, find.byTooltip('Dismiss').first);
     await tester.tap(find.byTooltip('Dismiss').first);
     await tester.pumpAndSettle();
     expect(find.byType(InsightCard), findsOneWidget);

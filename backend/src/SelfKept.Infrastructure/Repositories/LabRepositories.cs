@@ -56,6 +56,12 @@ public sealed class LabReportRepository : ILabReportRepository
     return rows;
   }
 
+  public async Task UpdateAsync(LabReport report, CancellationToken ct = default)
+  {
+    // The report is tracked (GetOwnAsync); only its own columns change.
+    await _context.SaveChangesAsync(ct);
+  }
+
   public async Task RemoveAsync(LabReport report, CancellationToken ct = default)
   {
     // Results are loaded with the report (GetOwnAsync), so the provider without ON DELETE CASCADE
@@ -116,6 +122,7 @@ public sealed class LabReferenceRepository : ILabReferenceRepository
         {
           MetricKey = r.MetricKey, Sex = r.Sex, Low = r.Low, High = r.High, OptimalLow = r.OptimalLow, OptimalHigh = r.OptimalHigh,
           GoodDirection = r.GoodDirection, Tier = r.Tier, SourceUrl = r.SourceUrl,
+          AgeSplitAt = r.AgeSplitAt, OlderLow = r.OlderLow, OlderHigh = r.OlderHigh,
         }));
         await context.SaveChangesAsync(ct);
       }
@@ -191,6 +198,41 @@ public static class LabReferenceLookup
         : first.Tier,
       SourceUrl = first.SourceUrl,
     };
+  }
+
+  /// <summary>
+  /// The row for a person's age, for a marker whose source gives a second interval from an age
+  /// upwards (cystatin C at 50). Below the split the row stands; at or above it the older bounds
+  /// apply; with no known age the widest of the two, so only a value outside both is flagged.
+  /// </summary>
+  public static LabReference? ForAge(LabReference? row, int? ageYears)
+  {
+    if (row?.AgeSplitAt is not { } split) return row;
+    double? low, high;
+    if (ageYears is { } age)
+    {
+      if (age < split) return row;
+      (low, high) = (row.OlderLow, row.OlderHigh);
+    }
+    else
+    {
+      low = row.Low is { } l && row.OlderLow is { } ol ? Math.Min(l, ol) : null;
+      high = row.High is { } h && row.OlderHigh is { } oh ? Math.Max(h, oh) : null;
+    }
+    return new LabReference
+    {
+      MetricKey = row.MetricKey, Sex = row.Sex, Low = low, High = high, OptimalLow = row.OptimalLow, OptimalHigh = row.OptimalHigh,
+      GoodDirection = row.GoodDirection, Tier = row.Tier, SourceUrl = row.SourceUrl,
+    };
+  }
+
+  /// <summary>Whole years from the birth date to the day, or null without a birth date.</summary>
+  public static int? AgeOn(DateOnly? birthDate, DateOnly day)
+  {
+    if (birthDate is not { } birth) return null;
+    var age = day.Year - birth.Year;
+    if (day < birth.AddYears(age)) age--;
+    return age < 0 ? null : age;
   }
 
   /// <summary>Whether the marker applies to the person at all (catalogue sex applicability; unknown sex sees everything).</summary>

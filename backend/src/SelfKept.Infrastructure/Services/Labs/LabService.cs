@@ -16,7 +16,8 @@ namespace SelfKept.Infrastructure.Services.Labs;
 /// <summary>
 /// Lab reports end to end: parsing, the confirmed write (results, derived ratios, encrypted
 /// image, lab.* samples under the "Lab results" source, Today cache, an interpret run for
-/// today), the reads for the Labs screen and the clinician PDF. Access is decided in the
+/// today), the delete (its samples and the cards about it go, then today is interpreted again),
+/// the reads for the Labs screen and the clinician PDF. Access is decided in the
 /// repositories: labs for reports and markers, each metric's own category for the PDF trend rows.
 /// </summary>
 public sealed class LabService : ILabService
@@ -36,6 +37,7 @@ public sealed class LabService : ILabService
   private readonly ISampleRepository _samples;
   private readonly IDailySummaryRepository _summaries;
   private readonly ITodayCacheRepository _todayCache;
+  private readonly IInsightRepository _insights;
   private readonly IInterpretRunner _runner;
   private readonly IEncryptionService _encryption;
   private readonly IAuditService _audit;
@@ -54,6 +56,7 @@ public sealed class LabService : ILabService
     ISampleRepository samples,
     IDailySummaryRepository summaries,
     ITodayCacheRepository todayCache,
+    IInsightRepository insights,
     IInterpretRunner runner,
     IEncryptionService encryption,
     IAuditService audit,
@@ -71,6 +74,7 @@ public sealed class LabService : ILabService
     _samples = samples;
     _summaries = summaries;
     _todayCache = todayCache;
+    _insights = insights;
     _runner = runner;
     _encryption = encryption;
     _audit = audit;
@@ -123,6 +127,7 @@ public sealed class LabService : ILabService
       ConfirmedAt = now,
       Results = results,
     };
+    DrawConditions.ApplyOnCreate(report, request.Conditions);
 
     var sampleAt = NoonLocal(collectedOn, zone);
     await _unitOfWork.RunInTransactionAsync(async () =>
@@ -143,7 +148,7 @@ public sealed class LabService : ILabService
 
     await _audit.RecordAsync(new AuditEvent(
       AuditActions.LabReportCreated, userId, householdId, "lab_report", report.Id.ToString(),
-      new { provider, collectedOn = collectedOn.ToIso(), results = results.Count, derived = results.Count(r => r.Derived), hasImage = image != null }, info.IpAddress), ct);
+      new { provider, collectedOn = collectedOn.ToIso(), results = results.Count, derived = results.Count(r => r.Derived), hasImage = image != null, conditionsDefaulted = report.ConditionsDefaulted }, info.IpAddress), ct);
 
     // The lab rules run today rather than waiting for the nightly job. A failure here is logged
     // and never fails the report, which is already stored.
@@ -157,6 +162,34 @@ public sealed class LabService : ILabService
     }
 
     return report.ToDto(_catalogue, notes);
+  }
+
+  public async Task<LabReportDto?> UpdateConditionsAsync(Guid userId, Guid personId, Guid? householdId, Guid reportId, DrawConditionsInput request, RequestInfo info, CancellationToken ct = default)
+  {
+    var report = await _reports.GetOwnAsync(personId, reportId, ct);
+    if (report == null) return null;
+    DrawConditions.Replace(report, request);
+    await _reports.UpdateAsync(report, ct);
+    await _todayCache.InvalidateAsync(personId, ct);
+
+    await _audit.RecordAsync(new AuditEvent(
+      AuditActions.LabReportConditionsUpdated, userId, householdId, "lab_report", report.Id.ToString(),
+      new { collectedOn = report.CollectedOn.ToIso() }, info.IpAddress), ct);
+
+    // The draw-condition rules read these, so today is interpreted again; a failure is logged only.
+    var person = await _persons.GetByIdAsync(personId, ct);
+    if (person != null)
+    {
+      try
+      {
+        await _runner.RunForPersonAsync(personId, Today(person), ct);
+      }
+      catch (Exception ex) when (ex is not OperationCanceledException)
+      {
+        _logger.LogError(ex, "Interpret run after draw conditions on {ReportId} failed for person {PersonId}", report.Id, personId);
+      }
+    }
+    return report.ToDto(_catalogue, Notes(report));
   }
 
   public async Task<IReadOnlyList<LabReportDto>?> ListReportsAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default)
@@ -187,6 +220,8 @@ public sealed class LabService : ILabService
         await _sources.UpdateAsync(source, ct);
       }
       await _reports.RemoveAsync(report, ct);
+      // Cards about the panel go with it, on every day; a dismissed one stays dismissed.
+      await _insights.RemoveOwnForReportAsync(personId, report.Id, ct);
       await _todayCache.InvalidateAsync(personId, ct);
       return true;
     }, ct: ct);
@@ -194,6 +229,20 @@ public sealed class LabService : ILabService
     await _audit.RecordAsync(new AuditEvent(
       AuditActions.LabReportDeleted, userId, householdId, "lab_report", report.Id.ToString(),
       new { collectedOn = report.CollectedOn.ToIso(), results = report.Results.Count }, info.IpAddress), ct);
+
+    // The lab rules run today against the panels that are left, as after a save; a failure is logged only.
+    var person = await _persons.GetByIdAsync(personId, ct);
+    if (person != null)
+    {
+      try
+      {
+        await _runner.RunForPersonAsync(personId, Today(person), ct);
+      }
+      catch (Exception ex) when (ex is not OperationCanceledException)
+      {
+        _logger.LogError(ex, "Interpret run after deleting lab report {ReportId} failed for person {PersonId}", report.Id, personId);
+      }
+    }
     return true;
   }
 
@@ -205,10 +254,11 @@ public sealed class LabService : ILabService
     if (reports == null) return null;
 
     var history = HistoryByMarker(reports);
+    var today = Today(person);
     return _catalogue.All
       .Where(m => m.IsLab)
       .OrderBy(m => LabPanel.OrderOf(m.Key)).ThenBy(m => m.Key, StringComparer.Ordinal)
-      .Select(m => Marker(m, person.SexAtBirth, history.TryGetValue(m.Key, out var points) ? points : []))
+      .Select(m => Marker(m, person, today, history.TryGetValue(m.Key, out var points) ? points : []))
       .ToList();
   }
 
@@ -224,8 +274,9 @@ public sealed class LabService : ILabService
     if (reports == null) return null;
 
     var history = HistoryByMarker(reports).TryGetValue(metric.Key, out var points) ? points : [];
-    var reference = _references.Find(metric, person.SexAtBirth);
-    return new LabMarkerDetailDto(Marker(metric, person.SexAtBirth, history), metric.Blurb, LabPanel.WhatMoves(metric.Key), reference?.SourceUrl, history);
+    var today = Today(person);
+    var reference = Reference(metric, person, today);
+    return new LabMarkerDetailDto(Marker(metric, person, today, history), metric.Blurb, LabPanel.WhatMoves(metric.Key), reference?.SourceUrl, history);
   }
 
   public async Task<LabSummaryPdf?> ExportSummaryAsync(Guid userId, Guid viewerPersonId, Guid targetPersonId, Guid? householdId, DateOnly? from, DateOnly? to, RequestInfo info, CancellationToken ct = default)
@@ -258,7 +309,7 @@ public sealed class LabService : ILabService
       var latest = panels.ElementAtOrDefault(0)?.Results.FirstOrDefault(x => x.MetricKey == metric.Key);
       var previous = panels.ElementAtOrDefault(1)?.Results.FirstOrDefault(x => x.MetricKey == metric.Key);
       if (latest == null && previous == null) continue;
-      var reference = _references.Find(metric, person.SexAtBirth);
+      var reference = Reference(metric, person, today);
       labRows.Add(new LabSummaryLabRow(
         metric.DisplayName, metric.Unit,
         latest?.Value, FlagFor(latest, reference),
@@ -433,9 +484,16 @@ public sealed class LabService : ILabService
     return history;
   }
 
-  private LabMarkerDto Marker(Metric metric, SexAtBirth sex, List<LabPointDto> points)
+  private DateOnly Today(Person person) => DayBoundaries.LocalDay(_clock.GetUtcNow().UtcDateTime, DayBoundaries.Resolve(person.TimeZone));
+
+  /// <summary>The population row for the person's sex and, for an age-split marker, their age today.</summary>
+  private LabReference? Reference(Metric metric, Person person, DateOnly today) =>
+    LabReferenceLookup.ForAge(_references.Find(metric, person.SexAtBirth), LabReferenceLookup.AgeOn(person.BirthDate, today));
+
+  private LabMarkerDto Marker(Metric metric, Person person, DateOnly today, List<LabPointDto> points)
   {
-    var reference = _references.Find(metric, sex);
+    var sex = person.SexAtBirth;
+    var reference = Reference(metric, person, today);
     var latest = points.ElementAtOrDefault(0);
     var previous = points.ElementAtOrDefault(1);
     return new LabMarkerDto(

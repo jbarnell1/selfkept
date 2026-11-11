@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using SelfKept.Core.DTOs;
 using SelfKept.Core.Entities;
 
@@ -6,13 +7,15 @@ namespace SelfKept.Core.Interfaces;
 /// <summary>What one rule saw, pre-loaded once per person per day so rules stay pure.</summary>
 public sealed class RuleContext
 {
-  public RuleContext(Person person, DateOnly day, IReadOnlyDictionary<string, Baseline> baselines, IReadOnlyDictionary<string, IReadOnlyList<DailySummary>> series, LabContext? labs = null)
+  public RuleContext(Person person, DateOnly day, IReadOnlyDictionary<string, Baseline> baselines, IReadOnlyDictionary<string, IReadOnlyList<DailySummary>> series, LabContext? labs = null, BodyContext? body = null, ContextState? context = null)
   {
     Person = person;
     Day = day;
     Baselines = baselines;
     Series = series;
     Labs = labs ?? LabContext.Empty;
+    Body = body ?? BodyContext.Empty;
+    Context = context ?? ContextState.Empty;
     // HRV: rmssd when the person has it, else sdnn (design, "whichever the person has").
     HrvMetricKey = series.TryGetValue(MetricKeys.HrvRmssdMs, out var rmssd) && rmssd.Count > 0 ? MetricKeys.HrvRmssdMs : MetricKeys.HrvSdnnMs;
   }
@@ -32,6 +35,12 @@ public sealed class RuleContext
 
   /// <summary>The person's lab panels and the reference ranges for their sex. Empty when none are stored.</summary>
   public LabContext Labs { get; }
+
+  /// <summary>Goals, the weigh-in series, the week of targets and what the person takes. Empty when none are stored.</summary>
+  public BodyContext Body { get; }
+
+  /// <summary>What is going on in the person's life that explains readings (docs/context-design.md). Empty when nothing applies.</summary>
+  public ContextState Context { get; }
 
   public Baseline? BaselineFor(string metricKey) => Baselines.TryGetValue(metricKey, out var b) ? b : null;
 
@@ -76,6 +85,12 @@ public sealed class RuleContext
 public sealed record LabPanelSnapshot(Guid ReportId, DateOnly CollectedOn, DateOnly ConfirmedOn, IReadOnlyDictionary<string, LabResult> Results)
 {
   public LabResult? Result(string metricKey) => Results.TryGetValue(metricKey, out var r) ? r : null;
+
+  /// <summary>How the blood was drawn (docs/labs-design.md, "Draw conditions").</summary>
+  public PanelConditions Conditions { get; init; } = PanelConditions.Unknown;
+
+  /// <summary>Substance tags of the medicines and supplements active on the collected day.</summary>
+  public IReadOnlyCollection<string> Substances { get; init; } = [];
 }
 
 /// <summary>Lab panels newest first, plus the reference row that applies to this person for a marker.</summary>
@@ -100,6 +115,65 @@ public sealed class LabContext
   public Func<string, LabReference?> Reference { get; }
 
   public LabPanelSnapshot? Latest => Panels.Count > 0 ? Panels[0] : null;
+
+  /// <summary>The person's sex at birth, for the sex-specific thresholds and variation figures of the cross-reference rules.</summary>
+  public Enums.SexAtBirth Sex { get; init; }
+
+  /// <summary>The person's active trials, oldest start first (docs/labs-design.md, "Trials").</summary>
+  public IReadOnlyList<Trial> Trials { get; init; } = [];
+}
+
+/// <summary>One reading on one day of a series that does not arrive daily, such as a weigh-in.</summary>
+public readonly record struct DatedValue(DateOnly Day, double Value);
+
+/// <summary>
+/// Where one active goal stands on the day being interpreted. Status is one of PaceStatuses.
+/// ReachedAWeekAgo lets a rule say "reached" for a week and then fall quiet.
+/// </summary>
+public sealed record GoalStanding(
+  Goal Goal,
+  string? MetricKey,
+  string? MetricName,
+  string? Unit,
+  double? Current,
+  double? PacePerWeek,
+  string Status,
+  bool ReachedAWeekAgo);
+
+/// <summary>How one target went over the seven days ending on the day being interpreted.</summary>
+public sealed record TargetWeek(string Label, string Kind, string Period, int MetDays, int KnownDays, bool? MetThisWeek);
+
+/// <summary>
+/// What the body and goal rules see (docs/body-design.md, "Rules"). Weigh-ins and waist readings
+/// are sparse, so they are judged by readings and spacing and never by the 28-day baseline gate.
+/// </summary>
+public sealed class BodyContext
+{
+  public static readonly BodyContext Empty = new();
+
+  /// <summary>Active goals, main first.</summary>
+  public IReadOnlyList<GoalStanding> Goals { get; init; } = [];
+
+  /// <summary>Weigh-ins of the last 120 days after screening, oldest first, in kg.</summary>
+  public IReadOnlyList<DatedValue> Weight { get; init; } = [];
+
+  /// <summary>The smoothed weight on the latest weigh-in, in kg.</summary>
+  public double? TrendWeightKg { get; init; }
+
+  /// <summary>Change per week over the last four weeks in kg (negative is down), or null with too few readings.</summary>
+  public double? WeeklyRateKg { get; init; }
+
+  /// <summary>Waist readings of the last 120 days, oldest first, in cm.</summary>
+  public IReadOnlyList<DatedValue> Waist { get; init; } = [];
+
+  public IReadOnlyList<TargetWeek> Targets { get; init; } = [];
+
+  /// <summary>Substance tags of the medicines and supplements the person takes on the day.</summary>
+  public IReadOnlyCollection<string> Substances { get; init; } = [];
+
+  public bool HasGoalOn(string metricKey) => Goals.Any(g => g.MetricKey == metricKey);
+
+  public bool Takes(string substance) => Substances.Contains(substance);
 }
 
 /// <summary>What a rule produces when it fires.</summary>
@@ -194,6 +268,47 @@ public interface IChatModel
   bool Enabled { get; }
   string ModelName { get; }
   Task<ChatCompletion> CompleteAsync(string system, string user, ChatOptions options, CancellationToken ct = default);
+
+  /// <summary>
+  /// A conversation of several turns. The default folds the turns into the single-prompt call so
+  /// an implementation that only knows one prompt keeps working.
+  /// </summary>
+  Task<ChatCompletion> CompleteAsync(IReadOnlyList<ChatTurn> turns, ChatOptions options, CancellationToken ct = default)
+  {
+    var (system, user) = ChatTurn.Fold(turns);
+    return CompleteAsync(system, user, options, ct);
+  }
+
+  /// <summary>
+  /// The same conversation answered piece by piece as the model writes it. The default yields the
+  /// whole answer as one piece.
+  /// </summary>
+  async IAsyncEnumerable<string> StreamAsync(IReadOnlyList<ChatTurn> turns, ChatOptions options, [EnumeratorCancellation] CancellationToken ct = default)
+  {
+    var completion = await CompleteAsync(turns, options, ct);
+    if (completion.Content.Length > 0) yield return completion.Content;
+  }
+
+  /// <summary>Whether the model server answers at all, without running the model. The default trusts Enabled.</summary>
+  Task<bool> PingAsync(CancellationToken ct = default) => Task.FromResult(Enabled);
+}
+
+/// <summary>One turn of a conversation sent to the model: system, user or assistant.</summary>
+public sealed record ChatTurn(string Role, string Content)
+{
+  public const string System = "system";
+  public const string User = "user";
+  public const string Assistant = "assistant";
+
+  /// <summary>System turns joined into one system prompt; the rest written out as a transcript ending on the last turn.</summary>
+  public static (string System, string User) Fold(IReadOnlyList<ChatTurn> turns)
+  {
+    var system = string.Join("\n\n", turns.Where(t => t.Role == System).Select(t => t.Content));
+    var rest = turns.Where(t => t.Role != System).ToList();
+    if (rest.Count == 1) return (system, rest[0].Content);
+    var user = string.Join("\n", rest.Select(t => (t.Role == Assistant ? "Assistant: " : "User: ") + t.Content));
+    return (system, user);
+  }
 }
 
 /// <summary>Asks the model to reword templated facts, validates the answer, falls back to the template.</summary>

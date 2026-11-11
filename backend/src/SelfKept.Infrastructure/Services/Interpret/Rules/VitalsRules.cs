@@ -29,10 +29,10 @@ public sealed class RhrElevatedRule : RuleBase
   {
     if (!Fires(context, out var values, out var baseline)) return null;
     var distance = BaselineMath.BandDistance(values.Average(), baseline!.P10_28!.Value, baseline.P90_28!.Value, baseline.P25_28!.Value, baseline.P75_28!.Value);
-    return Candidate(InsightSeverities.Watch, MetricsUsed(context),
+    return ContextNotes.Explain(context, Candidate(InsightSeverities.Watch, MetricsUsed(context),
       "Resting heart rate is up on your normal. Worth an easier day.",
       distance,
-      ("nights", values.Select(v => Round(v)).ToArray()), ("p90", Round(baseline.P90_28.Value)), ("days", IsoDays(context, [1, 0])));
+      ("nights", values.Select(v => Round(v)).ToArray()), ("p90", Round(baseline.P90_28.Value)), ("days", IsoDays(context, [1, 0]))), demote: true, ContextNotes.Recovery);
   }
 }
 
@@ -77,9 +77,9 @@ public sealed class IllnessPatternRule : RuleBase
     if (companions == 0) return null;
     evidence.Add(("day", context.Day.ToIso()));
 
-    return Candidate(InsightSeverities.Watch, MetricsUsed(context),
+    return ContextNotes.Explain(context, Candidate(InsightSeverities.Watch, MetricsUsed(context),
       "Heart rate, temperature and breathing are all up tonight. This pattern often goes with coming down with something.",
-      distance + companions, evidence.ToArray());
+      distance + companions, evidence.ToArray()), demote: true, ContextNotes.IllnessLike);
   }
 
   private static bool Above(RuleContext context, string metricKey, out double value, out double p90)
@@ -121,10 +121,10 @@ public sealed class Spo2LowRule : RuleBase
 
     var days = IsoDays(context, low.Select(l => l.Offset));
     var distance = (ThresholdPct - low.Min(l => l.Value)) / Iqr(baseline);
-    return Candidate(InsightSeverities.Clinician, MetricsUsed(context),
+    return ContextNotes.Explain(context, Candidate(InsightSeverities.Clinician, MetricsUsed(context),
       "Overnight oxygen has dipped on two nights. Worth raising with a clinician, especially with snoring or daytime tiredness. " +
       $"Bring your overnight SpO2 history and these dates: {string.Join("; ", low.Select(l => LabRules.Spoken(context.Day.AddDays(-l.Offset))))}.",
       distance,
-      ("nights", low.Select(l => Round(l.Value)).ToArray()), ("threshold", ThresholdPct), ("days", days));
+      ("nights", low.Select(l => Round(l.Value)).ToArray()), ("threshold", ThresholdPct), ("days", days)), demote: false, ContextKinds.Illness, ContextKinds.Travel);
   }
 }

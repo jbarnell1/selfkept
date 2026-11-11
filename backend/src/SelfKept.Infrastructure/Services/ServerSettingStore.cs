@@ -37,8 +37,8 @@ public sealed class ServerSettingStore
     return values;
   }
 
-  /// <summary>Writes every pair in one transaction, replacing what was there.</summary>
-  public async Task SetAsync(IReadOnlyDictionary<string, string> values, Guid updatedBy, CancellationToken ct = default)
+  /// <summary>Writes every pair in one transaction, replacing what was there. A null updatedBy is the server itself.</summary>
+  public async Task SetAsync(IReadOnlyDictionary<string, string> values, Guid? updatedBy, CancellationToken ct = default)
   {
     await using var context = await _contexts.CreateDbContextAsync(ct);
     var keys = values.Keys.ToList();

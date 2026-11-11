@@ -6,14 +6,14 @@ namespace SelfKept.Infrastructure.Data;
 
 /// <summary>
 /// The lab reference ranges and marker aliases as code: the one list that generates the SQL
-/// seed migration (0007_lab_seed.up.sql, checked for drift by LabSeedTests) and seeds the
+/// seed migration (0020_lab_reseed.up.sql, checked for drift by LabSeedTests) and seeds the
 /// InMemory test database, which runs no SQL. The reference rows are the machine-readable CSV
 /// block at the end of docs/lab-ranges.md, copied verbatim; the aliases are the Rythm display
 /// names from the catalogue plus common synonyms.
 /// </summary>
 public static class LabSeed
 {
-  public const string SeedScriptName = "0007_lab_seed.up.sql";
+  public const string SeedScriptName = "0020_lab_reseed.up.sql";
 
   private const string Both = SexApplicabilities.Both;
   private const string Female = SexApplicabilities.Female;
@@ -33,11 +33,13 @@ public static class LabSeed
   {
     var list = new List<LabReference>();
 
-    void Add(string key, string sex, double? low, double? high, double? optimalLow, double? optimalHigh, string direction, string tier, string url) =>
+    void Add(string key, string sex, double? low, double? high, double? optimalLow, double? optimalHigh, string direction, string tier, string url,
+      int? ageSplitAt = null, double? olderLow = null, double? olderHigh = null) =>
       list.Add(new LabReference
       {
         MetricKey = key, Sex = sex, Low = low, High = high, OptimalLow = optimalLow, OptimalHigh = optimalHigh,
         GoodDirection = direction, Tier = tier, SourceUrl = url,
+        AgeSplitAt = ageSplitAt, OlderLow = olderLow, OlderHigh = olderHigh,
       });
 
     const string Mayo = "https://www.mayocliniclabs.com/test-catalog/overview/";
@@ -91,6 +93,27 @@ public static class LabSeed
     Add(LabMetricKeys.Ggt, Female, 5, 36, null, null, Down, Watch, Mayo + "8677");
     Add(LabMetricKeys.Egfr, Both, 90, null, 90, null, Up, Clinician, "https://www.kidney.org/kidney-topics/estimated-glomerular-filtration-rate-egfr");
 
+    // Added with the cross-reference package (docs/lab-ranges.md, "Wider catalogue").
+    const string Interpretive = "#Clinical-and-Interpretive";
+    const string Ada = "https://diabetes.org/about-diabetes/diagnosis";
+    Add(LabMetricKeys.Alt, Male, 7, 55, null, null, Down, Watch, Mayo + "8362" + Interpretive);
+    Add(LabMetricKeys.Alt, Female, 7, 45, null, null, Down, Watch, Mayo + "8362" + Interpretive);
+    Add(LabMetricKeys.Ast, Male, 8, 48, null, null, Down, Watch, Mayo + "8360" + Interpretive);
+    Add(LabMetricKeys.Ast, Female, 8, 43, null, null, Down, Watch, Mayo + "8360" + Interpretive);
+    Add(LabMetricKeys.Platelets, Male, 135, 317, null, null, Range, Watch, Mayo + "9109" + Interpretive);
+    Add(LabMetricKeys.Platelets, Female, 157, 371, null, null, Range, Watch, Mayo + "9109" + Interpretive);
+    Add(LabMetricKeys.Wbc, Both, 3.4, 9.6, null, null, Range, Watch, Mayo + "9109" + Interpretive);
+    Add(LabMetricKeys.Rbc, Male, 4.35, 5.65, null, null, Range, Watch, Mayo + "9109" + Interpretive);
+    Add(LabMetricKeys.Rbc, Female, 3.92, 5.13, null, null, Range, Watch, Mayo + "9109" + Interpretive);
+    Add(LabMetricKeys.Mcv, Both, 78.2, 97.9, null, null, Range, Watch, Mayo + "9109" + Interpretive);
+    Add(LabMetricKeys.HbA1c, Both, 4.0, 5.6, null, null, Down, Watch, Mayo + "82080" + Interpretive);
+    Add(LabMetricKeys.FastingGlucose, Both, null, 100, null, null, Down, Watch, Ada);
+    Add(LabMetricKeys.CystatinC, Both, 0.63, 1.03, null, null, Down, Watch, Mayo + "614154" + Interpretive, ageSplitAt: 50, olderLow: 0.67, olderHigh: 1.21);
+    Add(LabMetricKeys.TransferrinSaturation, Both, 14, 50, null, null, Range, Watch, Mayo + "621385" + Interpretive);
+    Add(LabMetricKeys.Iron, Male, 50, 150, null, null, Range, Watch, Mayo + "621385" + Interpretive);
+    Add(LabMetricKeys.Iron, Female, 35, 145, null, null, Range, Watch, Mayo + "621385" + Interpretive);
+    Add(LabMetricKeys.Tibc, Both, 250, 400, null, null, Range, Watch, Mayo + "621385" + Interpretive);
+
     return list;
   }
 
@@ -143,6 +166,19 @@ public static class LabSeed
     Add(LabMetricKeys.Ggt, "Gamma GT", "Gamma-GT", "Gamma-glutamyl transferase", "Gamma glutamyl transferase", "Gamma-glutamyltransferase", "GGTP", "Gamma-Glutamyl Transferase (GGT)");
     Add(LabMetricKeys.Egfr, "Estimated GFR", "Estimated glomerular filtration rate", "GFR", "eGFR (CKD-EPI)", "GFR, estimated", "eGFR CKD-EPI");
 
+    Add(LabMetricKeys.Alt, "Alanine aminotransferase", "Alanine transaminase", "SGPT", "ALT (SGPT)", "Alanine aminotransferase (ALT)");
+    Add(LabMetricKeys.Ast, "Aspartate aminotransferase", "Aspartate transaminase", "SGOT", "AST (SGOT)", "Aspartate aminotransferase (AST)");
+    Add(LabMetricKeys.Platelets, "Platelet count", "PLT", "Platelet", "Thrombocytes");
+    Add(LabMetricKeys.Wbc, "WBC", "White blood cell count", "White blood cells", "White blood cell", "Leukocytes", "Leukocyte count", "WBC count");
+    Add(LabMetricKeys.Rbc, "RBC", "Red blood cell count", "Red blood cells", "Red blood cell", "Erythrocytes", "Erythrocyte count", "RBC count");
+    Add(LabMetricKeys.Mcv, "Mean corpuscular volume", "Mean cell volume", "Mean corpuscular volume (MCV)");
+    Add(LabMetricKeys.HbA1c, "Hemoglobin A1c", "Haemoglobin A1c", "A1c", "Hb A1c", "Glycated hemoglobin", "Glycated haemoglobin", "Glycohemoglobin", "Hemoglobin A1c (HbA1c)");
+    Add(LabMetricKeys.FastingGlucose, "Glucose, fasting", "Glucose (fasting)", "Fasting blood glucose", "Fasting plasma glucose", "Glucose fasting", "FPG", "FBG");
+    Add(LabMetricKeys.CystatinC, "Cystatin-C", "Cystatin C, serum");
+    Add(LabMetricKeys.TransferrinSaturation, "TSAT", "Iron saturation", "Transferrin sat", "Iron % saturation", "Percent saturation", "Transferrin saturation (TSAT)");
+    Add(LabMetricKeys.Iron, "Serum iron", "Iron, serum", "Iron, total", "Iron (serum)");
+    Add(LabMetricKeys.Tibc, "Total iron binding capacity", "Total iron-binding capacity", "Iron binding capacity", "Total iron binding capacity (TIBC)");
+
     return list;
   }
 
@@ -150,11 +186,12 @@ public static class LabSeed
   public static string ToSql()
   {
     var sb = new StringBuilder();
-    sb.Append("-- 0007_lab_seed: population reference ranges (docs/lab-ranges.md) and marker aliases.\n");
+    sb.Append("-- 0020_lab_reseed: population reference ranges (docs/lab-ranges.md) and marker aliases, seeded again\n");
+    sb.Append("-- so an install that ran 0007 gains the markers added since. 0007 stays as it shipped.\n");
     sb.Append("-- GENERATED from LabSeed.cs (LabSeedTests checks for drift). Edit the C# lists, then regenerate.\n");
     sb.Append("-- Idempotent: re-running updates the reference rows and adds missing aliases; nothing is removed.\n\n");
 
-    sb.Append("INSERT INTO lab_reference (metric_key, sex, low, high, optimal_low, optimal_high, good_direction, tier, source_url) VALUES\n");
+    sb.Append("INSERT INTO lab_reference (metric_key, sex, low, high, optimal_low, optimal_high, good_direction, tier, source_url, age_split_at, older_low, older_high) VALUES\n");
     for (var i = 0; i < References.Count; i++)
     {
       var r = References[i];
@@ -167,7 +204,10 @@ public static class LabSeed
         .Append(Num(r.OptimalHigh)).Append(", ")
         .Append(Lit(r.GoodDirection)).Append(", ")
         .Append(Lit(r.Tier)).Append(", ")
-        .Append(Lit(r.SourceUrl))
+        .Append(Lit(r.SourceUrl)).Append(", ")
+        .Append(r.AgeSplitAt == null ? "NULL" : r.AgeSplitAt.Value.ToString(CultureInfo.InvariantCulture)).Append(", ")
+        .Append(Num(r.OlderLow)).Append(", ")
+        .Append(Num(r.OlderHigh))
         .Append(i == References.Count - 1 ? ")\n" : "),\n");
     }
     sb.Append("ON CONFLICT (metric_key, sex) DO UPDATE SET\n");
@@ -177,7 +217,10 @@ public static class LabSeed
     sb.Append("  optimal_high = EXCLUDED.optimal_high,\n");
     sb.Append("  good_direction = EXCLUDED.good_direction,\n");
     sb.Append("  tier = EXCLUDED.tier,\n");
-    sb.Append("  source_url = EXCLUDED.source_url;\n\n");
+    sb.Append("  source_url = EXCLUDED.source_url,\n");
+    sb.Append("  age_split_at = EXCLUDED.age_split_at,\n");
+    sb.Append("  older_low = EXCLUDED.older_low,\n");
+    sb.Append("  older_high = EXCLUDED.older_high;\n\n");
 
     sb.Append("INSERT INTO lab_marker_alias (metric_key, alias) VALUES\n");
     for (var i = 0; i < Aliases.Count; i++)

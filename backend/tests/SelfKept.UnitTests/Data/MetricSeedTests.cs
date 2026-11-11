@@ -7,7 +7,7 @@ using Xunit;
 namespace SelfKept.UnitTests.Data;
 
 /// <summary>
-/// MetricSeed.cs is the single source of the catalogue; 0004_metric_seed.up.sql is generated from
+/// MetricSeed.cs is the single source of the catalogue; 0019_metric_reseed.up.sql is generated from
 /// it. Regenerate after editing the list:
 ///   SELFKEPT_REGENERATE_SEED=1 dotnet test --filter MetricSeedTests
 /// </summary>
@@ -20,15 +20,16 @@ public class MetricSeedTests
     "sleep_stage", "vo2max", "weight_kg", "body_fat_pct", "height_cm", "menstrual_flow", "basal_body_temp_c",
     "blood_glucose_mmol", "blood_pressure_sys", "blood_pressure_dia", "oura_readiness", "oura_sleep_score",
     "oura_activity_score", "oura_resilience", "oura_stress_high_s", "checkin_mood",
+    "waist_cm", "lean_mass_kg", "bone_mass_kg", "body_water_kg", "energy_intake_kcal", "protein_g", "carbs_g", "fat_g",
   ];
 
   [Fact]
-  public void Seed_ContainsEveryContractKey_AndThirtyLabMarkers()
+  public void Seed_ContainsEveryContractKey_AndFortyTwoLabMarkers()
   {
     var keys = MetricSeed.All.Select(m => m.Key).ToList();
 
     keys.Should().Contain(ContractKeys);
-    keys.Where(k => k.StartsWith("lab.", StringComparison.Ordinal)).Should().HaveCount(30);
+    keys.Where(k => k.StartsWith("lab.", StringComparison.Ordinal)).Should().HaveCount(42);
     keys.Should().OnlyHaveUniqueItems();
   }
 

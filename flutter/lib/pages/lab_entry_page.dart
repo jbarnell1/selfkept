@@ -9,6 +9,8 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:provider/provider.dart';
 
 import '../models/lab.dart';
+import '../models/lab_review.dart';
+import '../providers/systems_scope.dart';
 import '../providers/labs_provider.dart';
 import '../services/labs_service.dart';
 import '../services/ocr/ocr.dart';
@@ -17,6 +19,7 @@ import '../utils/api_error.dart';
 import '../widgets/status_views.dart';
 import '../widgets/subpage_app_bar.dart';
 import '../widgets/dialogs.dart';
+import 'labs/draw_conditions_page.dart';
 
 enum _Stage { choose, reading, sheet }
 
@@ -204,12 +207,17 @@ class _LabEntryPageState extends State<LabEntryPage> {
     final service = context.read<LabsService>();
     final labs = context.read<LabsProvider>();
     final messenger = ScaffoldMessenger.of(context);
+    final askConditions = SystemsFeatures.read(
+      context,
+      SystemsFeatures.labsReview,
+    );
     setState(() {
       _saving = true;
       _error = null;
     });
+    final LabReport report;
     try {
-      await service.createReport(
+      report = await service.createReport(
         provider: _provider,
         collectedOn: _collectedOn,
         results: results,
@@ -225,6 +233,21 @@ class _LabEntryPageState extends State<LabEntryPage> {
     }
     unawaited(labs.refresh());
     if (!mounted) return;
+    // Then how the blood was drawn, opening with what the server filled in
+    // (a Rythm panel arrives as a morning draw after a fast).
+    final conditions = report.conditions;
+    if (askConditions && conditions != null) {
+      await Navigator.of(context).push<DrawConditions>(
+        MaterialPageRoute(
+          builder: (_) => DrawConditionsPage(
+            reportId: report.id,
+            initial: conditions,
+            providerLabel: report.providerLabel,
+          ),
+        ),
+      );
+      if (!mounted) return;
+    }
     _leave();
     showMessage(messenger, 'Kept.');
   }

@@ -100,7 +100,7 @@ public sealed class LabOutOfRangeRule : RuleBase
     var name = context.Labs.DisplayName(lead.Result.MetricKey);
     var direction = lead.Assessment.Position == LabPositions.Above ? "above" : "below";
 
-    var text = $"{name} is {direction} the usual range: {LabRules.Amount(lead.Result.Value, lead.Result.Unit)} on {LabRules.Spoken(panel.CollectedOn)} (usual {LabRules.Range(lead.Reference)}).";
+    var text = $"{name} {MetricNames.Is(lead.Result.MetricKey)} {direction} the usual range: {LabRules.Amount(lead.Result.Value, lead.Result.Unit)} on {LabRules.Spoken(panel.CollectedOn)} (usual {LabRules.Range(lead.Reference)}).";
     var previousResult = previous?.Result(lead.Result.MetricKey);
     if (previousResult != null && previous != null)
     {
@@ -116,7 +116,7 @@ public sealed class LabOutOfRangeRule : RuleBase
       : " Worth rechecking on next month's panel before reading much into it.";
 
     return Candidate(severity, ordered.Select(h => h.Result.MetricKey).ToList(), text, lead.Assessment.Distance,
-      ("reportId", panel.ReportId), ("collectedOn", LabRules.Iso(panel.CollectedOn)),
+      ("reportId", panel.ReportId), ("collectedOn", LabRules.Iso(panel.CollectedOn)), ("previousReportId", previous?.ReportId),
       ("markers", ordered.Select(h => new { metric = h.Result.MetricKey, value = h.Result.Value, unit = h.Result.Unit, position = h.Assessment.Position, low = h.Reference.Low, high = h.Reference.High, severity = h.Assessment.Severity }).ToArray()),
       ("previousCollectedOn", previous == null ? null : LabRules.Iso(previous.CollectedOn)),
       ("previousValue", previousResult?.Value));
@@ -126,7 +126,8 @@ public sealed class LabOutOfRangeRule : RuleBase
 /// <summary>
 /// A watched marker moved 15 percent or more in the direction of worse across the two most
 /// recent panels (ApoB, LDL, hs-CRP, fructosamine, triglycerides, ferritin, TSH, GGT). Watch,
-/// or clinician when the latest value also trips the clinician tier.
+/// or clinician when the latest value also trips the clinician tier. A move that stays inside the
+/// marker's verified reference change value is held (expected_swing says so instead).
 /// </summary>
 public sealed class LabTrendRule : RuleBase
 {
@@ -141,13 +142,16 @@ public sealed class LabTrendRule : RuleBase
     var panel = LabRules.CurrentPanel(context);
     if (panel == null || context.Labs.Panels.Count < 2) return null;
     var previous = context.Labs.Panels[1];
+    // A move inside the marker's reference change value is expected test-to-test variation;
+    // expected_swing labels it and this card holds (docs/cross-reference.md, "Expected swing").
+    var held = ExpectedSwingRule.ExpectedSwings(context, panel, previous).Select(j => j.MetricKey).ToHashSet(StringComparer.Ordinal);
 
     var moves = new List<(string Metric, LabResult Old, LabResult New, double Percent, string Severity)>();
     foreach (var metric in LabMetricKeys.TrendMarkers)
     {
       var latest = panel.Result(metric);
       var earlier = previous.Result(metric);
-      if (latest == null || earlier == null || earlier.Value <= 0) continue;
+      if (latest == null || earlier == null || earlier.Value <= 0 || held.Contains(metric)) continue;
       var reference = context.Labs.Reference(metric);
       if (reference == null) continue;
       var percent = (latest.Value - earlier.Value) / earlier.Value * 100;
@@ -173,7 +177,7 @@ public sealed class LabTrendRule : RuleBase
       : $" Two panels make a direction, not a verdict; keep both dates ({LabRules.Spoken(previous.CollectedOn)} and {LabRules.Spoken(panel.CollectedOn)}) to hand for your next appointment.";
 
     return Candidate(severity, ordered.Select(m => m.Metric).ToList(), text, Math.Abs(lead.Percent) / 100,
-      ("reportId", panel.ReportId), ("collectedOn", LabRules.Iso(panel.CollectedOn)), ("previousCollectedOn", LabRules.Iso(previous.CollectedOn)),
+      ("reportId", panel.ReportId), ("previousReportId", previous.ReportId), ("collectedOn", LabRules.Iso(panel.CollectedOn)), ("previousCollectedOn", LabRules.Iso(previous.CollectedOn)),
       ("moves", ordered.Select(m => new { metric = m.Metric, from = m.Old.Value, to = m.New.Value, percent = Math.Round(m.Percent, 1), unit = m.New.Unit }).ToArray()));
   }
 }

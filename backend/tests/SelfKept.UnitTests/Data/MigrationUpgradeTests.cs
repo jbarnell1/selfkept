@@ -31,7 +31,11 @@ public class MigrationUpgradeTests
      "lab_report", "lab_result", "lab_marker_alias", "lab_reference",
      "oauth_client", "oauth_authorization_request", "oauth_refresh_token", "personal_access_token", "ai_memory",
      "oura_connection", "oura_auth_state",
-     "sample_minute", "sample_rollup_month"];
+     "sample_minute", "sample_rollup_month",
+     "goal", "daily_target", "journal_entry", "medication", "strength_set",
+     "context_event",
+     "assistant_conversation", "assistant_message", "assistant_brief", "nudge_setting", "nudge_log",
+     "trial"];
 
   [RequiresPostgresFact]
   public async Task EmptyDatabase_ToHead_CreatesEveryTable_AndIsIdempotent()
@@ -58,7 +62,7 @@ public class MigrationUpgradeTests
       await using var journal = new NpgsqlCommand("SELECT count(*) FROM schemaversions", connection);
       ((long)(await journal.ExecuteScalarAsync())!).Should().Be(upCount, "each up script is journaled exactly once");
 
-      // 0004 seeds the whole catalogue; 0003 installs the partition helper and sample is partitioned.
+      // 0004 and 0014 seed the whole catalogue; 0003 installs the partition helper and sample is partitioned.
       await using var metrics = new NpgsqlCommand("SELECT count(*) FROM metric", connection);
       ((long)(await metrics.ExecuteScalarAsync())!).Should().Be(MetricSeed.All.Count);
       // 0007 seeds the reference ranges and the aliases.

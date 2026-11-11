@@ -12,7 +12,8 @@ public sealed record PersonDto(
   SexAtBirth SexAtBirth,
   DateOnly? BirthDate,
   UnitSystem Units,
-  string TimeZone);
+  string TimeZone,
+  double? HeightCm = null);
 
 public sealed record UserDto(
   Guid Id,
@@ -71,7 +72,9 @@ public sealed record UpdateProfileRequest(
   SexAtBirth SexAtBirth,
   DateOnly? BirthDate,
   UnitSystem Units,
-  [Required, MaxLength(64)] string TimeZone);
+  [Required, MaxLength(64)] string TimeZone,
+  /// <summary>Centimetres. Null leaves the stored height as it is; send 0 to clear it.</summary>
+  double? HeightCm = null);
 
 public sealed record ChangePasswordRequest(
   [Required] string CurrentPassword,
