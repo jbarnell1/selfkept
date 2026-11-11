@@ -10,7 +10,9 @@ using SelfKept.Infrastructure.Mcp.Tools;
 using SelfKept.Infrastructure.Mcp;
 using SelfKept.Infrastructure.Repositories;
 using SelfKept.Infrastructure.Security;
+using SelfKept.Infrastructure.Services.Body;
 using SelfKept.Infrastructure.Services.Collect;
+using SelfKept.Infrastructure.Services.ContextEngine;
 using SelfKept.Infrastructure.Services.Connect;
 using SelfKept.Infrastructure.Services.Export;
 using SelfKept.Infrastructure.Services.Sso;
@@ -19,6 +21,7 @@ using SelfKept.Infrastructure.Services.Interpret;
 using SelfKept.Infrastructure.Services.Labs;
 using SelfKept.Infrastructure.Services.Oura;
 using SelfKept.Infrastructure.Services;
+using SelfKept.Infrastructure.Services.Assistant;
 
 namespace SelfKept.Infrastructure;
 
@@ -94,6 +97,9 @@ public static class DependencyInjection
     services.AddScoped<IIngestService, IngestService>();
     services.AddScoped<ICheckinService, CheckinService>();
     services.AddScoped<IDataService, DataService>();
+    services.AddScoped<RetentionPolicy>();
+    services.AddScoped<SampleRetention>();
+    services.AddScoped<IRetentionService, RetentionService>();
 
     // Package 3 (Interpret). The model adapter is the app's only outbound HTTP, to the host the
     // user configured under Ai:, and only when Ai:Enabled is true.
@@ -120,6 +126,36 @@ public static class DependencyInjection
     services.AddScoped<ILabReportRepository, LabReportRepository>();
     services.AddSingleton<LabSummaryPdfRenderer>();
     services.AddScoped<ILabService, LabService>();
+    // Lab review and cross-reference: trials, the review, the links, the household overview.
+    services.AddScoped<ITrialRepository, TrialRepository>();
+    services.AddScoped<ITrialService, TrialService>();
+    services.AddScoped<ILabReviewService, LabReviewService>();
+    services.AddScoped<IHouseholdOverviewService, HouseholdOverviewService>();
+
+    // Body and goals: goals, targets, the journal, medicines, the strength log, typed measurements.
+    services.AddScoped<IGoalRepository, GoalRepository>();
+    services.AddScoped<IDailyTargetRepository, DailyTargetRepository>();
+    services.AddScoped<IJournalRepository, JournalRepository>();
+    services.AddScoped<IMedicationRepository, MedicationRepository>();
+    services.AddScoped<IStrengthRepository, StrengthRepository>();
+    services.AddScoped<IGoalService, GoalService>();
+    services.AddScoped<ITargetService, TargetService>();
+    services.AddScoped<IJournalService, JournalService>();
+    services.AddScoped<IMedicationService, MedicationService>();
+    services.AddScoped<IStrengthService, StrengthService>();
+    services.AddScoped<IMeasurementService, MeasurementService>();
+    services.AddScoped<IProgressService, ProgressService>();
+    services.AddScoped<IBodyContextLoader, BodyContextLoader>();
+
+    // Context, patterns, systems, read-backs and the weekly review (docs/context-design.md).
+    services.AddScoped<IContextEventRepository, ContextEventRepository>();
+    services.AddScoped<IReadBackRepository, ReadBackRepository>();
+    services.AddScoped<IContextLoader, ContextLoader>();
+    services.AddScoped<IContextService, ContextService>();
+    services.AddScoped<IPatternService, PatternService>();
+    services.AddScoped<IReadBackService, ReadBackService>();
+    services.AddScoped<ISystemsService, SystemsService>();
+    services.AddScoped<IWeeklyReviewService, WeeklyReviewService>();
 
     // Package 5 (Connect): the OAuth server for /mcp, personal tokens, assistant memory, the tools.
     services.AddSingleton(McpSettings.From(configuration));
@@ -195,6 +231,11 @@ public static class DependencyInjection
     services.AddJobLockedHostedService<HousekeepingJob>();
     services.AddJobLockedHostedService<InterpretNightlyJob>();
     services.AddJobLockedHostedService<OuraPollJob>();
+    services.AddScoped<SleepDayRecompute>();
+    services.AddJobLockedHostedService<SleepDayRecomputeJob>();
+
+    // The in-app assistant (docs/assistant-design.md), including its nudge job.
+    services.AddAssistant();
 
     return services;
   }

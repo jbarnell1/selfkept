@@ -1,6 +1,6 @@
 # Lab reference ranges
 
-Approximate adult population reference ranges for the 30 markers in the monthly Rythm Health panel. These are not the lab's own ranges. Reference intervals vary by laboratory, assay, age, and (for hormones) time of day and menstrual phase, so the app shades these as a "usual range" behind a person's own values and labels them as approximate. Where a source used other units, the value was converted and the conversion is stated in the note. Values marked "optimal" are guideline or commonly cited treatment thresholds, not population ranges, and are labelled as such. Sources were opened on 2026-10-29.
+Approximate adult population reference ranges for the 30 markers in the monthly Rythm Health panel, and for 12 more markers a fuller panel may carry ("Wider catalogue" below). These are not the lab's own ranges. Reference intervals vary by laboratory, assay, age, and (for hormones) time of day and menstrual phase, so the app shades these as a "usual range" behind a person's own values and labels them as approximate. Where a source used other units, the value was converted and the conversion is stated in the note. Values marked "optimal" are guideline or commonly cited treatment thresholds, not population ranges, and are labelled as such. Sources were opened on 2026-10-29.
 
 Conventions: Low and High are the usual-range bounds in the app's stored unit. A blank Low means the source gives only an upper bound (lower is fine). "Good direction" is up (higher is better), down (lower is better), or range (stay inside the band). Where sexes differ there is one row per sex; "both" means a single adult range.
 
@@ -52,6 +52,31 @@ Conventions: Low and High are the usual-range bounds in the app's stored unit. A
 | lab.ggt | U/L | male | 8 | 61 | Mayo, age 18+. MedlinePlus adult 5 to 40 (no sex split). Alcohol and some drugs raise it. | down | [Mayo GGT](https://www.mayocliniclabs.com/test-catalog/overview/8677), [MedlinePlus](https://medlineplus.gov/ency/article/003458.htm) |
 | lab.ggt | U/L | female | 5 | 36 | Mayo, age 18+. | down | [Mayo GGT](https://www.mayocliniclabs.com/test-catalog/overview/8677), [MedlinePlus](https://medlineplus.gov/ency/article/003458.htm) |
 | lab.egfr | mL/min/1.73m2 | both | 90 |  | CKD stages (NKF): G1 >=90 normal, G2 60 to 89 mild loss, G3a 45 to 59, G3b 30 to 44, G4 15 to 29, G5 <15 kidney failure. Declines with age; G1 and G2 are only CKD with other kidney damage for 3+ months. NKF pages do not print the unit; mL/min/1.73m2 is the standard reporting unit. | up | [NKF eGFR](https://www.kidney.org/kidney-topics/estimated-glomerular-filtration-rate-egfr), [NKF CKD stages](https://www.kidney.org/kidney-topics/stages-chronic-kidney-disease-ckd) |
+| lab.alt | U/L | male | 7 | 55 | Mayo, 1 year and over. | down | [Mayo ALT](https://www.mayocliniclabs.com/test-catalog/overview/8362#Clinical-and-Interpretive) |
+| lab.alt | U/L | female | 7 | 45 | Mayo, 1 year and over. | down | [Mayo ALT](https://www.mayocliniclabs.com/test-catalog/overview/8362#Clinical-and-Interpretive) |
+| lab.ast | U/L | male | 8 | 48 | Mayo, 14 years and over. | down | [Mayo AST](https://www.mayocliniclabs.com/test-catalog/overview/8360#Clinical-and-Interpretive) |
+| lab.ast | U/L | female | 8 | 43 | Mayo, 14 years and over. | down | [Mayo AST](https://www.mayocliniclabs.com/test-catalog/overview/8360#Clinical-and-Interpretive) |
+| lab.platelets | 10^9/L | male | 135 | 317 | Mayo CBC, 18 years and over. | range | [Mayo CBC](https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive) |
+| lab.platelets | 10^9/L | female | 157 | 371 | Mayo CBC, 18 years and over. | range | [Mayo CBC](https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive) |
+| lab.wbc | 10^9/L | both | 3.4 | 9.6 | Mayo CBC, 18 years and over, both sexes. | range | [Mayo CBC](https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive) |
+| lab.rbc | 10^12/L | male | 4.35 | 5.65 | Mayo CBC, 18 years and over. | range | [Mayo CBC](https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive) |
+| lab.rbc | 10^12/L | female | 3.92 | 5.13 | Mayo CBC, 18 years and over. | range | [Mayo CBC](https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive) |
+| lab.mcv | fL | both | 78.2 | 97.9 | Mayo CBC, 18 years and over, both sexes. | range | [Mayo CBC](https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive) |
+| lab.hba1c | % | both | 4.0 | 5.6 | Mayo reference 4.0 to 5.6 %. ADA: normal under 5.7 %, prediabetes 5.7 to 6.4 %, diabetes 6.5 % or higher (Mayo states its bands as based on ADA). | down | [Mayo HbA1c](https://www.mayocliniclabs.com/test-catalog/overview/82080#Clinical-and-Interpretive), [ADA](https://diabetes.org/about-diabetes/diagnosis) |
+| lab.glucose_fasting | mg/dL | both |  | 100 | ADA fasting plasma glucose: normal under 100, prediabetes 100 to 125, diabetes 126 or higher. Only a fasting draw is comparable. | down | [ADA](https://diabetes.org/about-diabetes/diagnosis) |
+| lab.cystatin_c | mg/L | both | 0.63 | 1.03 | Mayo, 18 to 49 years. 50 years and over: 0.67 to 1.21 mg/L, stored as the age split (see below). No sex split. | down | [Mayo cystatin C](https://www.mayocliniclabs.com/test-catalog/overview/614154#Clinical-and-Interpretive) |
+| lab.transferrin_saturation | % | both | 14 | 50 | Mayo percent saturation. No sex split. | range | [Mayo iron panel](https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive) |
+| lab.iron | ug/dL | male | 50 | 150 | Mayo (mcg/dL = ug/dL). | range | [Mayo iron panel](https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive) |
+| lab.iron | ug/dL | female | 35 | 145 | Mayo (mcg/dL = ug/dL). | range | [Mayo iron panel](https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive) |
+| lab.tibc | ug/dL | both | 250 | 400 | Mayo total iron binding capacity. | range | [Mayo iron panel](https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive) |
+
+## Wider catalogue
+
+Added with the cross-reference package (migrations 0019 and 0020) so a fuller panel is read in full: ALT, AST, platelets, white cell count, red cell count, MCV, HbA1c, fasting glucose, cystatin C, transferrin saturation, serum iron and TIBC. The intervals are the ones checked at the source on 2026-11-10 (Mayo Clinic Laboratories "Reference Values", and the American Diabetes Association diagnosis page). No LOINC codes are stored for these markers.
+
+Cystatin C is the one marker with an age split: `age_split_at` 50, `older_low` 0.67, `older_high` 1.21. A person aged 50 or more on the day is read against the older interval, a younger person against 0.63 to 1.03, and a person without a birth date against the wider of the two (0.63 to 1.21), so only a value outside both is flagged.
+
+Accepted units besides the catalogue unit: fasting glucose in mmol/L (times 18.016), iron and TIBC in umol/L (times 5.585), platelets and white cells as 10^3/uL or K/uL, red cells as 10^6/uL or M/uL (the same numbers at the catalogue scale).
 
 ## Flag tiers
 
@@ -89,8 +114,11 @@ Watch tier: out of range, show the value with the usual range and suggest rechec
 | lab.tg_hdl_ratio | watch | above cutoff | Insulin resistance surrogate without a guideline range. |
 | lab.alp | watch | out of range | Mild elevations are common and need GGT and liver tests for context. |
 | lab.ggt | watch | above range | Rises with alcohol and many drugs; recheck before escalating. |
+| lab.hba1c | watch, clinician | above 5.6 is watch; 6.5 % or higher is clinician | ADA diagnosis cut-off for diabetes. |
+| lab.glucose_fasting | watch, clinician | 100 or more is watch; 126 mg/dL or higher is clinician | ADA diagnosis cut-off for diabetes, fasting draws only. |
+| lab.alt, lab.ast, lab.platelets, lab.wbc, lab.rbc, lab.mcv, lab.cystatin_c, lab.transferrin_saturation, lab.iron, lab.tibc | watch | out of range | Read with the rest of the panel; recheck before reading much into one value. |
 
-Potassium, sodium, and glucose are not on the panel, so no acute electrolyte or glycemic emergency tiers are defined here.
+Potassium and sodium are not in the catalogue, so no acute electrolyte tiers are defined here.
 
 ## Sources
 
@@ -147,54 +175,81 @@ All pages opened on 2026-10-29.
 - [Remnant cholesterol and atherosclerotic cardiovascular disease: Metabolism, mechanism, evidence, and treatment, Frontiers in Cardiovascular Medicine 2022 (PMC9621322)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9621322/)
 - [The Triglyceride/HDL Ratio as a Surrogate Biomarker for Insulin Resistance, Biomedicines 2024 (PMC11274455)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11274455/)
 
+Opened on 2026-11-10 for the wider catalogue:
+
+- [Mayo Clinic Laboratories ALT](https://www.mayocliniclabs.com/test-catalog/overview/8362#Clinical-and-Interpretive)
+- [Mayo Clinic Laboratories AST](https://www.mayocliniclabs.com/test-catalog/overview/8360#Clinical-and-Interpretive)
+- [Mayo Clinic Laboratories CBC with differential](https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive)
+- [Mayo Clinic Laboratories Hemoglobin A1c](https://www.mayocliniclabs.com/test-catalog/overview/82080#Clinical-and-Interpretive)
+- [Mayo Clinic Laboratories Cystatin C](https://www.mayocliniclabs.com/test-catalog/overview/614154#Clinical-and-Interpretive)
+- [Mayo Clinic Laboratories Iron and total iron binding capacity](https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive)
+- [American Diabetes Association: Diagnosis](https://diabetes.org/about-diabetes/diagnosis)
+
 ## Machine-readable
 
-Columns: key, unit, sex, low, high, optimal_low, optimal_high, good_direction, tier, source_url. Blank means no bound or no established value. Tier is the flag tier for an out-of-range value on that row (clinician triggers are listed in the flag tiers table above).
+Columns: key, unit, sex, low, high, optimal_low, optimal_high, good_direction, tier, source_url, age_split_at, older_low, older_high. Blank means no bound or no established value. Tier is the flag tier for an out-of-range value on that row (clinician triggers are listed in the flag tiers table above).
 
 ```csv
-key,unit,sex,low,high,optimal_low,optimal_high,good_direction,tier,source_url
-lab.total_testosterone,ng/dL,male,240,950,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83686
-lab.total_testosterone,ng/dL,female,8,60,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83686
-lab.free_testosterone,pg/mL,male,35,207,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83686
-lab.free_testosterone,pg/mL,female,,10.8,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83686
-lab.estradiol,pg/mL,male,10,40,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/81816
-lab.estradiol,pg/mL,female,15,350,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/81816
-lab.progesterone,ng/mL,male,,0.2,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/8141
-lab.progesterone,ng/mL,female,,24,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/8141
-lab.shbg,nmol/L,male,13.3,89.5,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/608102
-lab.shbg,nmol/L,female,18.2,135.5,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/608102
-lab.cortisol,ug/dL,both,7,25,,,range,clinician,https://www.mayocliniclabs.com/test-catalog/overview/8545
-lab.tsh,mIU/L,both,0.3,4.2,,,range,clinician,https://www.mayocliniclabs.com/test-catalog/overview/8939
-lab.free_t3,pg/mL,both,2.0,4.4,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/621321
-lab.free_t4,ng/dL,both,0.8,2.0,,,range,clinician,https://www.mayocliniclabs.com/test-catalog/overview/8859
-lab.apob,mg/dL,male,66,133,,90,down,watch,https://my.clevelandclinic.org/health/diagnostics/24992-apolipoprotein-b-test
-lab.apob,mg/dL,female,60,117,,90,down,watch,https://my.clevelandclinic.org/health/diagnostics/24992-apolipoprotein-b-test
-lab.ldl,mg/dL,both,,100,,100,down,watch,https://my.clevelandclinic.org/health/articles/24391-ldl-cholesterol
-lab.hdl,mg/dL,male,40,80,60,80,up,watch,https://medlineplus.gov/cholesterollevelswhatyouneedtoknow.html
-lab.hdl,mg/dL,female,50,80,60,80,up,watch,https://medlineplus.gov/cholesterollevelswhatyouneedtoknow.html
-lab.ldl_apob_ratio,ratio,both,,,,,range,none,https://www.mayocliniclabs.com/test-catalog/overview/624438
-lab.hscrp,mg/L,both,,3,,1,down,watch,https://www.labcorp.com/tests/120766/c-reactive-protein-crp-high-sensitivity-cardiac-risk-assessment
-lab.total_cholesterol,mg/dL,both,,200,,200,down,watch,https://medlineplus.gov/cholesterollevelswhatyouneedtoknow.html
-lab.remnant_cholesterol,mg/dL,both,,30,,30,down,watch,https://pmc.ncbi.nlm.nih.gov/articles/PMC11224847/
-lab.tc_hdl_ratio,ratio,both,,5,,3.5,down,watch,https://www.uhhospitals.org/health-information/health-and-wellness-library/tests-and-procedures/article/lab-tests-v1/lipid-panel-with-total-cholesterol-hdl-ratio
-lab.vitamin_d,ng/mL,both,20,50,20,50,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83670
-lab.ferritin,ng/mL,male,31,409,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/619953
-lab.ferritin,ng/mL,female,6,175,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/619953
-lab.fructosamine,umol/L,both,200,285,,,range,clinician,https://www.mayocliniclabs.com/test-catalog/overview/81610
-lab.albumin,g/dL,both,3.4,5.4,,,range,clinician,https://medlineplus.gov/ency/article/003480.htm
-lab.triglycerides,mg/dL,both,,150,,150,down,watch,https://medlineplus.gov/triglycerides.html
-lab.tg_hdl_ratio,ratio,male,,2.8,,,down,watch,https://pmc.ncbi.nlm.nih.gov/articles/PMC11274455/
-lab.tg_hdl_ratio,ratio,female,,2.5,,,down,watch,https://pmc.ncbi.nlm.nih.gov/articles/PMC11274455/
-lab.uric_acid,mg/dL,male,4.0,8.6,,,range,watch,https://medlineplus.gov/ency/article/003476.htm
-lab.uric_acid,mg/dL,female,3.0,7.1,,,range,watch,https://medlineplus.gov/ency/article/003476.htm
-lab.hematocrit,%,male,37,48,,,range,clinician,https://medlineplus.gov/ency/article/003646.htm
-lab.hematocrit,%,female,34,43,,,range,clinician,https://medlineplus.gov/ency/article/003646.htm
-lab.hemoglobin,g/dL,male,13.8,17.2,,,range,clinician,https://medlineplus.gov/ency/article/003645.htm
-lab.hemoglobin,g/dL,female,12.1,15.1,,,range,clinician,https://medlineplus.gov/ency/article/003645.htm
-lab.creatinine,mg/dL,male,0.7,1.3,,,range,clinician,https://medlineplus.gov/ency/article/003475.htm
-lab.creatinine,mg/dL,female,0.5,0.95,,,range,clinician,https://medlineplus.gov/ency/article/003475.htm
-lab.alp,U/L,both,40,129,,,range,watch,https://medlineplus.gov/ency/article/003470.htm
-lab.ggt,U/L,male,8,61,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/8677
-lab.ggt,U/L,female,5,36,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/8677
-lab.egfr,mL/min/1.73m2,both,90,,90,,up,clinician,https://www.kidney.org/kidney-topics/estimated-glomerular-filtration-rate-egfr
+key,unit,sex,low,high,optimal_low,optimal_high,good_direction,tier,source_url,age_split_at,older_low,older_high
+lab.total_testosterone,ng/dL,male,240,950,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83686,,,
+lab.total_testosterone,ng/dL,female,8,60,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83686,,,
+lab.free_testosterone,pg/mL,male,35,207,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83686,,,
+lab.free_testosterone,pg/mL,female,,10.8,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83686,,,
+lab.estradiol,pg/mL,male,10,40,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/81816,,,
+lab.estradiol,pg/mL,female,15,350,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/81816,,,
+lab.progesterone,ng/mL,male,,0.2,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/8141,,,
+lab.progesterone,ng/mL,female,,24,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/8141,,,
+lab.shbg,nmol/L,male,13.3,89.5,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/608102,,,
+lab.shbg,nmol/L,female,18.2,135.5,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/608102,,,
+lab.cortisol,ug/dL,both,7,25,,,range,clinician,https://www.mayocliniclabs.com/test-catalog/overview/8545,,,
+lab.tsh,mIU/L,both,0.3,4.2,,,range,clinician,https://www.mayocliniclabs.com/test-catalog/overview/8939,,,
+lab.free_t3,pg/mL,both,2.0,4.4,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/621321,,,
+lab.free_t4,ng/dL,both,0.8,2.0,,,range,clinician,https://www.mayocliniclabs.com/test-catalog/overview/8859,,,
+lab.apob,mg/dL,male,66,133,,90,down,watch,https://my.clevelandclinic.org/health/diagnostics/24992-apolipoprotein-b-test,,,
+lab.apob,mg/dL,female,60,117,,90,down,watch,https://my.clevelandclinic.org/health/diagnostics/24992-apolipoprotein-b-test,,,
+lab.ldl,mg/dL,both,,100,,100,down,watch,https://my.clevelandclinic.org/health/articles/24391-ldl-cholesterol,,,
+lab.hdl,mg/dL,male,40,80,60,80,up,watch,https://medlineplus.gov/cholesterollevelswhatyouneedtoknow.html,,,
+lab.hdl,mg/dL,female,50,80,60,80,up,watch,https://medlineplus.gov/cholesterollevelswhatyouneedtoknow.html,,,
+lab.ldl_apob_ratio,ratio,both,,,,,range,none,https://www.mayocliniclabs.com/test-catalog/overview/624438,,,
+lab.hscrp,mg/L,both,,3,,1,down,watch,https://www.labcorp.com/tests/120766/c-reactive-protein-crp-high-sensitivity-cardiac-risk-assessment,,,
+lab.total_cholesterol,mg/dL,both,,200,,200,down,watch,https://medlineplus.gov/cholesterollevelswhatyouneedtoknow.html,,,
+lab.remnant_cholesterol,mg/dL,both,,30,,30,down,watch,https://pmc.ncbi.nlm.nih.gov/articles/PMC11224847/,,,
+lab.tc_hdl_ratio,ratio,both,,5,,3.5,down,watch,https://www.uhhospitals.org/health-information/health-and-wellness-library/tests-and-procedures/article/lab-tests-v1/lipid-panel-with-total-cholesterol-hdl-ratio,,,
+lab.vitamin_d,ng/mL,both,20,50,20,50,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/83670,,,
+lab.ferritin,ng/mL,male,31,409,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/619953,,,
+lab.ferritin,ng/mL,female,6,175,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/619953,,,
+lab.fructosamine,umol/L,both,200,285,,,range,clinician,https://www.mayocliniclabs.com/test-catalog/overview/81610,,,
+lab.albumin,g/dL,both,3.4,5.4,,,range,clinician,https://medlineplus.gov/ency/article/003480.htm,,,
+lab.triglycerides,mg/dL,both,,150,,150,down,watch,https://medlineplus.gov/triglycerides.html,,,
+lab.tg_hdl_ratio,ratio,male,,2.8,,,down,watch,https://pmc.ncbi.nlm.nih.gov/articles/PMC11274455/,,,
+lab.tg_hdl_ratio,ratio,female,,2.5,,,down,watch,https://pmc.ncbi.nlm.nih.gov/articles/PMC11274455/,,,
+lab.uric_acid,mg/dL,male,4.0,8.6,,,range,watch,https://medlineplus.gov/ency/article/003476.htm,,,
+lab.uric_acid,mg/dL,female,3.0,7.1,,,range,watch,https://medlineplus.gov/ency/article/003476.htm,,,
+lab.hematocrit,%,male,37,48,,,range,clinician,https://medlineplus.gov/ency/article/003646.htm,,,
+lab.hematocrit,%,female,34,43,,,range,clinician,https://medlineplus.gov/ency/article/003646.htm,,,
+lab.hemoglobin,g/dL,male,13.8,17.2,,,range,clinician,https://medlineplus.gov/ency/article/003645.htm,,,
+lab.hemoglobin,g/dL,female,12.1,15.1,,,range,clinician,https://medlineplus.gov/ency/article/003645.htm,,,
+lab.creatinine,mg/dL,male,0.7,1.3,,,range,clinician,https://medlineplus.gov/ency/article/003475.htm,,,
+lab.creatinine,mg/dL,female,0.5,0.95,,,range,clinician,https://medlineplus.gov/ency/article/003475.htm,,,
+lab.alp,U/L,both,40,129,,,range,watch,https://medlineplus.gov/ency/article/003470.htm,,,
+lab.ggt,U/L,male,8,61,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/8677,,,
+lab.ggt,U/L,female,5,36,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/8677,,,
+lab.egfr,mL/min/1.73m2,both,90,,90,,up,clinician,https://www.kidney.org/kidney-topics/estimated-glomerular-filtration-rate-egfr,,,
+lab.alt,U/L,male,7,55,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/8362#Clinical-and-Interpretive,,,
+lab.alt,U/L,female,7,45,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/8362#Clinical-and-Interpretive,,,
+lab.ast,U/L,male,8,48,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/8360#Clinical-and-Interpretive,,,
+lab.ast,U/L,female,8,43,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/8360#Clinical-and-Interpretive,,,
+lab.platelets,10^9/L,male,135,317,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive,,,
+lab.platelets,10^9/L,female,157,371,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive,,,
+lab.wbc,10^9/L,both,3.4,9.6,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive,,,
+lab.rbc,10^12/L,male,4.35,5.65,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive,,,
+lab.rbc,10^12/L,female,3.92,5.13,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive,,,
+lab.mcv,fL,both,78.2,97.9,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/9109#Clinical-and-Interpretive,,,
+lab.hba1c,%,both,4.0,5.6,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/82080#Clinical-and-Interpretive,,,
+lab.glucose_fasting,mg/dL,both,,100,,,down,watch,https://diabetes.org/about-diabetes/diagnosis,,,
+lab.cystatin_c,mg/L,both,0.63,1.03,,,down,watch,https://www.mayocliniclabs.com/test-catalog/overview/614154#Clinical-and-Interpretive,50,0.67,1.21
+lab.transferrin_saturation,%,both,14,50,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive,,,
+lab.iron,ug/dL,male,50,150,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive,,,
+lab.iron,ug/dL,female,35,145,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive,,,
+lab.tibc,ug/dL,both,250,400,,,range,watch,https://www.mayocliniclabs.com/test-catalog/overview/621385#Clinical-and-Interpretive,,,
 ```

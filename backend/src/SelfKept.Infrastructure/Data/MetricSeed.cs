@@ -6,13 +6,13 @@ namespace SelfKept.Infrastructure.Data;
 
 /// <summary>
 /// The metric catalogue as code: the one list that generates the SQL seed migration
-/// (0004_metric_seed.up.sql, checked for drift by MetricSeedTests) and seeds the InMemory test
+/// (0019_metric_reseed.up.sql, checked for drift by MetricSeedTests) and seeds the InMemory test
 /// database, which runs no SQL. On Postgres the metric table is authoritative and the catalogue
 /// loads from it.
 /// </summary>
 public static class MetricSeed
 {
-  public const string SeedScriptName = "0004_metric_seed.up.sql";
+  public const string SeedScriptName = "0019_metric_reseed.up.sql";
 
   private const string Instant = MetricKinds.Instant;
   private const string Interval = MetricKinds.Interval;
@@ -27,27 +27,39 @@ public static class MetricSeed
   private const string MoodLabels = """{"1":"very_low","2":"low","3":"meh","4":"okay","5":"good","6":"great"}""";
   private const string ResilienceLabels = """{"1":"limited","2":"adequate","3":"solid","4":"strong","5":"exceptional"}""";
 
-  public static IReadOnlyList<Metric> All { get; } = Build();
+  private static readonly (List<Metric> Metrics, HashSet<string> Plural) Built = Build();
 
-  private static List<Metric> Build()
+  public static IReadOnlyList<Metric> All => Built.Metrics;
+
+  /// <summary>
+  /// The metrics whose display name is a plural noun, so a sentence says "Steps are" and "Steps
+  /// were". Code only: the flag shapes copy, not data, so the metric table does not carry it.
+  /// </summary>
+  public static IReadOnlySet<string> PluralNames => Built.Plural;
+
+  private static (List<Metric>, HashSet<string>) Build()
   {
     var list = new List<Metric>();
+    var plurals = new HashSet<string>(StringComparer.Ordinal);
 
     void Add(string key, string unit, string kind, ShareCategory category, string name, string blurb, string direction,
-      string? loinc = null, string? labels = null, string sex = SexApplicabilities.Both) =>
+      string? loinc = null, string? labels = null, string sex = SexApplicabilities.Both, bool plural = false)
+    {
       list.Add(new Metric
       {
         Key = key, Unit = unit, Kind = kind, Category = category, DisplayName = name, Blurb = blurb,
         GoodDirection = direction, Loinc = loinc, ValueLabels = labels, SexApplicability = sex,
       });
+      if (plural) plurals.Add(key);
+    }
 
     // Activity
-    Add("steps", "count", Interval, ShareCategory.Activity, "Steps", "Steps counted by your phone or watch, summed per day.", Up);
+    Add("steps", "count", Interval, ShareCategory.Activity, "Steps", "Steps counted by your phone or watch, summed per day.", Up, plural: true);
     Add("distance_m", "m", Interval, ShareCategory.Activity, "Distance", "Distance walked, run or cycled, in metres.", Up);
     Add("active_energy_kcal", "kcal", Interval, ShareCategory.Activity, "Active energy", "Energy burned through movement, on top of what your body uses at rest.", Up);
     Add("basal_energy_kcal", "kcal", Interval, ShareCategory.Activity, "Resting energy", "Energy your body uses just to keep going, as estimated by your device.", Neutral);
-    Add("exercise_min", "min", Interval, ShareCategory.Activity, "Exercise minutes", "Minutes of movement brisk enough to count as exercise.", Up);
-    Add("flights", "count", Interval, ShareCategory.Activity, "Flights climbed", "Flights of stairs climbed, as estimated by your device.", Up);
+    Add("exercise_min", "min", Interval, ShareCategory.Activity, "Exercise minutes", "Minutes of movement brisk enough to count as exercise.", Up, plural: true);
+    Add("flights", "count", Interval, ShareCategory.Activity, "Flights climbed", "Flights of stairs climbed, as estimated by your device.", Up, plural: true);
 
     // Vitals
     Add("heart_rate_bpm", "bpm", Instant, ShareCategory.Vitals, "Heart rate", "Beats per minute at the moment of the reading.", Range, "8867-4");
@@ -75,6 +87,16 @@ public static class MetricSeed
     Add("weight_kg", "kg", Instant, ShareCategory.Body, "Weight", "Body weight in kilograms.", Neutral, "29463-7");
     Add("body_fat_pct", "%", Instant, ShareCategory.Body, "Body fat", "Body fat as a percentage of weight, from a scale or device.", Neutral, "41982-0");
     Add("height_cm", "cm", Instant, ShareCategory.Body, "Height", "Height in centimetres.", Neutral, "8302-2");
+    Add("waist_cm", "cm", Instant, ShareCategory.Body, "Waist", "Waist measured around the middle, level with the navel.", Neutral);
+    Add("lean_mass_kg", "kg", Instant, ShareCategory.Body, "Lean mass", "Everything that is not fat, as estimated by a scale or device.", Neutral);
+    Add("bone_mass_kg", "kg", Instant, ShareCategory.Body, "Bone mass", "Bone mineral mass as estimated by a scale or device.", Neutral);
+    Add("body_water_kg", "kg", Instant, ShareCategory.Body, "Body water", "Total body water as estimated by a scale or device.", Neutral);
+
+    // Nutrition, read from the phone's health store when another app logs it there
+    Add("energy_intake_kcal", "kcal", Interval, ShareCategory.Body, "Energy eaten", "Calories eaten, as logged in another app.", Neutral);
+    Add("protein_g", "g", Interval, ShareCategory.Body, "Protein", "Protein eaten, as logged in another app.", Neutral);
+    Add("carbs_g", "g", Interval, ShareCategory.Body, "Carbohydrate", "Carbohydrate eaten, as logged in another app.", Neutral);
+    Add("fat_g", "g", Interval, ShareCategory.Body, "Fat", "Fat eaten, as logged in another app.", Neutral);
 
     // Cycle
     Add("menstrual_flow", "level", Interval, ShareCategory.Cycle, "Menstrual flow", "Logged flow, from none to heavy.", Neutral, labels: MenstrualFlowLabels, sex: SexApplicabilities.Female);
@@ -105,7 +127,7 @@ public static class MetricSeed
     Add("lab.ferritin", "ng/mL", Instant, ShareCategory.Labs, "Ferritin", "A measure of the iron your body has stored.", Range, "2276-4");
     Add("lab.fructosamine", "umol/L", Instant, ShareCategory.Labs, "Fructosamine", "Average blood sugar over the past two to three weeks.", Down, "15069-8");
     Add("lab.albumin", "g/dL", Instant, ShareCategory.Labs, "Albumin", "The main protein in blood, made by the liver.", Range, "1751-7");
-    Add("lab.triglycerides", "mg/dL", Instant, ShareCategory.Labs, "Triglycerides", "Fat carried in the blood, often high after a meal.", Down, "2571-8");
+    Add("lab.triglycerides", "mg/dL", Instant, ShareCategory.Labs, "Triglycerides", "Fat carried in the blood, often high after a meal.", Down, "2571-8", plural: true);
     Add("lab.tg_hdl_ratio", "ratio", Instant, ShareCategory.Labs, "Triglyceride to HDL ratio", "Triglycerides divided by HDL; a rough read on insulin sensitivity.", Down);
     Add("lab.uric_acid", "mg/dL", Instant, ShareCategory.Labs, "Uric acid", "A waste product that can build up in joints when high.", Down, "3084-1");
     Add("lab.hematocrit", "%", Instant, ShareCategory.Labs, "Hematocrit", "The share of your blood made up of red cells.", Range, "4544-3");
@@ -115,14 +137,29 @@ public static class MetricSeed
     Add("lab.ggt", "U/L", Instant, ShareCategory.Labs, "GGT", "A liver enzyme that rises with alcohol and some medicines.", Down, "2324-2");
     Add("lab.egfr", "mL/min/1.73m2", Instant, ShareCategory.Labs, "eGFR", "An estimate of how well the kidneys filter, from creatinine, age and sex.", Up, "62238-1");
 
-    return list;
+    // Added with the cross-reference package (docs/lab-ranges.md). No LOINC codes: none were verified.
+    Add("lab.alt", "U/L", Instant, ShareCategory.Labs, "ALT", "Alanine aminotransferase, an enzyme found mostly in the liver.", Down);
+    Add("lab.ast", "U/L", Instant, ShareCategory.Labs, "AST", "Aspartate aminotransferase, an enzyme found in the liver and in muscle.", Down);
+    Add("lab.platelets", "10^9/L", Instant, ShareCategory.Labs, "Platelets", "The cell fragments that help blood clot.", Range, plural: true);
+    Add("lab.wbc", "10^9/L", Instant, ShareCategory.Labs, "White cell count", "The number of white cells, the cells that fight infection.", Range);
+    Add("lab.rbc", "10^12/L", Instant, ShareCategory.Labs, "Red cell count", "The number of red cells, the cells that carry oxygen.", Range);
+    Add("lab.mcv", "fL", Instant, ShareCategory.Labs, "MCV", "Mean corpuscular volume: the average size of your red cells.", Range);
+    Add("lab.hba1c", "%", Instant, ShareCategory.Labs, "HbA1c", "The share of hemoglobin with glucose attached; it reflects average blood sugar over recent months.", Down);
+    Add("lab.glucose_fasting", "mg/dL", Instant, ShareCategory.Labs, "Fasting glucose", "Blood sugar measured after a fast.", Down);
+    Add("lab.cystatin_c", "mg/L", Instant, ShareCategory.Labs, "Cystatin C", "A protein the kidneys clear; a second read on kidney function that does not depend on muscle.", Down);
+    Add("lab.transferrin_saturation", "%", Instant, ShareCategory.Labs, "Transferrin saturation", "The share of the iron transport protein that is carrying iron.", Range);
+    Add("lab.iron", "ug/dL", Instant, ShareCategory.Labs, "Iron", "Iron circulating in the blood on the day of the draw.", Range);
+    Add("lab.tibc", "ug/dL", Instant, ShareCategory.Labs, "TIBC", "Total iron binding capacity: how much iron the blood could carry.", Range);
+
+    return (list, plurals);
   }
 
   /// <summary>Renders the idempotent SQL seed. The migration file must equal this text exactly.</summary>
   public static string ToSql()
   {
     var sb = new StringBuilder();
-    sb.Append("-- 0004_metric_seed: the metric catalogue from docs/ingest-contract.md plus the lab markers.\n");
+    sb.Append("-- 0019_metric_reseed: the whole metric catalogue (docs/ingest-contract.md plus the lab markers), seeded again\n");
+    sb.Append("-- so an install that ran 0004 and 0014 gains the metrics added since. 0004 and 0014 stay as they shipped.\n");
     sb.Append("-- GENERATED from MetricSeed.cs (MetricSeedTests checks for drift). Edit the C# list, then regenerate.\n");
     sb.Append("-- Idempotent: re-running updates display text and classification but never removes a key.\n\n");
     sb.Append("INSERT INTO metric (key, unit, kind, category, display_name, blurb, good_direction, loinc, value_labels, sex_applicability) VALUES\n");

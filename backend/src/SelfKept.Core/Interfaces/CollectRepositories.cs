@@ -37,6 +37,29 @@ public sealed record SampleCursor(DateTime StartAt, Guid Id);
 
 public sealed record SamplePage(IReadOnlyList<Sample> Items, SampleCursor? Next);
 
+/// <summary>How a folded minute is shown where a raw sample is expected (the samples page).</summary>
+public static class SampleMinutes
+{
+  public static readonly TimeSpan Length = TimeSpan.FromMinutes(1);
+
+  /// <summary>start the minute, end one minute later, value the mean, meta { rollup: { min, max, count } }.</summary>
+  public static Sample AsSample(SampleMinute minute, string unit) => new()
+  {
+    Id = minute.Id,
+    PersonId = minute.PersonId,
+    SourceId = minute.SourceId,
+    MetricKey = minute.MetricKey,
+    StartAt = minute.MinuteAt,
+    EndAt = minute.MinuteAt + Length,
+    Value = minute.Avg,
+    Unit = unit,
+    Meta = System.Text.Json.JsonSerializer.Serialize(new { rollup = new { min = minute.Min, max = minute.Max, count = minute.Count } }),
+  };
+
+  /// <summary>The UTC minute a reading falls in.</summary>
+  public static DateTime MinuteOf(DateTime utc) => new(utc.Ticks - utc.Ticks % TimeSpan.TicksPerMinute, DateTimeKind.Utc);
+}
+
 public sealed record MetricOverview(string MetricKey, DateTime FirstAt, DateTime LastAt, long Count, double LastValue);
 
 public interface ISampleRepository
@@ -44,7 +67,11 @@ public interface ISampleRepository
   /// <summary>Creates the monthly partitions the given days fall in (no-op on a non-relational provider).</summary>
   Task EnsurePartitionsAsync(IEnumerable<DateOnly> months, CancellationToken ct = default);
 
-  /// <summary>Inserts with ON CONFLICT (source_id, source_uid) DO NOTHING; reports how many were new.</summary>
+  /// <summary>
+  /// Inserts with ON CONFLICT (source_id, source_uid) DO NOTHING; reports how many were new. A
+  /// dense-metric reading whose source already has a folded row for that minute is a resend of a
+  /// reading retention has folded, and counts as a duplicate too.
+  /// </summary>
   Task<BulkInsertResult> InsertManyAsync(IReadOnlyList<Sample> samples, CancellationToken ct = default);
 
   Task<int> DeleteBySourceUidAsync(Guid sourceId, string sourceUid, CancellationToken ct = default);
@@ -55,12 +82,22 @@ public interface ISampleRepository
   /// </summary>
   Task<IReadOnlyList<Sample>> GetOwnInWindowAsync(Guid personId, string metricKey, DateTime fromUtc, DateTime toUtc, bool byEnd, CancellationToken ct = default);
 
-  /// <summary>Newest first. Null when the metric is unknown or the viewer may not see the target's category.</summary>
+  /// <summary>
+  /// Server-internal read for summary derivation: the person's folded minutes of one dense metric
+  /// whose minute lies in [fromUtc, toUtc). Not a viewer read; no grant applies.
+  /// </summary>
+  Task<IReadOnlyList<SampleMinute>> GetOwnMinutesInWindowAsync(Guid personId, string metricKey, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
+
+  /// <summary>
+  /// Newest first. Null when the metric is unknown or the viewer may not see the target's category.
+  /// For a dense metric, folded minutes come back merged with the raw rows (see <see cref="SampleMinutes"/>).
+  /// </summary>
   Task<SamplePage?> GetPageAsync(Guid viewerPersonId, Guid targetPersonId, string metricKey, DateTime? fromUtc, DateTime? toUtc, int limit, SampleCursor? after, CancellationToken ct = default);
 
   /// <summary>
-  /// One row per metric the viewer may see. For another person only granted categories are
-  /// included; null when nothing at all is granted (the caller answers 404).
+  /// One row per metric the viewer may see, folded minutes included in the times and the count.
+  /// For another person only granted categories are included; null when nothing at all is
+  /// granted (the caller answers 404).
   /// </summary>
   Task<IReadOnlyList<MetricOverview>?> GetOverviewAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default);
 }
@@ -71,6 +108,9 @@ public interface IWorkoutRepository
 
   /// <summary>Null when the viewer may not see the target's activity.</summary>
   Task<IReadOnlyList<Workout>?> ListAsync(Guid viewerPersonId, Guid targetPersonId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
+
+  /// <summary>Server-internal: the person's own workouts that started in the window, newest first.</summary>
+  Task<IReadOnlyList<Workout>> ListOwnAsync(Guid personId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
 }
 
 public interface ICheckinRepository

@@ -16,7 +16,22 @@ import '../widgets/trend_sparkline.dart';
 /// usual range. The ones outside it come first, in amber; tap a row for its
 /// full chart.
 class TrendsPage extends StatefulWidget {
-  const TrendsPage({super.key});
+  static const String defaultSubtitle =
+      'Each line against your own usual, not anyone else\'s.';
+
+  /// The page heading. Systems hosts this list under its own name.
+  final String title;
+  final String? subtitle;
+
+  /// Shown between the heading and the list, whatever the list's state.
+  final List<Widget> leading;
+
+  const TrendsPage({
+    super.key,
+    this.title = 'Trends',
+    this.subtitle = defaultSubtitle,
+    this.leading = const [],
+  });
 
   static const String emptySentence =
       'Trends start once a metric has a week of days behind it.';
@@ -97,10 +112,8 @@ class _TrendsPageState extends State<TrendsPage> {
         child: PageBody(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            const PageHeading(
-              title: 'Trends',
-              subtitle: 'Each line against your own usual, not anyone else\'s.',
-            ),
+            PageHeading(title: widget.title, subtitle: widget.subtitle),
+            ...widget.leading,
             ...body,
           ],
         ),

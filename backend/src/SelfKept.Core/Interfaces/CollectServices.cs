@@ -45,3 +45,18 @@ public interface IDailySummaryService
 {
   Task RecomputeAsync(Guid personId, string timeZone, IReadOnlyCollection<(string MetricKey, DateOnly Day)> touched, CancellationToken ct = default);
 }
+
+/// <summary>
+/// The admin's view of sample retention (docs/retention-design.md). Every method throws
+/// ForbiddenException for anyone but the household admin.
+/// </summary>
+public interface IRetentionService
+{
+  Task<RetentionDto> GetAsync(Guid userId, CancellationToken ct = default);
+
+  /// <summary>Validation error outside 0 or 4 to 600; conflict when the environment sets the window.</summary>
+  Task<RetentionDto> SaveAsync(Guid userId, SaveRetentionRequest request, RequestInfo info, CancellationToken ct = default);
+
+  /// <summary>Runs retention now. Conflict when a run is already going.</summary>
+  Task<RetentionRunDto> RunAsync(Guid userId, RequestInfo info, CancellationToken ct = default);
+}

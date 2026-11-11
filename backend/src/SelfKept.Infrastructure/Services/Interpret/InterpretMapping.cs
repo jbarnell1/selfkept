@@ -87,4 +87,28 @@ public static class MetricNames
     MetricKeys.SleepStage => "Sleep",
     _ => Names.TryGetValue(key, out var name) ? name : key,
   };
+
+  /// <summary>
+  /// The name as it reads inside a sentence: "resting heart rate", "wrist temperature change".
+  /// A name that opens with an acronym or a figure ("HRV (RMSSD)", "VO2 max") keeps its capitals.
+  /// </summary>
+  public static string InSentence(string key) => LowerFirst(For(key));
+
+  /// <summary>Lowers the first letter of an ordinary first word; an acronym or a word with a figure stays as it is.</summary>
+  public static string LowerFirst(string name)
+  {
+    if (name.Length == 0) return name;
+    var space = name.IndexOf(' ');
+    var first = space < 0 ? name : name[..space];
+    if (first.Skip(1).Any(c => char.IsUpper(c) || char.IsDigit(c))) return name;
+    return char.ToLowerInvariant(name[0]) + name[1..];
+  }
+
+  /// <summary>"is" or "are" after the metric's name: "Steps are", "HRV (RMSSD) is". Sleep reads as "Sleep is".</summary>
+  public static string Is(string key) => IsPlural(key) ? "are" : "is";
+
+  /// <summary>"was" or "were" after the metric's name.</summary>
+  public static string Was(string key) => IsPlural(key) ? "were" : "was";
+
+  private static bool IsPlural(string key) => key != MetricKeys.SleepStage && SelfKept.Infrastructure.Data.MetricSeed.PluralNames.Contains(key);
 }

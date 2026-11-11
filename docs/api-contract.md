@@ -48,6 +48,16 @@ Provider sign-in is described in `docs/sso-design.md`.
 | PUT | `/me/password` | `{ currentPassword, newPassword }` | 204 |
 | PUT | `/me/setup` | `{ plan: SetupItem[], completed: bool }` | `UserDto`. Saves the first-run answers; `completed` true finishes setup, false never reopens it. |
 
+## Retention (admin)
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/retention` | | `RetentionDto` |
+| PUT | `/retention` | `{ rawMonths }` | `RetentionDto`; 400 unless 0 or 4 to 600, 409 when the environment sets it |
+| POST | `/retention/run` | | `RetentionRunDto`; 409 while another run is going |
+
+Shapes and rules are in `docs/retention-design.md`. `features` in `/system/version` lists `data.retention`. Members get 403.
+
 ## Integrations (admin)
 
 | Method | Path | Body | Returns |
@@ -72,10 +82,141 @@ Provider sign-in is described in `docs/sso-design.md`.
 | GET | `/household/shares` | | `ShareGrantDto[]` grants I have given |
 | PUT | `/household/shares/{memberPersonId}` | `{ categories: ShareCategory[] }` | replaces my grants to that member |
 | GET | `/household/shared-with-me` | | `{ personId, displayName, categories }[]` |
+| GET | `/household/overview` | | `HouseholdOverviewDto`: every member, the caller first, with a short summary per category the caller may see; a category without a grant is absent. 404 "You are not in a household." |
 
 `MemberDto = { personId, userId, displayName, role, joinedAt }`
 
 `ShareCategory = "activity" | "sleep" | "vitals" | "body" | "labs" | "cycle" | "checkins" | "insights"`
+
+`HouseholdOverviewDto` is in `docs/labs-design.md`, "API".
+
+## Person-scoped reads and own writes (connected record)
+
+These rules hold for every route in the sections below unless the section says otherwise.
+
+- Every route needs a bearer token and is rate limited like the rest of `/api`.
+- `personId` is an optional query parameter on reads and defaults to the caller. The grant named
+  in the Share column is checked in the repository. A read for a person who does not exist, or
+  who has not shared that category, is a 404 with the detail "No such person, or they have not
+  shared this with you." It is never a 403.
+- Writes are always the caller's own; no route writes for someone else. A write or delete on an
+  id that is not the caller's is a 404 with the detail given in the row.
+- A create answers 200 with the saved object, not 201. A delete answers 204.
+- A failed service check is a 400 with the title "Validation failed" and the message as the
+  detail. A request that breaks a field's attributes gets the framework's 400 with an `errors`
+  object.
+- Days are `yyyy-MM-dd` in the target person's time zone; values are metric.
+- `features` in `/system/version` lists `body.goals`, `assistant.chat`, `context.patterns` and
+  `labs.review` on a server that has these sections, so a client can hide them on an older one.
+
+## Body and goals
+
+Full shapes, checks and defaults: `docs/body-design.md`, "API". Migrations 0013 to 0015.
+
+| Method | Path | Body | Returns | Share |
+| --- | --- | --- | --- | --- |
+| GET | `/goals?personId&includeEnded` | | `GoalDto[]`; active only unless `includeEnded=true` | body |
+| POST | `/goals` | `SaveGoalRequest` | `GoalDto`; a goal already active in that slot ends as dropped | own |
+| PUT | `/goals/{id}` | `SaveGoalRequest` | `GoalDto`; 404 "No such goal." | own |
+| POST | `/goals/{id}/end` | `{ status: "done" \| "dropped" }` | `GoalDto`; its targets stay. 404 "No such goal." | own |
+| GET | `/targets?personId` | | `TargetDto[]` in sort order, inactive ones included | body |
+| GET | `/targets/tally?personId` | | `GoalTallyDto`: active goals and each active target against today and the six days before | body, then each target's input under its own category |
+| POST | `/targets` | `SaveTargetRequest` | `TargetDto` | own |
+| PUT | `/targets/{id}` | `SaveTargetRequest` | `TargetDto`; 404 "No such target." | own |
+| DELETE | `/targets/{id}` | | 204; 404 "No such target." | own |
+| GET | `/journal?from&to&personId` | | `JournalEntryDto[]` newest first; default the last 14 days | checkins |
+| GET | `/journal/tags` | | `JournalTagGroupDto[]`, the built-in tag chips by kind | none (catalogue) |
+| POST | `/journal` | `CreateJournalEntryRequest` | `JournalEntryDto` | own |
+| DELETE | `/journal/{id}` | | 204; 404 "No such journal entry." | own |
+| GET | `/medications?personId` | | `MedicationDto[]`, current items first | labs |
+| POST | `/medications` | `SaveMedicationRequest` | `MedicationDto` | own |
+| PUT | `/medications/{id}` | `SaveMedicationRequest` | `MedicationDto`; 404 "No such item." | own |
+| DELETE | `/medications/{id}` | | 204; 404 "No such item." | own |
+| GET | `/strength?from&to&personId` | | `StrengthLiftDto[]`, sets grouped per lift; default the last 120 days | activity |
+| POST | `/strength` | `SaveStrengthSetRequest` | `StrengthSetDto`; the same lift on the same day replaces it | own |
+| DELETE | `/strength/{id}` | | 204; 404 "No such set." | own |
+| GET | `/body/measurements?metricKey` | | `MeasurementDto[]`, the caller's own typed readings, newest first; `metricKey` required | own only |
+| POST | `/body/measurements` | `{ metricKey, value, at? }` | `MeasurementDto`; stored as an ordinary sample | own |
+| DELETE | `/body/measurements/{metricKey}/{id}` | | 204; 404 "No such measurement." | own |
+| GET | `/progress?personId` | | `ProgressDto`: goals, tally, body snapshot, series, strength, suggestions | body; `strength` empty unless activity too, `suggestions` empty for anyone but the person |
+
+Someone else's typed measurements are read through the usual sample and summary endpoints under
+`body`.
+
+## Assistant
+
+Full shapes, closing lines and error texts: `docs/assistant-design.md`, "API". Migration 0016.
+Everything here is the caller's own: no route takes `personId` and nothing is shared with the
+household.
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/assistant/status` | | `{ enabled, model?, reachable }` |
+| GET | `/assistant/conversations` | | `ConversationSummaryDto[]`, up to 50, most recently updated first |
+| POST | `/assistant/conversations` | `{ title? }` (max 80) or empty | `ConversationSummaryDto` |
+| GET | `/assistant/conversations/{id}` | | `ConversationDto` with every message, oldest first; 404 "No such conversation." |
+| DELETE | `/assistant/conversations/{id}` | | 204; day log entries it saved stay. 404 "No such conversation." |
+| POST | `/assistant/conversations/{id}/messages` | `{ text }` (1 to 2000) | `text/event-stream`, see below. Errors before the stream starts are problem details; 404 "No such conversation." |
+| DELETE | `/assistant/messages/{messageId}/captures` | | `{ messageId, removedEntries, removedMemories, removedCheckins }`: Undo for what one message saved. 404 "No such message." |
+| POST | `/assistant/checkin` | `{ answer?, leave? }` or empty | `CheckinTurnDto`: starts, continues, resumes or leaves today's evening check-in |
+| GET | `/assistant/checkin/today` | | `{ day, status, conversationId?, topic?, question?, missing, done, skipped }` |
+| GET | `/assistant/brief` | | `{ day, text, generated, items, computedAt }`; 404 "No person profile for this account." |
+| GET | `/assistant/memory` | | `AiMemoryDto[]` newest first, including facts written over `/mcp` |
+| DELETE | `/assistant/memory/{id}` | | 204, audited as `memory.deleted`; 404 "No such memory." |
+| GET | `/assistant/playbook` | | `PlaybookEntryDto[]` that apply today; 404 "No person profile for this account." |
+| GET | `/assistant/nudges` | | `NudgeSettingsDto`; the ntfy topic and token are never returned |
+| PUT | `/assistant/nudges` | `{ enabled, ntfyUrl?, ntfyToken?, eveningTime? }` | `NudgeSettingsDto` |
+| POST | `/assistant/nudges/test` | | `{ sent, error? }`; 5 a minute |
+| POST | `/assistant/model-check` | | `ModelCheckDto`; admin only (403 for members), 5 a minute |
+
+The message stream is `Content-Type: text/event-stream; charset=utf-8`, one `event: <name>` and
+one `data: <json>` line per frame. The order is `capture` exactly once
+(`{ conversationId, messageId, entries, remembered }`), then `delta` zero or more times
+(`{ text }`, one checked sentence), then `replace` at most once (`{ text, reason: "guard" |
+"unreachable" }`, the client discards what it showed), then `done` exactly once
+(`{ conversationId, messageId, userMessageId, origin: "model" | "template" | "guard", text, redFlag }`).
+`redFlag` is true only when the reply answers a red-flag message (the urgent-care wording); a
+refused model answer is origin `guard` too and has `redFlag` false. Stored messages carry the same
+`redFlag` field.
+
+## Context, patterns, read-backs, systems and weekly review
+
+Full shapes and checks: `docs/context-design.md`, "API". Migration 0018.
+
+| Method | Path | Body | Returns | Share |
+| --- | --- | --- | --- | --- |
+| GET | `/context?from&to&personId` | | `ContextDto`: events overlapping the range (default the last 30 days) and what is active today | insights; derived items each need their source's grant |
+| POST | `/context` | `SaveContextEventRequest` | `ContextEventDto` | own |
+| PATCH | `/context/{id}` | `UpdateContextEventRequest` (a missing field keeps its value) | `ContextEventDto`; 404 "No such context event." | own |
+| DELETE | `/context/{id}` | | 204; 404 "No such context event." | own |
+| GET | `/patterns?personId` | | `PatternsDto`: established patterns and the tags still building | insights |
+| GET | `/sleep?from&to&personId` | | `SleepNightsDto`; default the last 14 nights, at most 92 days. A night's `day` is its sleep day, 18:00 local the evening before to 18:00 local on the day | sleep |
+| GET | `/workouts?from&to&personId` | | `WorkoutsDto` with weekly totals; default the last 28 days, at most 92 | activity |
+| GET | `/systems?personId` | | `SystemsDto`; a system with nothing shared is left out | each part under its own category |
+| GET | `/systems/{key}?personId` | | `SystemDto` with 28 days of each reading, lab history and 30 days of cards. Keys `heart`, `sleep`, `metabolism`, `hormones`, `body`, `cycle`, any case. 404 "No such system or person, or they have not shared this with you." | each part under its own category |
+| GET | `/review/weekly?weekOf&personId` | | `WeeklyReviewDto` for the Monday to Sunday week holding `weekOf` (default: the week ending today on a Sunday, else the last complete week). A section without its grant is null; 404 when nothing is shared | each section under its own category |
+
+## Lab review and trials
+
+Full shapes, checks and an example review: `docs/labs-design.md`, "API"; the verdicts, variation
+figures and link catalogue: `docs/cross-reference.md`. Migrations 0017, 0019 and 0020. The older
+lab routes (`/labs/parse`, `/labs/reports`, `/labs/markers`, `/labs/summary.pdf`) are listed in
+`docs/labs-design.md`, "Endpoints"; `POST /labs/reports` now takes `conditions?` and every
+`LabReportDto` carries `conditions`.
+
+| Method | Path | Body | Returns | Share |
+| --- | --- | --- | --- | --- |
+| PUT | `/labs/reports/{id}/conditions` | `DrawConditionsInput` (replaces every condition) | `LabReportDto`; 404 "No such report." | own |
+| GET | `/labs/reports/{id}/review` | | `LabReviewDto`: the panel against the one before it, a verdict per marker | labs of the report's owner; `weight` and `trials` need body too |
+| GET | `/labs/timeline?personId` | | `LabTimelineDto`: panels oldest first with conditions, substances and the nearest weight | labs; weight needs body |
+| GET | `/labs/links` | | `LabLinkDto[]`, the link catalogue (not person data) | none (catalogue) |
+| GET | `/labs/markers/{metricKey}/related?personId` | | `RelatedReadingsDto`; the key may omit the `lab.` prefix | labs; each value under its own category |
+| GET | `/trials?personId&includeEnded` | | `TrialDto[]` newest start first; active only unless `includeEnded=true` | body |
+| POST | `/trials` | `CreateTrialRequest` | `TrialDto` | own |
+| PATCH | `/trials/{id}` | `UpdateTrialRequest` (only the fields sent change) | `TrialDto`; 404 "No such trial." | own |
+| DELETE | `/trials/{id}` | | 204; 404 "No such trial." | own |
+
+`GET /household/overview` (under Household above) belongs to this package too.
 
 ## Conventions for later packages
 

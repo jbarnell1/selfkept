@@ -31,6 +31,9 @@ public interface IBaselineRepository
   /// rather than each metric's own, because Today is an insights-category product.
   /// </summary>
   Task<IReadOnlyList<Baseline>?> GetLatestPerMetricForInsightsAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default);
+
+  /// <summary>Server-internal: the person's own newest row per metric (the in-app assistant reads its owner's record).</summary>
+  Task<IReadOnlyList<Baseline>> GetLatestOwnPerMetricAsync(Guid personId, CancellationToken ct = default);
 }
 
 public interface IInsightRepository
@@ -52,6 +55,22 @@ public interface IInsightRepository
 
   /// <summary>Newest first. Null when the viewer may not see the target's insights.</summary>
   Task<IReadOnlyList<Insight>?> ListAsync(Guid viewerPersonId, Guid targetPersonId, DateOnly from, DateOnly to, bool includeDismissed, CancellationToken ct = default);
+
+  /// <summary>Server-internal: the person's own cards that are not dismissed, newest first.</summary>
+  Task<IReadOnlyList<Insight>> ListOwnAsync(Guid personId, DateOnly from, DateOnly to, CancellationToken ct = default);
+
+  /// <summary>
+  /// Server-internal, for the interpret run: removes the person's cards for the day whose kind the
+  /// run did not produce. Dismissed cards stay, so a dismissal outlives the rule going quiet.
+  /// Returns how many went.
+  /// </summary>
+  Task<int> RemoveOwnNotProducedAsync(Guid personId, DateOnly day, IReadOnlyCollection<string> producedKinds, CancellationToken ct = default);
+
+  /// <summary>
+  /// Server-internal, for a deleted lab report: removes the person's cards on any day whose
+  /// evidence names the report as reportId or previousReportId. Dismissed cards stay. Returns how many went.
+  /// </summary>
+  Task<int> RemoveOwnForReportAsync(Guid personId, Guid reportId, CancellationToken ct = default);
 }
 
 public interface IAiCallRepository

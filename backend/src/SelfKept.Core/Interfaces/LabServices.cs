@@ -14,6 +14,9 @@ public interface ILabService
   /// </summary>
   Task<LabReportDto> CreateReportAsync(Guid userId, Guid personId, Guid? householdId, CreateLabReportRequest request, RequestInfo info, CancellationToken ct = default);
 
+  /// <summary>Replaces the draw conditions on one of the caller's own reports. Null when the report is not theirs.</summary>
+  Task<LabReportDto?> UpdateConditionsAsync(Guid userId, Guid personId, Guid? householdId, Guid reportId, DrawConditionsInput request, RequestInfo info, CancellationToken ct = default);
+
   /// <summary>Newest first. Null when the viewer may not see the target's labs.</summary>
   Task<IReadOnlyList<LabReportDto>?> ListReportsAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default);
 

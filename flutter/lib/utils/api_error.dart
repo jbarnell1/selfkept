@@ -44,13 +44,23 @@ class ApiException implements Exception {
     if (response == null || _isTransport(error)) {
       return const ApiException.network();
     }
-    final status = response.statusCode;
+    return ApiException.fromResponse(
+      response.statusCode,
+      response.data,
+      retryAfter: response.headers.value('retry-after'),
+    );
+  }
+
+  /// Builds from an HTTP answer read some other way (the streamed assistant
+  /// reply), reading problem+json when [data] is a decoded map.
+  factory ApiException.fromResponse(
+    int? status,
+    dynamic data, {
+    String? retryAfter,
+  }) {
     String? message;
     String? type;
-    int? retrySeconds = int.tryParse(
-      response.headers.value('retry-after') ?? '',
-    );
-    final data = response.data;
+    int? retrySeconds = int.tryParse(retryAfter ?? '');
     if (data is Map) {
       final r = JsonReader(Map<String, dynamic>.from(data));
       message =
@@ -97,6 +107,12 @@ class ApiException implements Exception {
   @override
   String toString() => 'ApiException(${statusCode ?? 'network'}): $message';
 }
+
+/// What a page says when your own record answers 404. Nobody withholds your
+/// own record from you, so the server does not have that page: it is older
+/// than the app.
+const String missingOnServerMessage =
+    'Your server does not have this yet. It may need an update.';
 
 /// Message for any thrown object, so screens can show one line.
 String describeError(Object error) {

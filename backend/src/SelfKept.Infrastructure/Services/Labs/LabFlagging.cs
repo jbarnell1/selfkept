@@ -41,6 +41,9 @@ public static class LabFlagging
     [LabMetricKeys.Triglycerides] = (v, _) => v >= 500,
     [LabMetricKeys.Ldl] = (v, _) => v >= 190,
     [LabMetricKeys.UricAcid] = (v, _) => v > 9,
+    // ADA diagnosis cut-offs (docs/lab-ranges.md, "Flag tiers").
+    [LabMetricKeys.HbA1c] = (v, _) => v >= 6.5,
+    [LabMetricKeys.FastingGlucose] = (v, _) => v >= 126,
   };
 
   /// <summary>Null when the row has no range to compare with.</summary>

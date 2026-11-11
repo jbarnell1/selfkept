@@ -18,8 +18,16 @@ void main() {
     expect(formatMetricWithUnit('spo2_pct', 96.25, unit: '%'), '96.3%');
     expect(
       formatMetricWithUnit('wrist_temp_delta_c', 0.125, unit: 'C'),
-      '0.13 C',
+      '0.13 °C',
     );
     expect(formatMetricValue('something', 3.14159), '3.1');
+  });
+
+  test('a name inside a sentence keeps an acronym and lowers a word', () {
+    expect(nameInSentence('Resting heart rate'), 'resting heart rate');
+    expect(nameInSentence('HRV (RMSSD)'), 'HRV (RMSSD)');
+    expect(nameInSentence('VO2 max'), 'VO2 max');
+    expect(nameInSentence('Sleep'), 'sleep');
+    expect(nameInSentence(''), '');
   });
 }

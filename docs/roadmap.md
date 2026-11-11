@@ -1,7 +1,8 @@
 # Roadmap and handoff
 
-Status as of 30 October 2026: v0.1.2 is released and v0.1.3 is in review (Android launch and
-Health Connect fixes, single sign-on, docs/sso-design.md). v0.1.1 was the first tag (image `ghcr.io/jbarnell1/selfkept`, install with
+Status: v0.1.6 is the latest release. It adds sample retention and the connected record: four
+packages, backend and Flutter (see "Connected record"). v0.1.1 was the first tag (image
+`ghcr.io/jbarnell1/selfkept`, install with
 `install.sh` from the latest release). Work goes on a branch with a PR into the open `release/x.y.z`
 branch; a release PR into `main` and a `vX.Y.Z` tag publish it. Read this file first, then
 `CLAUDE.md`, then the design doc for the area you are touching.
@@ -20,12 +21,29 @@ ring, an iOS build, and a signed Android release (see "Owner steps").
 | 5 Connect | done | done | MCP server with OAuth 2.1, personal access tokens, 12 tools, AI memory, Oura, redacted export. Live: Open WebUI 0.12.5 registered itself, a person signed in through the consent page and qwen3.5:9b answered from two tool calls, all audited. Oura not yet tried with a real account |
 | 6 Ship | done | done | One-command installer (`selfhost/install.sh`), nightly `backup.sh`, first-run questions and setup steps, Oura application entered in the app. Installed on a home server over Tailscale, with Open WebUI on a second machine connected to it. iOS build and store uploads remain |
 
+### Connected record (v0.1.6)
+
+Four packages, released in v0.1.6. Checked in a browser with seeded data, on a Pixel with
+Health Connect, and as an upgrade of a 0.1.5 install with data (migrations 0012 to 0020).
+Not yet checked: nutrition and scale body composition from Health Connect with real records,
+replies worded by the local model, iOS.
+
+| Package | Backend | Flutter | Design |
+| --- | --- | --- | --- |
+| Body and goals (migrations 0013 to 0015) | done, tested | done | `docs/body-design.md`, `docs/body-research.md` |
+| In-app assistant (0016) | done, tested | done | `docs/assistant-design.md` |
+| Context, patterns, systems, weekly review (0018) | done, tested | done | `docs/context-design.md` |
+| Lab review, trials, link catalogue, cross-reference rules, household overview (0017, 0019, 0020) | done, tested | done | `docs/labs-design.md`, `docs/cross-reference.md` |
+
+The routes are listed in `docs/api-contract.md`.
+
 Homelab specifics (addresses, paths, what is installed where) are kept out of the repository,
 in `.dev/homelab.md`.
 
 
-Test counts at the last run: backend 484 (480 plus 4 that need `SELFKEPT_TEST_CONNECTION`; all
-green with it set), Flutter 527. `flutter analyze` and the backend build have zero warnings.
+Test counts at v0.1.6: backend 1317 (1203 unit, plus 114 that need `SELFKEPT_TEST_CONNECTION`;
+all green with it set), Flutter 966. `flutter analyze` and the backend build had zero warnings.
+Run the suites again for current counts.
 
 ## What the app does today
 
@@ -42,6 +60,15 @@ green with it set), Flutter 527. `flutter analyze` and the backend build have ze
   themself and sees only what they may see. Every tool call is audited.
 - **Export**: a redacted Markdown summary for a cloud model (no name, age band, relative days,
   notes off by default, the person picks what goes in) and a full JSON export of their own data.
+- **Retention**: heart rate is kept reading by reading for 12 months (the admin's choice, 4 months
+  to for ever), then one row a minute, so a watch adds about 6 MB a month instead of 600 MB.
+  Nightly, audited, `docs/retention-design.md`.
+- **Coming with the connected record** (backend built, screens in progress): goals, targets and
+  a weekly tally, a day log, medicines and supplements, a strength log, typed body measurements
+  and a Progress tab; an in-app assistant over the local model with capture, an evening check-in,
+  a morning brief, a playbook and an optional ntfy reminder; context events, personal patterns,
+  sleep and workout read-backs, Systems and a weekly review; a lab review against the previous
+  panel, draw conditions, trials, a link catalogue and a household overview.
 
 ## Owner steps
 
@@ -76,7 +103,7 @@ green with it set), Flutter 527. `flutter analyze` and the backend build have ze
 - The Flutter web build is never committed: `backend/src/SelfKept.Api/wwwroot/*` is ignored except
   the placeholder `index.html`.
 - Postgres-gated tests: `SELFKEPT_TEST_CONNECTION="Host=localhost;Port=5432;Database=postgres;Username=selfkept;Password=selfkept" dotnet test` from `backend/`.
-- Migrations run to `0010_setup`; the next free number is `0011`.
+- Migrations run to `0020_lab_reseed`; the next free number is `0021`.
 - The in-app browser pane stops painting when hidden. A headless Chrome driven over the DevTools
   protocol is the reliable way to screenshot the web app without it.
 
@@ -124,12 +151,15 @@ green with it set), Flutter 527. `flutter analyze` and the backend build have ze
 - **A harmless 404 for a Roboto fallback font.** Flutter web asks the app's own origin for it
   (`fontFallbackBaseUrl`); nothing is fetched from Google. Text renders in Inter regardless.
 - **No push notifications.** A single optional morning push was planned; it needs FCM and APNs
-  credentials and is left for after v0.1.
+  credentials and is left for after v0.1. The connected record adds one optional evening
+  check-in reminder sent to the person's own ntfy topic (`docs/assistant-design.md`, "Nudges"),
+  not a phone push.
 
 ## After v0.1.0
 
 - Baseline from the days before a run, as above.
-- In-app answers through the local model (`Ai:Enabled`), using the same tools the MCP server
-  exposes.
+- In-app answers through the local model (`Ai:Enabled`). Backend built on the connected record
+  branch over a prepared brief rather than the MCP tools (`docs/assistant-design.md`); the screen
+  is in progress.
 - A morning push with the Today sentence, opt-in per person.
 - More lab providers' report layouts for the scan parser.

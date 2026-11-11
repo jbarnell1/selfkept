@@ -10,7 +10,11 @@ public enum SummaryRule
   /// <summary>value = mean, min and max of sample values on the day (by start).</summary>
   Average,
 
-  /// <summary>value = minutes asleep for the night that ended on the day (awake and in_bed excluded).</summary>
+  /// <summary>
+  /// value = minutes asleep on the sleep day: 18:00 the evening before to 18:00 on the day, by
+  /// each segment's end, so the night that ended that morning and any nap that day (awake and
+  /// in_bed excluded).
+  /// </summary>
   SleepMinutes,
 }
 
@@ -40,30 +44,99 @@ public static class DailySummaryRules
     [MetricKeys.WristTempDeltaC] = SummaryRule.Average,
     [MetricKeys.OuraReadiness] = SummaryRule.Average,
     [MetricKeys.OuraSleepScore] = SummaryRule.Average,
+    // Body readings arrive a few times a week at most; the day's figure is their mean.
+    [MetricKeys.BodyFatPct] = SummaryRule.Average,
+    [MetricKeys.WaistCm] = SummaryRule.Average,
+    [MetricKeys.LeanMassKg] = SummaryRule.Average,
+    [MetricKeys.BoneMassKg] = SummaryRule.Average,
+    [MetricKeys.BodyWaterKg] = SummaryRule.Average,
+    [MetricKeys.Vo2Max] = SummaryRule.Average,
+    // What was eaten, as the phone's nutrition records report it, summed per day.
+    [MetricKeys.EnergyIntakeKcal] = SummaryRule.Sum,
+    [MetricKeys.ProteinG] = SummaryRule.Sum,
+    [MetricKeys.CarbsG] = SummaryRule.Sum,
+    [MetricKeys.FatG] = SummaryRule.Sum,
   };
 
   public static SummaryRule? RuleFor(string metricKey) => Rules.TryGetValue(metricKey, out var rule) ? rule : null;
 
   public static bool HasRule(string metricKey) => Rules.ContainsKey(metricKey);
 
+  /// <summary>
+  /// How far a sleep day runs ahead of the calendar day: sleep day D is 18:00 local on D-1 to
+  /// 18:00 local on D, so a night that starts in the evening and ends in the morning stays whole
+  /// and an afternoon nap counts for its own day. Our own choice, not a published standard; 18:00
+  /// is late enough for a nap and early enough for an early bedtime.
+  /// </summary>
+  public static readonly TimeSpan SleepDayShift = TimeSpan.FromHours(6);
+
+  /// <summary>Where sleep day D starts on D-1, and ends on D, on the local clock (18:00).</summary>
+  private static readonly TimeOnly SleepDayStart = TimeOnly.MinValue.Add(-SleepDayShift);
+
   /// <summary>Whether the day a sample belongs to is taken from its end (sleep) or its start.</summary>
   public static bool AttributesByEnd(string metricKey) => RuleFor(metricKey) == SummaryRule.SleepMinutes;
 
-  /// <summary>The local day a sample counts towards, or null when the metric has no daily rule.</summary>
+  /// <summary>
+  /// The local day a sample counts towards, or null when the metric has no daily rule. A sample
+  /// belongs to day D exactly when the instant it is filed by (its end for sleep, else its start)
+  /// lies in <see cref="UtcWindow"/> for D.
+  /// </summary>
   public static DateOnly? DayFor(Sample sample, TimeZoneInfo zone)
   {
     if (RuleFor(sample.MetricKey) is not { } rule) return null;
-    var instant = rule == SummaryRule.SleepMinutes ? sample.EndAt ?? sample.StartAt : sample.StartAt;
-    return DayBoundaries.LocalDay(instant, zone);
+    return rule == SummaryRule.SleepMinutes
+      ? SleepDay(sample.EndAt ?? sample.StartAt, zone)
+      : DayBoundaries.LocalDay(sample.StartAt, zone);
   }
 
   /// <summary>
-  /// Derives the row for one (metric, day) from the samples that fall on it. Null means no row
-  /// (nothing on the day, or nothing that counts), so the caller deletes any stale row.
+  /// The UTC instants [start, end) whose samples count towards (metric, day): local midnight to
+  /// midnight, or for sleep 18:00 the evening before to 18:00 on the day. Every loader uses this.
   /// </summary>
-  public static DailySummary? Derive(Guid personId, string metricKey, DateOnly day, IReadOnlyList<Sample> samples, DateTime computedAtUtc)
+  public static (DateTime StartUtc, DateTime EndUtc) UtcWindow(string metricKey, DateOnly day, TimeZoneInfo zone) =>
+    AttributesByEnd(metricKey)
+      ? (DayBoundaries.LocalTimeUtc(day.AddDays(-1), SleepDayStart, zone), DayBoundaries.LocalTimeUtc(day, SleepDayStart, zone))
+      : DayBoundaries.UtcWindow(day, zone);
+
+  /// <summary>The sleep day an instant (a sleep sample's end) falls in: the local day of the instant plus six hours.</summary>
+  private static DateOnly SleepDay(DateTime instant, TimeZoneInfo zone)
   {
-    if (RuleFor(metricKey) is not { } rule || samples.Count == 0) return null;
+    var utc = DayBoundaries.AsUtc(instant);
+    var day = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, zone).Add(SleepDayShift));
+    // A clock change at 18:00 itself makes the wall-clock arithmetic one day out for up to an
+    // hour; the window decides, so DayFor and every loader always agree.
+    var (start, end) = UtcWindow(MetricKeys.SleepStage, day, zone);
+    if (utc < start) return day.AddDays(-1);
+    if (utc >= end) return day.AddDays(1);
+    return day;
+  }
+
+  /// <summary>
+  /// Derives the row for one (metric, day) from the samples that fall on it, and for a dense metric
+  /// the minutes retention folded out of them. Null means no row (nothing on the day, or nothing
+  /// that counts), so the caller deletes any stale row.
+  /// </summary>
+  public static DailySummary? Derive(Guid personId, string metricKey, DateOnly day, IReadOnlyList<Sample> samples, DateTime computedAtUtc, IReadOnlyList<SampleMinute>? minutes = null)
+  {
+    minutes ??= [];
+    if (RuleFor(metricKey) is not { } rule || (samples.Count == 0 && minutes.Count == 0)) return null;
+
+    // Only averaged metrics are ever folded (DenseMetrics). A minute is its count of readings at
+    // its mean, so the day's mean, min, max and count come out as if every reading were still here.
+    if (rule == SummaryRule.Average && minutes.Count > 0)
+    {
+      var count = samples.Count + minutes.Sum(m => m.Count);
+      var total = samples.Sum(s => s.Value) + minutes.Sum(m => m.Avg * m.Count);
+      return new DailySummary
+      {
+        PersonId = personId, MetricKey = metricKey, Day = day,
+        Value = total / count,
+        Min = Math.Min(samples.Count > 0 ? samples.Min(s => s.Value) : double.MaxValue, minutes.Min(m => m.Min)),
+        Max = Math.Max(samples.Count > 0 ? samples.Max(s => s.Value) : double.MinValue, minutes.Max(m => m.Max)),
+        Count = count, ComputedAt = computedAtUtc,
+      };
+    }
+    if (samples.Count == 0) return null;
 
     switch (rule)
     {

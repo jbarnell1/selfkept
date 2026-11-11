@@ -25,7 +25,64 @@ public class LabReport
   public DateTime CreatedAt { get; set; }
   public DateTime? ConfirmedAt { get; set; }
 
+  // Draw conditions (docs/labs-design.md, "Draw conditions"). All nullable: null means never asked.
+
+  /// <summary>yes, no or unknown. See <see cref="FastingStates"/>.</summary>
+  public string? Fasting { get; set; }
+
+  /// <summary>Whole hours since the last meal, when the person knows. With a Rythm default, 8 means "8 or more".</summary>
+  public short? FastingHours { get; set; }
+
+  /// <summary>Local time of day the blood was drawn, when the person knows it.</summary>
+  public TimeOnly? DrawTime { get; set; }
+
+  /// <summary>morning, afternoon, evening or unknown. Worked out from <see cref="DrawTime"/> when it is given. See <see cref="DrawPeriods"/>.</summary>
+  public string? DrawPeriod { get; set; }
+
+  /// <summary>A hard training session in the days before the draw.</summary>
+  public bool? HardTraining { get; set; }
+
+  /// <summary>Unwell (an infection or similar) around the draw.</summary>
+  public bool? Unwell { get; set; }
+
+  /// <summary>True while the conditions are the provider's pre-filled defaults and the person has not changed them.</summary>
+  public bool ConditionsDefaulted { get; set; }
+
   public List<LabResult> Results { get; set; } = [];
+}
+
+public static class FastingStates
+{
+  public const string Yes = "yes";
+  public const string No = "no";
+  public const string Unknown = "unknown";
+  public static readonly string[] All = [Yes, No, Unknown];
+}
+
+/// <summary>
+/// When in the day the blood was drawn. Morning is before 12:00 local time, afternoon 12:00 to
+/// 17:59, evening from 18:00: the app's own split, so two draws can be compared like with like.
+/// </summary>
+public static class DrawPeriods
+{
+  public const string Morning = "morning";
+  public const string Afternoon = "afternoon";
+  public const string Evening = "evening";
+  public const string Unknown = "unknown";
+  public static readonly string[] All = [Morning, Afternoon, Evening, Unknown];
+
+  public static string For(TimeOnly time) => time.Hour switch
+  {
+    < 12 => Morning,
+    < 18 => Afternoon,
+    _ => Evening,
+  };
+}
+
+/// <summary>A panel's draw conditions as the rules and the review compare them. Fasting and the period are never null ("unknown").</summary>
+public sealed record PanelConditions(string Fasting, short? FastingHours, string DrawPeriod, bool? HardTraining, bool? Unwell)
+{
+  public static readonly PanelConditions Unknown = new(FastingStates.Unknown, null, DrawPeriods.Unknown, null, null);
 }
 
 public static class LabProviders
@@ -108,6 +165,15 @@ public class LabReference
 
   public string SourceUrl { get; set; } = string.Empty;
 
+  /// <summary>
+  /// When the source gives a second interval from an age upwards (cystatin C at 50): the age in
+  /// whole years where the older interval starts. Null for the usual single adult interval.
+  /// </summary>
+  public int? AgeSplitAt { get; set; }
+
+  public double? OlderLow { get; set; }
+  public double? OlderHigh { get; set; }
+
   public bool HasRange => Low != null || High != null;
 }
 
@@ -152,6 +218,22 @@ public static class LabMetricKeys
   public const string Alp = "lab.alp";
   public const string Ggt = "lab.ggt";
   public const string Egfr = "lab.egfr";
+  public const string Alt = "lab.alt";
+  public const string Ast = "lab.ast";
+  public const string Platelets = "lab.platelets";
+  public const string Wbc = "lab.wbc";
+  public const string Rbc = "lab.rbc";
+  public const string Mcv = "lab.mcv";
+  public const string HbA1c = "lab.hba1c";
+  public const string FastingGlucose = "lab.glucose_fasting";
+  public const string CystatinC = "lab.cystatin_c";
+  public const string TransferrinSaturation = "lab.transferrin_saturation";
+  public const string Iron = "lab.iron";
+  public const string Tibc = "lab.tibc";
+
+  /// <summary>The markers added with the cross-reference package (migrations 0019 and 0020).</summary>
+  public static readonly string[] CrossReferenceAdditions =
+    [Alt, Ast, Platelets, Wbc, Rbc, Mcv, HbA1c, FastingGlucose, CystatinC, TransferrinSaturation, Iron, Tibc];
 
   /// <summary>The markers lab_trend watches (docs/labs-design.md, "Insights").</summary>
   public static readonly string[] TrendMarkers = [ApoB, Ldl, HsCrp, Fructosamine, Triglycerides, Ferritin, Tsh, Ggt];

@@ -21,6 +21,9 @@ public static class DayBoundaries
 
   public static DateOnly MonthStart(DateTime utc) => new(utc.Year, utc.Month, 1);
 
+  /// <summary>00:00 UTC on the first of the month, the lower bound of its sample partition.</summary>
+  public static DateTime MonthStartUtc(DateOnly month) => new(month.Year, month.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
   public static DateTime AsUtc(DateTime value) => value.Kind switch
   {
     DateTimeKind.Utc => value,
@@ -28,9 +31,15 @@ public static class DayBoundaries
     _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
   };
 
-  private static DateTime LocalMidnightUtc(DateOnly day, TimeZoneInfo zone)
+  private static DateTime LocalMidnightUtc(DateOnly day, TimeZoneInfo zone) => LocalTimeUtc(day, TimeOnly.MinValue, zone);
+
+  /// <summary>
+  /// The UTC instant of a local wall-clock time. A time the clocks skip (a zone that switches at
+  /// that hour) moves on an hour; a time the clocks repeat is the later, standard-time one.
+  /// </summary>
+  public static DateTime LocalTimeUtc(DateOnly day, TimeOnly time, TimeZoneInfo zone)
   {
-    var local = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+    var local = day.ToDateTime(time, DateTimeKind.Unspecified);
     // A zone that switches at midnight has no 00:00 that day; the day then starts at 01:00.
     if (zone.IsInvalidTime(local)) local = local.AddHours(1);
     return TimeZoneInfo.ConvertTimeToUtc(local, zone);

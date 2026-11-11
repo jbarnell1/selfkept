@@ -9,7 +9,8 @@ namespace SelfKept.Infrastructure.Services.Interpret;
 /// <summary>
 /// One person, one day: compute and store the baselines, load the 28-day series, run the rules,
 /// store each candidate as a card (created once per (person, kind, day), re-ranked on a rerun),
-/// phrase the two that will lead Today, and drop the Today cache. Idempotent per (person, day).
+/// remove the day's cards the rules no longer produce (a dismissed card stays), phrase the two
+/// that will lead Today, and drop the Today cache. Idempotent per (person, day).
 /// </summary>
 public sealed class InterpretRunner : IInterpretRunner
 {
@@ -25,6 +26,10 @@ public sealed class InterpretRunner : IInterpretRunner
   private readonly ILabReportRepository _labReports;
   private readonly ILabReferenceRepository _labReferences;
   private readonly IMetricCatalogue _catalogue;
+  private readonly IBodyContextLoader _body;
+  private readonly IContextLoader _contextLoader;
+  private readonly IMedicationRepository _medications;
+  private readonly ITrialRepository _trials;
   private readonly TimeProvider _clock;
   private readonly ILogger<InterpretRunner> _logger;
 
@@ -41,12 +46,20 @@ public sealed class InterpretRunner : IInterpretRunner
     ILabReportRepository labReports,
     ILabReferenceRepository labReferences,
     IMetricCatalogue catalogue,
+    IBodyContextLoader body,
+    IContextLoader contextLoader,
+    IMedicationRepository medications,
+    ITrialRepository trials,
     TimeProvider clock,
     ILogger<InterpretRunner> logger)
   {
+    _medications = medications;
+    _trials = trials;
     _labReports = labReports;
     _labReferences = labReferences;
     _catalogue = catalogue;
+    _body = body;
+    _contextLoader = contextLoader;
     _persons = persons;
     _baselineService = baselineService;
     _baselines = baselines;
@@ -74,8 +87,10 @@ public sealed class InterpretRunner : IInterpretRunner
     var series = rows
       .GroupBy(r => r.MetricKey, StringComparer.Ordinal)
       .ToDictionary(g => g.Key, g => (IReadOnlyList<DailySummary>)g.OrderBy(r => r.Day).ToList(), StringComparer.Ordinal);
-    var labs = await LoadLabsAsync(person, ct);
-    var context = new RuleContext(person, day, baselines.ToDictionary(b => b.MetricKey, StringComparer.Ordinal), series, labs);
+    var labs = await LoadLabsAsync(person, day, ct);
+    var body = await _body.LoadAsync(person, day, ct);
+    var lifeContext = await _contextLoader.LoadOwnAsync(person, day, ct);
+    var context = new RuleContext(person, day, baselines.ToDictionary(b => b.MetricKey, StringComparer.Ordinal), series, labs, body, lifeContext);
 
     var candidates = _engine.Evaluate(context);
     var demoted = await DemotedKindsAsync(personId, day, candidates.Select(c => c.Kind), ct);
@@ -123,28 +138,47 @@ public sealed class InterpretRunner : IInterpretRunner
       kinds.Add(candidate.Kind);
     }
 
+    // The run is the whole answer for the day: a card it no longer produces (a pattern that is no
+    // longer established, a comparison that is no longer the newest pair) goes. Other days are
+    // their own runs' history and are not touched.
+    await _insights.RemoveOwnNotProducedAsync(personId, day, kinds, ct);
+
     await _cache.InvalidateAsync(personId, ct);
     _logger.LogInformation("Interpreted {Day} for person {PersonId}: {Baselines} baselines, {Insights} insights ({Kinds})",
       day, personId, baselines.Count, kinds.Count, string.Join(",", kinds));
     return new RecomputeResultDto(personId, day, baselines.Count, kinds.Count, kinds);
   }
 
-  /// <summary>The two most recent panels plus the reference rows for the person's sex, for the lab rules.</summary>
-  private async Task<LabContext> LoadLabsAsync(Person person, CancellationToken ct)
+  /// <summary>
+  /// The two most recent panels with their draw conditions and the substances active at each
+  /// draw, the reference rows for the person's sex and age, and the active trials, for the lab rules.
+  /// </summary>
+  private async Task<LabContext> LoadLabsAsync(Person person, DateOnly day, CancellationToken ct)
   {
     var reports = await _labReports.ListOwnAsync(person.Id, 2, ct);
-    if (reports.Count == 0) return LabContext.Empty;
+    var trials = await _trials.ListOwnActiveAsync(person.Id, ct);
+    if (reports.Count == 0 && trials.Count == 0) return LabContext.Empty;
+    var medications = reports.Count == 0 ? [] : await _medications.ListOwnAsync(person.Id, ct);
     var zone = DayBoundaries.Resolve(person.TimeZone);
     var panels = reports.Select(r => new LabPanelSnapshot(
         r.Id,
         r.CollectedOn,
         DayBoundaries.LocalDay(r.ConfirmedAt ?? r.CreatedAt, zone),
-        r.Results.Where(x => x.Confirmed).GroupBy(x => x.MetricKey, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal)))
+        r.Results.Where(x => x.Confirmed).GroupBy(x => x.MetricKey, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal))
+      {
+        Conditions = Labs.DrawConditions.Of(r),
+        Substances = Labs.LabReviewService.Substances(medications, r.CollectedOn),
+      })
       .ToList();
+    var age = Repositories.LabReferenceLookup.AgeOn(person.BirthDate, day);
     return new LabContext(
       panels,
-      key => _catalogue.Find(key) is { } metric ? _labReferences.Find(metric, person.SexAtBirth) : null,
-      key => _catalogue.Find(key)?.DisplayName ?? key);
+      key => _catalogue.Find(key) is { } metric ? Repositories.LabReferenceLookup.ForAge(_labReferences.Find(metric, person.SexAtBirth), age) : null,
+      key => _catalogue.Find(key)?.DisplayName ?? key)
+    {
+      Sex = person.SexAtBirth,
+      Trials = trials,
+    };
   }
 
   public async Task<bool> HasRunAsync(Guid personId, DateOnly day, CancellationToken ct = default) =>

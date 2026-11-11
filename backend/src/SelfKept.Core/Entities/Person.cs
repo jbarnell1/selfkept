@@ -17,6 +17,9 @@ public class Person
   /// <summary>IANA time zone id, for example "Europe/London". Defaults to UTC.</summary>
   public string TimeZone { get; set; } = "UTC";
 
+  /// <summary>Standing height in centimetres, typed in once. Needed for BMI, lean mass index and waist to height.</summary>
+  public double? HeightCm { get; set; }
+
   public DateTime CreatedAt { get; set; }
   public DateTime UpdatedAt { get; set; }
 }

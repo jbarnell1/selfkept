@@ -27,6 +27,8 @@ public class SelfKeptDbContext : DbContext
   public DbSet<Metric> Metrics => Set<Metric>();
   public DbSet<Source> Sources => Set<Source>();
   public DbSet<Sample> Samples => Set<Sample>();
+  public DbSet<SampleMinute> SampleMinutes => Set<SampleMinute>();
+  public DbSet<SampleRollupMonth> SampleRollupMonths => Set<SampleRollupMonth>();
   public DbSet<Workout> Workouts => Set<Workout>();
   public DbSet<Checkin> Checkins => Set<Checkin>();
   public DbSet<DailySummary> DailySummaries => Set<DailySummary>();
@@ -38,6 +40,7 @@ public class SelfKeptDbContext : DbContext
   public DbSet<LabResult> LabResults => Set<LabResult>();
   public DbSet<LabMarkerAlias> LabMarkerAliases => Set<LabMarkerAlias>();
   public DbSet<LabReference> LabReferences => Set<LabReference>();
+  public DbSet<Trial> Trials => Set<Trial>();
   public DbSet<OAuthClient> OAuthClients => Set<OAuthClient>();
   public DbSet<OAuthAuthorizationRequest> OAuthAuthorizationRequests => Set<OAuthAuthorizationRequest>();
   public DbSet<OAuthRefreshToken> OAuthRefreshTokens => Set<OAuthRefreshToken>();
@@ -49,6 +52,17 @@ public class SelfKeptDbContext : DbContext
   public DbSet<SsoAuthState> SsoAuthStates => Set<SsoAuthState>();
   public DbSet<SsoHandoff> SsoHandoffs => Set<SsoHandoff>();
   public DbSet<ServerSetting> ServerSettings => Set<ServerSetting>();
+  public DbSet<Goal> Goals => Set<Goal>();
+  public DbSet<DailyTarget> DailyTargets => Set<DailyTarget>();
+  public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+  public DbSet<Medication> Medications => Set<Medication>();
+  public DbSet<StrengthSet> StrengthSets => Set<StrengthSet>();
+  public DbSet<ContextEvent> ContextEvents => Set<ContextEvent>();
+  public DbSet<AssistantConversation> AssistantConversations => Set<AssistantConversation>();
+  public DbSet<AssistantMessage> AssistantMessages => Set<AssistantMessage>();
+  public DbSet<AssistantBrief> AssistantBriefs => Set<AssistantBrief>();
+  public DbSet<NudgeSetting> NudgeSettings => Set<NudgeSetting>();
+  public DbSet<NudgeLog> NudgeLogs => Set<NudgeLog>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -57,6 +71,9 @@ public class SelfKeptDbContext : DbContext
     ConfigureLabs(modelBuilder);
     ConfigureConnect(modelBuilder);
     ConfigureSso(modelBuilder);
+    ConfigureBody(modelBuilder);
+    ConfigureContext(modelBuilder);
+    AssistantModel.Configure(modelBuilder);
 
     modelBuilder.Entity<User>(e =>
     {
@@ -203,6 +220,22 @@ public class SelfKeptDbContext : DbContext
       e.Property(x => x.Meta).HasColumnType("jsonb");
       e.HasIndex(x => new { x.PersonId, x.MetricKey, x.StartAt }).IsDescending(false, false, true);
       e.HasIndex(x => new { x.SourceId, x.SourceUid, x.StartAt }).IsUnique();
+    });
+
+    // Mirrors 0012_sample_retention.up.sql: heart rate older than the window, one row per minute per source.
+    modelBuilder.Entity<SampleMinute>(e =>
+    {
+      e.ToTable("sample_minute");
+      e.HasKey(x => new { x.PersonId, x.MetricKey, x.MinuteAt, x.SourceId });
+      e.Property(x => x.MetricKey).HasMaxLength(64).IsRequired();
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+      e.HasOne<Source>().WithMany().HasForeignKey(x => x.SourceId).OnDelete(DeleteBehavior.Restrict);
+    });
+
+    modelBuilder.Entity<SampleRollupMonth>(e =>
+    {
+      e.ToTable("sample_rollup_month");
+      e.HasKey(x => x.Month);
     });
 
     modelBuilder.Entity<Workout>(e =>
@@ -425,6 +458,9 @@ public class SelfKeptDbContext : DbContext
       e.HasIndex(x => new { x.PersonId, x.CollectedOn }).IsDescending(false, true);
       e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
       e.HasMany(x => x.Results).WithOne().HasForeignKey(r => r.ReportId).OnDelete(DeleteBehavior.Cascade);
+      // Draw conditions, 0017_labs_review.
+      e.Property(x => x.Fasting).HasMaxLength(8);
+      e.Property(x => x.DrawPeriod).HasMaxLength(16);
     });
 
     modelBuilder.Entity<LabResult>(e =>
@@ -456,6 +492,98 @@ public class SelfKeptDbContext : DbContext
       e.Property(x => x.Tier).HasMaxLength(16).IsRequired();
       e.Property(x => x.SourceUrl).IsRequired();
       e.Ignore(x => x.HasRange);
+    });
+
+    // Trials, 0017_labs_review.
+    modelBuilder.Entity<Trial>(e =>
+    {
+      e.ToTable("trial");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.TitleCipher).IsRequired();
+      e.Property(x => x.MetricKeys).HasColumnType("text[]");
+      e.Property(x => x.Status).HasMaxLength(16).IsRequired();
+      e.Ignore(x => x.HasLabMarkers);
+      e.HasIndex(x => new { x.PersonId, x.StartedOn }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+  }
+
+  // Body, goals and the day log. Mirrors 0013_body.up.sql.
+  private static void ConfigureBody(ModelBuilder modelBuilder)
+  {
+    modelBuilder.Entity<Goal>(e =>
+    {
+      e.ToTable("goal");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Slot).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Kind).HasMaxLength(32).IsRequired();
+      e.Property(x => x.MetricKey).HasMaxLength(64);
+      e.Property(x => x.Status).HasMaxLength(16).IsRequired();
+      e.HasIndex(x => new { x.PersonId, x.StartedOn }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<DailyTarget>(e =>
+    {
+      e.ToTable("daily_target");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Label).HasMaxLength(48).IsRequired();
+      e.Property(x => x.Kind).HasMaxLength(16).IsRequired();
+      e.Property(x => x.MetricKey).HasMaxLength(64);
+      e.Property(x => x.Tag).HasMaxLength(32);
+      e.Property(x => x.Comparator).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Period).HasMaxLength(8).IsRequired();
+      e.HasIndex(x => new { x.PersonId, x.SortOrder });
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+      e.HasOne<Goal>().WithMany().HasForeignKey(x => x.GoalId).OnDelete(DeleteBehavior.SetNull);
+    });
+
+    modelBuilder.Entity<JournalEntry>(e =>
+    {
+      e.ToTable("journal_entry");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Kind).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Tags).HasColumnType("text[]");
+      e.Property(x => x.Portion).HasMaxLength(8);
+      e.Property(x => x.Source).HasMaxLength(16).IsRequired();
+      e.HasIndex(x => new { x.PersonId, x.Day }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<Medication>(e =>
+    {
+      e.ToTable("medication");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Kind).HasMaxLength(16).IsRequired();
+      e.Property(x => x.DetailCipher).IsRequired();
+      e.Property(x => x.Schedule).HasMaxLength(16).IsRequired();
+      e.Property(x => x.Substances).HasColumnType("text[]");
+      e.HasIndex(x => new { x.PersonId, x.CreatedAt }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<StrengthSet>(e =>
+    {
+      e.ToTable("strength_set");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Lift).HasMaxLength(32).IsRequired();
+      e.HasIndex(x => new { x.PersonId, x.Day, x.Lift }).IsUnique();
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
+    });
+  }
+
+  // Context events. Mirrors 0018_context.up.sql.
+  private static void ConfigureContext(ModelBuilder modelBuilder)
+  {
+    modelBuilder.Entity<ContextEvent>(e =>
+    {
+      e.ToTable("context_event");
+      e.HasKey(x => x.Id);
+      e.Property(x => x.Kind).HasMaxLength(32).IsRequired();
+      e.Property(x => x.Source).HasMaxLength(16).IsRequired();
+      e.Ignore(x => x.LastDay);
+      e.HasIndex(x => new { x.PersonId, x.StartedOn }).IsDescending(false, true);
+      e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
     });
   }
 

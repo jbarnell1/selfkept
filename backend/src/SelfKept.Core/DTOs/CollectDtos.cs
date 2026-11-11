@@ -102,3 +102,34 @@ public sealed record SamplePageDto(
 public sealed record OverviewMetricDto(string Metric, string Unit, DateTime FirstAt, DateTime LastAt, long Count, double LastValue);
 
 public sealed record OverviewDto(IReadOnlyList<OverviewMetricDto> Metrics);
+
+// Sample retention (docs/retention-design.md).
+
+/// <summary>One folded month as the admin sees it.</summary>
+public sealed record RetentionMonthDto(
+  DateOnly Month,
+  DateTime RolledAt,
+  long RawRows,
+  long MinuteRows,
+  [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTime? CompactedAt);
+
+/// <summary>
+/// The retention setting and what it has done. <see cref="RawSince"/> is the first day still kept
+/// raw, null when raw readings are kept for ever (<see cref="RawMonths"/> 0).
+/// </summary>
+public sealed record RetentionDto(
+  int RawMonths,
+  SettingSource Source,
+  int MinimumMonths,
+  DateOnly? RawSince,
+  IReadOnlyList<RetentionMonthDto> Months);
+
+public sealed record SaveRetentionRequest([Required] int? RawMonths);
+
+public sealed record RetentionFoldedDto(DateOnly Month, long RawRows, long MinuteRows, bool Compacted);
+
+/// <summary>What one run folded, and which months it rewrote on disk (yyyy-MM).</summary>
+public sealed record RetentionRunDto(
+  DateOnly? RawSince,
+  IReadOnlyList<RetentionFoldedDto> Folded,
+  IReadOnlyList<string> Compacted);

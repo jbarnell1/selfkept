@@ -62,6 +62,17 @@ public static class SexApplicabilities
 public static class MetricKeys
 {
   public const string LabPrefix = "lab.";
+  public const string BodyFatPct = "body_fat_pct";
+  public const string HeightCm = "height_cm";
+  public const string WaistCm = "waist_cm";
+  public const string LeanMassKg = "lean_mass_kg";
+  public const string BoneMassKg = "bone_mass_kg";
+  public const string BodyWaterKg = "body_water_kg";
+  public const string EnergyIntakeKcal = "energy_intake_kcal";
+  public const string ProteinG = "protein_g";
+  public const string CarbsG = "carbs_g";
+  public const string FatG = "fat_g";
+  public const string Vo2Max = "vo2max";
   public const string Steps = "steps";
   public const string DistanceM = "distance_m";
   public const string ActiveEnergyKcal = "active_energy_kcal";
@@ -134,6 +145,9 @@ public static class SourceKinds
   /// <summary>The per-person system source that check-ins are written under.</summary>
   public const string CheckinDeviceName = "Check-ins";
   public const string CheckinPlatform = "server";
+
+  /// <summary>The per-person system source that typed-in measurements (weight, waist, body fat) are written under.</summary>
+  public const string TypedDeviceName = "Typed in";
 }
 
 /// <summary>
@@ -157,6 +171,50 @@ public class Sample
   public string? Meta { get; set; }
 
   public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// The intraday metrics whose old raw rows are folded into one row per minute per source
+/// (docs/retention-design.md). Each must be an instant metric with an averaged daily summary, so
+/// the daily row can be rebuilt exactly from minutes.
+/// </summary>
+public static class DenseMetrics
+{
+  public static readonly IReadOnlyList<string> Keys = [MetricKeys.HeartRateBpm];
+
+  public static bool Contains(string metricKey) => Keys.Contains(metricKey, StringComparer.Ordinal);
+}
+
+/// <summary>
+/// The readings of one dense metric from one source in one UTC minute, folded out of the raw
+/// sample table once the month is older than the retention window. Written only by SampleRetention.
+/// </summary>
+public class SampleMinute
+{
+  public Guid Id { get; set; }
+  public Guid PersonId { get; set; }
+  public Guid SourceId { get; set; }
+  public string MetricKey { get; set; } = string.Empty;
+  public DateTime MinuteAt { get; set; }
+  public double Avg { get; set; }
+  public double Min { get; set; }
+  public double Max { get; set; }
+  public int Count { get; set; }
+}
+
+/// <summary>One folded month (its first day, UTC) and when its partition was last rewritten.</summary>
+public class SampleRollupMonth
+{
+  public DateOnly Month { get; set; }
+  public DateTime RolledAt { get; set; }
+
+  /// <summary>Raw rows folded into this month over every run that touched it.</summary>
+  public long RawRows { get; set; }
+
+  /// <summary>Minute rows the month holds in sample_minute.</summary>
+  public long MinuteRows { get; set; }
+
+  public DateTime? CompactedAt { get; set; }
 }
 
 public class Workout

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../pages/app_shell.dart';
+import '../pages/assistant_page.dart';
 import '../pages/connections_page.dart';
 import '../pages/export_page.dart';
 import '../pages/consent_page.dart';
@@ -9,21 +10,27 @@ import '../pages/insights_page.dart';
 import '../pages/lab_entry_page.dart';
 import '../pages/lab_marker_page.dart';
 import '../pages/labs_page.dart';
+import '../pages/progress_page.dart';
 import '../pages/public/join_page.dart';
 import '../pages/public/login_page.dart';
 import '../pages/public/setup_page.dart';
 import '../pages/public/splash_page.dart';
 import '../pages/sources_page.dart';
+import '../pages/systems_page.dart';
 import '../pages/today_page.dart';
 import '../pages/welcome/setup_steps_page.dart';
 import '../pages/welcome/welcome_page.dart';
 import '../pages/trend_detail_page.dart';
-import '../pages/trends_page.dart';
+import '../pages/you/goals_page.dart';
+import '../pages/you/medicines_page.dart';
 import '../pages/you/you_page.dart';
+import 'assistant_routes.dart';
 import '../providers/auth_provider.dart';
 import '../providers/startup_provider.dart';
 import '../theme/tokens.dart';
 import '../utils/return_path.dart';
+import '../widgets/subpage_app_bar.dart';
+import 'systems_routes.dart';
 
 /// Public paths an unauthenticated person may visit once startup is ready.
 const Set<String> publicPaths = {'/login', '/join'};
@@ -186,34 +193,64 @@ GoRouter buildRouter({
           ConsentPage(requestId: state.uri.queryParameters['request']),
         ),
       ),
-      // Also outside the shell: the scan and review flow, and one marker.
-      GoRoute(
-        path: '/labs/add',
-        pageBuilder: (context, state) => _fade(state, const LabEntryPage()),
-      ),
-      GoRoute(
-        path: '/labs/marker/:key',
-        pageBuilder: (context, state) => _fade(
-          state,
-          LabMarkerPage(metricKey: state.pathParameters['key'] ?? ''),
-        ),
-      ),
+      // The in-app assistant's chat, check-in, playbook and You pages.
+      ...assistantRoutes(_fade),
       StatefulShellRoute.indexedStack(
         pageBuilder: (context, state, shell) =>
             _fade(state, AppShell(navigationShell: shell)),
         branches: [
+          // Today, with the archive of insights behind its "Earlier
+          // insights" link.
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/',
                 builder: (context, state) => const TodayPage(),
+                routes: [
+                  GoRoute(
+                    path: 'insights',
+                    builder: (context, state) => const Scaffold(
+                      appBar: SubpageAppBar(
+                        fallback: '/',
+                        title: Text('Today'),
+                      ),
+                      body: InsightsPage(),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: '/progress',
+                builder: (context, state) => const ProgressPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/assistant',
+                builder: (context, state) => const AssistantPage(),
+              ),
+            ],
+          ),
+          // Systems holds the trends list and Labs. The older /trends and
+          // /labs addresses still work and keep this tab selected.
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/systems',
+                builder: (context, state) => const SystemsPage(),
+              ),
+              // Systems detail, context, patterns, review, trials and lab
+              // review (lib/router/systems_routes.dart).
+              ...systemsRoutes(),
+              GoRoute(
                 path: '/trends',
+                builder: (context, state) => const SystemsPage(),
                 // One metric's chart over the list; back returns to it.
                 routes: [
                   GoRoute(
@@ -223,23 +260,29 @@ GoRouter buildRouter({
                     ),
                   ),
                 ],
-                builder: (context, state) => const TrendsPage(),
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
               GoRoute(
                 path: '/labs',
-                builder: (context, state) => const LabsPage(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/insights',
-                builder: (context, state) => const InsightsPage(),
+                builder: (context, state) => const Scaffold(
+                  appBar: SubpageAppBar(
+                    fallback: '/systems',
+                    title: Text('Systems'),
+                  ),
+                  body: LabsPage(),
+                ),
+                // The scan and review flow, and one marker.
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    builder: (context, state) => const LabEntryPage(),
+                  ),
+                  GoRoute(
+                    path: 'marker/:key',
+                    builder: (context, state) => LabMarkerPage(
+                      metricKey: state.pathParameters['key'] ?? '',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -249,6 +292,16 @@ GoRouter buildRouter({
                 path: '/you',
                 builder: (context, state) =>
                     YouPage(ssoResult: state.uri.queryParameters['sso']),
+                routes: [
+                  GoRoute(
+                    path: 'goals',
+                    builder: (context, state) => const GoalsPage(),
+                  ),
+                  GoRoute(
+                    path: 'medicines',
+                    builder: (context, state) => const MedicinesPage(),
+                  ),
+                ],
               ),
             ],
           ),

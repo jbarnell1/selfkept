@@ -119,7 +119,7 @@ public class LabRuleTests
     var previous = Panel(new DateOnly(2026, 9, 20), new DateOnly(2026, 9, 22),
       ("lab.apob", 88), ("lab.hscrp", 2.0), ("lab.ldl", 120), ("lab.tsh", 2.0), ("lab.ferritin", 100), ("lab.ggt", 30));
     var latest = Panel(new DateOnly(2026, 10, 20), Day,
-      ("lab.apob", 104), ("lab.hscrp", 2.2), ("lab.ldl", 100), ("lab.tsh", 2.4), ("lab.ferritin", 60), ("lab.ggt", 30));
+      ("lab.apob", 104), ("lab.hscrp", 2.2), ("lab.ldl", 100), ("lab.tsh", 2.4), ("lab.ferritin", 50), ("lab.ggt", 30));
 
     var candidate = new LabTrendRule().Evaluate(Context(SexAtBirth.Male, previous, latest));
 
@@ -127,12 +127,22 @@ public class LabRuleTests
     candidate!.Severity.Should().Be(InsightSeverities.Watch);
     candidate.Metrics.Should().BeEquivalentTo(new[] { "lab.ferritin", "lab.apob" });
     candidate.Metrics[0].Should().Be("lab.ferritin", "the larger move leads");
-    candidate.Templated.Should().Contain("Ferritin moved from 100 ng/mL on Sep 20, 2026 to 60 ng/mL on Oct 20, 2026, down 40 percent.");
+    candidate.Templated.Should().Contain("Ferritin moved from 100 ng/mL on Sep 20, 2026 to 50 ng/mL on Oct 20, 2026, down 50 percent.");
     candidate.Templated.Should().Contain("ApoB (up 18 percent)");
     candidate.Templated.Should().NotContain("hs-CRP", "10 percent is under the threshold");
     candidate.Templated.Should().NotContain("LDL", "LDL improved");
     candidate.Templated.Should().NotContain("TSH", "2.4 is nearer the middle of 0.3 to 4.2 than 2.0");
     candidate.Templated.Should().Contain("Sep 20, 2026 and Oct 20, 2026");
+  }
+
+  [Fact]
+  public void Trend_MoveInsideTheReferenceChangeValue_IsHeld()
+  {
+    // Ferritin 100 to 60 is down 40 percent, inside its RCV of 2.77 x 16.9 = 46.8 percent.
+    var previous = Panel(new DateOnly(2026, 9, 20), new DateOnly(2026, 9, 22), ("lab.ferritin", 100));
+    var latest = Panel(new DateOnly(2026, 10, 20), Day, ("lab.ferritin", 60));
+
+    new LabTrendRule().Evaluate(Context(SexAtBirth.Male, previous, latest)).Should().BeNull("expected_swing labels it instead");
   }
 
   [Fact]

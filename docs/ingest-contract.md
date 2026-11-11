@@ -43,7 +43,8 @@ Rules:
 - `value` is numeric. Categorical readings carry a small integer in `value` and the label in `meta` (see sleep stages below).
 - `unit` must match the catalogue unit for that metric; the server converts a short allowlist (`count/min` to `bpm`, `mi` to `m`, `lb` to `kg`, `F` to `C`) and rejects anything else.
 - Samples are attributed to the source's person. A client cannot post for another person.
-- Daily summaries are never posted by clients; the server derives them.
+- Daily summaries are never posted by clients; the server derives them. Sleep counts towards a sleep day that runs from 18:00 local the evening before to 18:00 local on the day, by each segment's end, so a night belongs to the morning it ended and an afternoon nap to its own day.
+- Heart rate older than the retention window (12 months by default, `docs/retention-design.md`) is kept as one row per source per minute. A resent reading for a minute its source already has there counts as a duplicate. A source never seen before keeps its old readings, and they are folded on the next nightly run.
 
 ## Metric catalogue, first release
 
@@ -70,6 +71,13 @@ Keys are stable identifiers. Units are the stored unit.
 | `weight_kg` | kg | instant | bodyMass | WeightRecord | |
 | `body_fat_pct` | % | instant | bodyFatPercentage | BodyFatRecord | |
 | `height_cm` | cm | instant | height | HeightRecord | |
+| `lean_mass_kg` | kg | instant | | LeanBodyMassRecord | |
+| `bone_mass_kg` | kg | instant | | BoneMassRecord | |
+| `body_water_kg` | kg | instant | | BodyWaterMassRecord | |
+| `energy_intake_kcal` | kcal | interval | | NutritionRecord energy | |
+| `protein_g` | g | interval | | NutritionRecord protein | |
+| `carbs_g` | g | interval | | NutritionRecord totalCarbohydrate | |
+| `fat_g` | g | interval | | NutritionRecord totalFat | |
 | `menstrual_flow` | level | interval | menstrualFlow | MenstruationFlowRecord | |
 | `basal_body_temp_c` | C | instant | basalBodyTemperature | BasalBodyTemperatureRecord | |
 | `blood_glucose_mmol` | mmol/L | instant | bloodGlucose | BloodGlucoseRecord | |
@@ -86,12 +94,14 @@ Sleep stage values: `0 in_bed`, `1 awake`, `2 light` (HealthKit core), `3 deep`,
 
 Menstrual flow values: `1 light`, `2 medium`, `3 heavy`, `4 unspecified`, `0 none`.
 
+Nutrition is read only: the phone sends what another app logged in Health Connect, one interval sample per field over the record's start and end, and skips a field the record leaves out. The app never asks anyone to log food. `sourceUid` is `hc-<record id>` with `-energy`, `-protein`, `-carbs` or `-fat`. HealthKit does not read the body composition or nutrition types yet. `waist_cm` is in the catalogue but is typed in, not read from a health store.
+
 Lab markers live in the same catalogue with a `lab.` prefix (for example `lab.apob`, unit mg/dL) and arrive through the labs endpoints in Package 4, not through ingest.
 
 ## Client behaviour
 
 - **iOS**: `HKObserverQuery` with `enableBackgroundDelivery` for each type, `HKAnchoredObjectQuery` to pull deltas, anchor persisted locally and mirrored to `cursor`. On every foreground, run a full delta pass. Respect that iOS may wake the app roughly hourly.
-- **Android**: Health Connect `getChangesToken` per record type, `WorkManager` periodic job every 15 minutes with network constraint, plus a foreground pass. The job stages rows on the phone; while the app is closed it starts a headless engine at most once an hour to send them (the app's own collector and outbox, stopped if the app opens). Request `READ_HEALTH_DATA_IN_BACKGROUND` and `READ_HEALTH_DATA_HISTORY`.
+- **Android**: Health Connect `getChangesToken` per record type, `WorkManager` periodic job every 15 minutes with network constraint, plus a foreground pass. The job stages rows on the phone; while the app is closed it starts a headless engine at most once an hour to send them (the app's own collector and outbox, stopped if the app opens). Request `READ_HEALTH_DATA_IN_BACKGROUND` and `READ_HEALTH_DATA_HISTORY`. Each pass reads only the record types the person allowed; a declined type is skipped and the rest still sync. A type allowed later in Health Connect settings starts with its own 90-day backfill.
 - Both: write to the Drift outbox first, flush in batches of up to 2,000, mark sent on 200, keep on any failure. Show the last successful flush on the Sources screen.
 - Initial backfill: 90 days on first connect, paged, lowest priority, so the first sync does not take an hour of battery.
 
@@ -111,11 +121,13 @@ All read endpoints take an optional `personId`. Absent means the caller. Present
 
 | Method | Path | Returns |
 | --- | --- | --- |
-| GET | `/api/data/daily?metric&from&to&personId?` | `{ metric, unit, days: [{ day, value, min?, max?, count }] }` one row per calendar day in the person's time zone |
+| GET | `/api/data/daily?metric&from&to&personId?` | `{ metric, unit, days: [{ day, value, min?, max?, count }] }` one row per calendar day in the person's time zone (for `sleep_stage`, the 18:00 to 18:00 sleep day) |
 | GET | `/api/data/samples?metric&from&to&limit?&cursor?&personId?` | `{ items: SampleDto[], nextCursor? }` newest first, limit max 2,000 |
 | GET | `/api/data/overview?personId?` | `{ metrics: [{ metric, unit, firstAt, lastAt, count, lastValue }] }` for the Sources and Trends screens |
 | GET | `/api/catalogue/metrics` | the metric catalogue: `{ key, unit, kind, category: ShareCategory, displayName, blurb, goodDirection }[]` |
 
 `SampleDto = { id, metric, start, end, value, unit, sourceId, meta }`
+
+A folded heart rate minute comes back on the samples page as a `SampleDto` too: `start` is the minute, `end` one minute later, `value` the mean, and `meta` is `{ "rollup": { "min", "max", "count" } }`. Raw readings never carry a `rollup` key. The overview's `firstAt`, `lastAt` and `count` include folded minutes (count is readings, not rows).
 
 Metric to `ShareCategory` mapping lives in the catalogue: steps, distance, energy, exercise, flights, workouts are `activity`; sleep_stage is `sleep`; heart rate, HRV, SpO2, respiratory rate, temperatures, blood pressure, glucose, Oura scores are `vitals`; weight, body fat, height, vo2max are `body`; menstrual and basal temperature are `cycle`; checkin_mood is `checkins`; `lab.*` is `labs`.

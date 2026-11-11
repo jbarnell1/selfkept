@@ -116,7 +116,44 @@ public static class InsightKinds
   public const string Spo2Low = "spo2_low";
   public const string LabOutOfRange = "lab_out_of_range";
   public const string LabTrend = "lab_trend";
+  public const string LossRateFast = "loss_rate_fast";
+  public const string GoalReached = "goal_reached";
+  public const string GoalOffCourse = "goal_off_course";
+  public const string TargetWeek = "target_week";
+  public const string WaistHeight = "waist_height";
   public const string Learning = "learning";
+  public const string YesterdayLastNight = "yesterday_last_night";
+  public const string TargetSlipping = "target_slipping";
+  public const string EarlySigns = "early_signs";
+  public const string ColdStarting = "cold_starting";
+  public const string ShortSleepDiet = "short_sleep_diet";
+  public const string RecoveryStrain = "recovery_strain";
+  public const string StrengthOnTrack = "strength_on_track";
+  public const string MoodDeficit = "mood_deficit";
+  public const string PersonalPattern = "personal_pattern";
+
+  // Lab review and cross-reference (docs/cross-reference.md, "Rules").
+  public const string TrialReady = "trial_ready";
+  public const string RetestDue = "retest_due";
+  public const string DrawConditionsDiffer = "draw_conditions_differ";
+  public const string ApoBLdlDisagree = "apob_ldl_disagree";
+  public const string CalculatedLdlUnreliable = "calculated_ldl_unreliable";
+  public const string FerritinInflammation = "ferritin_inflammation";
+  public const string HighFerritinContext = "high_ferritin_context";
+  public const string ThyroidCholesterol = "thyroid_cholesterol";
+  public const string FreeTestosteroneShbg = "free_testosterone_shbg";
+  public const string CreatinineMuscle = "creatinine_muscle";
+  public const string HematocritTestosterone = "hematocrit_testosterone";
+  public const string ExpectedSwing = "expected_swing";
+  public const string LabReviewReady = "lab_review_ready";
+
+  /// <summary>The kinds whose evidence names a lab report (reportId, and previousReportId where two panels are compared).</summary>
+  public static readonly IReadOnlySet<string> AboutAPanel = new HashSet<string>(StringComparer.Ordinal)
+  {
+    LabOutOfRange, LabTrend, TrialReady, DrawConditionsDiffer, ApoBLdlDisagree, CalculatedLdlUnreliable,
+    FerritinInflammation, HighFerritinContext, ThyroidCholesterol, FreeTestosteroneShbg, CreatinineMuscle,
+    HematocritTestosterone, ExpectedSwing, LabReviewReady,
+  };
 }
 
 public static class InsightSeverities

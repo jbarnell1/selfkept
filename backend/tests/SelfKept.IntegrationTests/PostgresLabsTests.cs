@@ -38,7 +38,7 @@ public class PostgresLabsTests
 
     await using (var reference = new NpgsqlCommand("SELECT count(*) FROM lab_reference", connection))
     {
-      (await reference.ExecuteScalarAsync()).Should().Be(44L, "0007 seeded the CSV rows");
+      (await reference.ExecuteScalarAsync()).Should().Be(61L, "0007 and 0020 seeded the CSV rows");
     }
     await using (var rows = new NpgsqlCommand("SELECT metric_key, value, unit, derived FROM lab_result WHERE report_id = @r ORDER BY metric_key", connection))
     {
@@ -52,6 +52,16 @@ public class PostgresLabsTests
       list.Single(r => r.Key == "lab.tc_hdl_ratio").Value.Should().Be(4.42);
       list.Single(r => r.Key == "lab.tg_hdl_ratio").Value.Should().Be(3.44);
       list.Should().OnlyContain(r => r.Derived ? r.Unit == "ratio" : true);
+    }
+    await using (var conditions = new NpgsqlCommand("SELECT fasting, fasting_hours, draw_period, conditions_defaulted FROM lab_report WHERE id = @r", connection))
+    {
+      conditions.Parameters.AddWithValue("r", reportId);
+      await using var reader = await conditions.ExecuteReaderAsync();
+      (await reader.ReadAsync()).Should().BeTrue();
+      reader.GetString(0).Should().Be("yes", "a Rythm panel is pre-filled as a fasting draw");
+      reader.GetInt16(1).Should().Be(8);
+      reader.GetString(2).Should().Be("morning");
+      reader.GetBoolean(3).Should().BeTrue();
     }
     await using (var report = new NpgsqlCommand("SELECT provider, collected_on, source_image_cipher IS NOT NULL, image_sha256, confirmed_at IS NOT NULL FROM lab_report WHERE id = @r", connection))
     {

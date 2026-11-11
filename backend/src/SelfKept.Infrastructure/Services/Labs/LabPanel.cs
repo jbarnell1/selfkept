@@ -46,12 +46,24 @@ public static class LabPanel
     (LabMetricKeys.Fructosamine, Groups.Metabolic),
     (LabMetricKeys.Albumin, Groups.Metabolic),
     (LabMetricKeys.UricAcid, Groups.Metabolic),
+    (LabMetricKeys.HbA1c, Groups.Metabolic),
+    (LabMetricKeys.FastingGlucose, Groups.Metabolic),
+    (LabMetricKeys.Iron, Groups.Metabolic),
+    (LabMetricKeys.Tibc, Groups.Metabolic),
+    (LabMetricKeys.TransferrinSaturation, Groups.Metabolic),
     (LabMetricKeys.Hematocrit, Groups.Blood),
     (LabMetricKeys.Hemoglobin, Groups.Blood),
+    (LabMetricKeys.Rbc, Groups.Blood),
+    (LabMetricKeys.Mcv, Groups.Blood),
+    (LabMetricKeys.Wbc, Groups.Blood),
+    (LabMetricKeys.Platelets, Groups.Blood),
     (LabMetricKeys.Creatinine, Groups.Kidney),
     (LabMetricKeys.Egfr, Groups.Kidney),
+    (LabMetricKeys.CystatinC, Groups.Kidney),
     (LabMetricKeys.Alp, Groups.Liver),
     (LabMetricKeys.Ggt, Groups.Liver),
+    (LabMetricKeys.Alt, Groups.Liver),
+    (LabMetricKeys.Ast, Groups.Liver),
   ];
 
   private static readonly Dictionary<string, int> Index = Order.Select((o, i) => (o.MetricKey, i)).ToDictionary(x => x.MetricKey, x => x.i, StringComparer.Ordinal);
@@ -101,6 +113,18 @@ public static class LabPanel
     [LabMetricKeys.Egfr] = "Derived from creatinine, so the same things, with age built in. Repeat before reading one low value.",
     [LabMetricKeys.Alp] = "Liver and bone turnover. Higher in growing teenagers and in pregnancy.",
     [LabMetricKeys.Ggt] = "Alcohol in the last weeks, some medicines, liver fat.",
+    [LabMetricKeys.Alt] = "Liver fat, alcohol, some medicines and weight change. Read with AST and GGT.",
+    [LabMetricKeys.Ast] = "Liver and muscle both release it, so hard training before a draw can lift it as well as the liver. Read with ALT.",
+    [LabMetricKeys.Platelets] = "Recent illness or inflammation, iron stores and some medicines. Read with the rest of the blood count.",
+    [LabMetricKeys.Wbc] = "A recent infection, hard exercise, stress, smoking and some medicines. One value is a snapshot of the day.",
+    [LabMetricKeys.Rbc] = "Hydration on the day, altitude and iron, B12 and folate. Reads with hemoglobin and hematocrit.",
+    [LabMetricKeys.Mcv] = "Iron, B12 and folate, and alcohol. It changes over months, as old red cells are replaced.",
+    [LabMetricKeys.HbA1c] = "Average blood sugar over the last few months. Anything that changes how long red cells live, such as low iron or anaemia, can shift it too.",
+    [LabMetricKeys.FastingGlucose] = "Only comparable between fasting draws. A short night, illness, stress and some medicines lift it on the day.",
+    [LabMetricKeys.CystatinC] = "Kidney filtering, without the muscle effect that creatinine carries. Thyroid hormone and some steroid medicines can shift it.",
+    [LabMetricKeys.TransferrinSaturation] = "Iron intake and supplements, blood loss and the time since the last iron dose. Reads with ferritin and serum iron.",
+    [LabMetricKeys.Iron] = "A recent meal or iron supplement and the time of day. It swings a lot from day to day, so ferritin is the steadier read.",
+    [LabMetricKeys.Tibc] = "Rises when iron stores are low and falls with inflammation. Reads with transferrin saturation.",
   };
 
   public static string WhatMoves(string metricKey) => WhatMovesIt.TryGetValue(metricKey, out var text) ? text : string.Empty;
