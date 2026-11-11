@@ -209,11 +209,116 @@ abstract final class AssistantFixtures {
   };
 }
 
+/// JSON the cloud lookup routes answer with.
+abstract final class LookupFixtures {
+  static Map<String, dynamic> status({
+    bool available = true,
+    bool enabled = false,
+    bool localModel = false,
+  }) => {
+    'available': available,
+    'enabled': enabled,
+    'provider': 'Anthropic',
+    'model': 'claude-opus-5-5',
+    'localModel': localModel,
+  };
+
+  static Map<String, dynamic> draft({
+    String mode = 'anonymized',
+    String? text,
+    List<Map<String, dynamic>>? changes,
+    bool reworded = false,
+  }) => {
+    'text':
+        text ??
+        (mode == 'detailed'
+            ? 'Does magnesium glycinate help with sleep? About me: in my 40s, male. Sleep 6 h 5 min.'
+            : 'Does magnesium glycinate help with sleep in adults in their 40s?'),
+    'mode': mode,
+    'changes':
+        changes ??
+        (mode == 'detailed'
+            ? [
+                {'kind': 'name', 'count': 1},
+                {'kind': 'record', 'count': 1},
+              ]
+            : [
+                {'kind': 'name', 'count': 1},
+                {'kind': 'date', 'count': 2},
+                {'kind': 'number', 'count': 3},
+              ]),
+    'reworded': reworded,
+    'provider': 'Anthropic',
+    'model': 'claude-opus-5-5',
+  };
+
+  static Map<String, dynamic> answer({
+    String id = 'm-cloud',
+    String? lookupId = 'lk1',
+    List<Map<String, dynamic>>? sources,
+  }) => {
+    ...AssistantFixtures.message(
+      id: id,
+      role: 'assistant',
+      content:
+          'Small trials suggest magnesium may help sleep a little in older adults. The evidence is weak.',
+      origin: 'cloud',
+    ),
+    'sources':
+        sources ??
+        [
+          {
+            'title': 'Magnesium and sleep, a review',
+            'url': 'https://example.test/magnesium',
+          },
+          {'title': '', 'url': 'ftp://example.test/plain'},
+        ],
+    'lookupId': lookupId,
+  };
+
+  static Map<String, dynamic> applied() => AssistantFixtures.message(
+    id: 'm-applied',
+    role: 'assistant',
+    content: 'Your sleep has been short this week, so this may be worth a try.',
+    origin: 'model',
+  );
+
+  static Map<String, dynamic> done({bool withApplied = true}) => {
+    'lookupId': 'lk1',
+    'message': answer(),
+    'applied': withApplied ? applied() : null,
+  };
+
+  static Map<String, dynamic> record({
+    String id = 'lk1',
+    String mode = 'anonymized',
+    String status = 'answered',
+    String text =
+        'Does magnesium glycinate help with sleep in adults in their 40s?',
+  }) => {
+    'id': id,
+    'conversationId': 'c1',
+    'mode': mode,
+    'status': status,
+    'provider': 'Anthropic',
+    'model': 'claude-opus-5-5',
+    'text': text,
+    'sentAt': '2026-11-10T03:10:00Z',
+  };
+
+  /// The chat done event with the lookup offer.
+  static Map<String, dynamic> offeredDone({bool offered = true}) => {
+    ...StreamFixtures.done(text: 'Magnesium is a common supplement.'),
+    'lookup': {'offered': offered, 'reason': 'question'},
+  };
+}
+
 /// Signs in and runs startup against a server that has (or lacks) the
-/// assistant.
+/// assistant, and the cloud lookup when [lookup] is set.
 Future<void> signInWithAssistant(
   TestHarness h, {
   bool feature = true,
+  bool lookup = false,
   String role = 'admin',
 }) async {
   h.api.on('GET', '/system/version', (_) {
@@ -221,6 +326,7 @@ Future<void> signInWithAssistant(
     v['features'] = [
       ...(v['features'] as List),
       if (feature) AssistantFeature.name,
+      if (lookup) LookupFeature.name,
     ];
     return v;
   });

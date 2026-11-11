@@ -17,12 +17,17 @@ class ApiException implements Exception {
   /// How long the server asked the client to wait, on a 429.
   final Duration? retryAfter;
 
+  /// The decoded problem body when the server sent a JSON object, so a
+  /// caller can read a route's own extra fields (the lookup's `findings`).
+  final Map<String, dynamic>? body;
+
   const ApiException(
     this.message, {
     this.statusCode,
     this.isNetwork = false,
     this.problemType,
     this.retryAfter,
+    this.body,
   });
 
   const ApiException.network([
@@ -30,7 +35,8 @@ class ApiException implements Exception {
   ]) : statusCode = null,
        isNetwork = true,
        problemType = null,
-       retryAfter = null;
+       retryAfter = null,
+       body = null;
 
   bool get isUnauthorized => statusCode == 401;
   bool get isForbidden => statusCode == 403;
@@ -60,9 +66,11 @@ class ApiException implements Exception {
   }) {
     String? message;
     String? type;
+    Map<String, dynamic>? body;
     int? retrySeconds = int.tryParse(retryAfter ?? '');
     if (data is Map) {
-      final r = JsonReader(Map<String, dynamic>.from(data));
+      body = Map<String, dynamic>.from(data);
+      final r = JsonReader(body);
       message =
           r.stringOrNull('detail') ??
           r.stringOrNull('title') ??
@@ -84,6 +92,7 @@ class ApiException implements Exception {
       statusCode: status,
       problemType: type,
       retryAfter: retrySeconds == null ? null : Duration(seconds: retrySeconds),
+      body: body,
     );
   }
 

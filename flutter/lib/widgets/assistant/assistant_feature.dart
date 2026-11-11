@@ -17,6 +17,21 @@ abstract final class AssistantFeature {
       );
 }
 
+/// The cloud lookup is there when the server lists this feature: the server
+/// switch is on and a provider key is set. Without it there is no offer, no
+/// row under You, and no request to the lookup routes.
+abstract final class LookupFeature {
+  static const String name = 'assistant.lookup';
+
+  static bool watch(BuildContext context) =>
+      context.select<StartupProvider, bool>(
+        (s) => s.versionInfo?.hasFeature(name) ?? false,
+      );
+
+  static bool read(BuildContext context) =>
+      context.read<StartupProvider>().versionInfo?.hasFeature(name) ?? false;
+}
+
 /// What the Assistant tab says on a server without the assistant.
 class AssistantNeedsUpdate extends StatelessWidget {
   const AssistantNeedsUpdate({super.key});

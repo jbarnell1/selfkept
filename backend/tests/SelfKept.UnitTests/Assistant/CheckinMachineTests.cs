@@ -135,6 +135,91 @@ public class CheckinMachineTests
     result.Drafts.Single().Tags.Should().Equal(AssistantTags.NoSymptoms);
   }
 
+  [Theory]
+  [InlineData("none today")]
+  [InlineData("None today.")]
+  [InlineData("no, nothing today")]
+  [InlineData("nope, not that I noticed")]
+  [InlineData("nothing to report")]
+  [InlineData("no issues")]
+  [InlineData("not bad at all")]
+  public void Interpret_NoSymptomsInOtherWords_SavesTheMarkerAndNotTheWords(string answer)
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Symptoms, answer, Now, TimeZoneInfo.Utc);
+
+    result.Outcome.Should().Be(CheckinOutcome.None);
+    result.Tone.Should().Be(CheckinTones.None);
+    var draft = result.Drafts.Single();
+    draft.Tags.Should().Equal(AssistantTags.NoSymptoms);
+    draft.Text.Should().BeNull();
+  }
+
+  [Theory]
+  [InlineData("not great")]
+  [InlineData("not feeling well")]
+  [InlineData("I don't feel right")]
+  [InlineData("a bit under the weather")]
+  public void Interpret_NotFine_IsNeverReadAsFine(string answer)
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Symptoms, answer, Now, TimeZoneInfo.Utc);
+
+    result.Outcome.Should().Be(CheckinOutcome.Harvested);
+    result.Tone.Should().Be(CheckinTones.Unwell);
+    result.Drafts.Should().NotContain(d => d.Tags.Contains(AssistantTags.NoSymptoms));
+  }
+
+  [Fact]
+  public void Interpret_ANamedSymptom_PicksTheUnwellTone()
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Symptoms, "a bit of a headache this afternoon", Now, TimeZoneInfo.Utc);
+
+    result.Tone.Should().Be(CheckinTones.Unwell);
+    result.Drafts.Single().Tags.Should().Contain(JournalTags.Headache);
+  }
+
+  [Fact]
+  public void Interpret_SymptomWordsTheLexiconDoesNotKnow_GetNoSympathyLine()
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Symptoms, "same as yesterday", Now, TimeZoneInfo.Utc);
+
+    result.Tone.Should().Be(CheckinTones.Noted);
+    result.Drafts.Single().Text.Should().Be("same as yesterday");
+    AssistantTemplates.EncouragementFor(CheckinTopics.Symptoms, result.Tone).Should().NotContain("Sorry");
+  }
+
+  [Theory]
+  [InlineData("Pizza and ice cream")]
+  [InlineData("Takeaway burger and fries")]
+  [InlineData("Salmon and vegetables, then a brownie")]
+  public void Interpret_SweetsOrTakeaway_NeverGetALineAboutJudgement(string answer)
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Eating, answer, Now, TimeZoneInfo.Utc);
+
+    result.Outcome.Should().Be(CheckinOutcome.Harvested);
+    var line = AssistantTemplates.EncouragementFor(CheckinTopics.Eating, result.Tone);
+    line.Should().NotContainAny("judgement", "just one day", "honest");
+  }
+
+  [Fact]
+  public void Encouragement_NoLine_GradesOrExcusesTheAnswer()
+  {
+    foreach (var line in AssistantTemplates.Encouragement.Values)
+    {
+      line.Should().NotContainAny("judgement", "honestly", "just one day", "guilt");
+    }
+  }
+
+  [Theory]
+  [InlineData("none today")]
+  [InlineData("no, neither")]
+  public void Interpret_NoDrinksInOtherWords_SavesBothMarkers(string answer)
+  {
+    var result = CheckinHarvest.Interpret(Capture, CheckinTopics.Drinks, answer, Now, TimeZoneInfo.Utc);
+
+    result.Outcome.Should().Be(CheckinOutcome.None);
+    result.Drafts.Single().Tags.Should().BeEquivalentTo([AssistantTags.NoAlcohol, AssistantTags.NoCaffeine]);
+  }
+
   [Fact]
   public void Interpret_UntaggedFood_KeepsTheWords()
   {

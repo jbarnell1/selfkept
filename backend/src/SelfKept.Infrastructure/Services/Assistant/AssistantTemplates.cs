@@ -102,19 +102,19 @@ public static class AssistantTemplates
   public static readonly IReadOnlyDictionary<(string Topic, string Tone), string> Encouragement = new Dictionary<(string, string), string>
   {
     [(CheckinTopics.Eating, CheckinTones.Balanced)] = "That sounds like a good day of eating.",
-    [(CheckinTopics.Eating, CheckinTones.Treat)] = "Noted, and no judgement. One day of food is just one day.",
     [(CheckinTopics.Eating, CheckinTones.None)] = "Thanks for saying. A light eating day is worth having on the record next to tonight's sleep.",
     [(CheckinTopics.Eating, CheckinTones.Noted)] = "Thanks, that is on today's log.",
     [(CheckinTopics.Training, CheckinTones.Hard)] = "That was great work today. It will be interesting to see if it is reflected in tomorrow's recovery readings.",
     [(CheckinTopics.Training, CheckinTones.Done)] = "Nice work getting that in. Tomorrow's readings may show how your body took it.",
     [(CheckinTopics.Training, CheckinTones.None)] = "Rest days count too. Recovery is part of training.",
     [(CheckinTopics.Training, CheckinTones.Noted)] = "Thanks, that is on today's log.",
-    [(CheckinTopics.Drinks, CheckinTones.Alcohol)] = "Thanks for logging it honestly. It will be interesting to see whether tonight's sleep and tomorrow's resting heart rate look any different.",
+    [(CheckinTopics.Drinks, CheckinTones.Alcohol)] = "Thanks, that is noted. It will be interesting to see whether tonight's sleep and tomorrow's resting heart rate look any different.",
     [(CheckinTopics.Drinks, CheckinTones.LateCaffeine)] = "Noted. Caffeine late in the day can show up in sleep, so tomorrow's sleep reading is worth a look.",
     [(CheckinTopics.Drinks, CheckinTones.Noted)] = "Thanks, that is noted.",
     [(CheckinTopics.Drinks, CheckinTones.None)] = "A clear day on drinks, noted.",
     [(CheckinTopics.Symptoms, CheckinTones.Unwell)] = "Sorry you are not feeling great. I have noted it, and tomorrow's readings may help show how things are going. Take it easy if you can.",
     [(CheckinTopics.Symptoms, CheckinTones.None)] = "Good to hear you are feeling well.",
+    [(CheckinTopics.Symptoms, CheckinTones.Noted)] = "Thanks, that is on today's log.",
     [(CheckinTopics.Mood, CheckinTones.High)] = "Glad to hear it.",
     [(CheckinTopics.Mood, CheckinTones.Middle)] = "Thanks for telling me.",
     [(CheckinTopics.Mood, CheckinTones.Low)] = "Thanks for telling me. Low days happen, and if they keep coming it may be worth talking to someone.",
@@ -138,7 +138,6 @@ public static class AssistantTemplates
 public static class CheckinTones
 {
   public const string Balanced = "balanced";
-  public const string Treat = "treat";
   public const string Noted = "noted";
   public const string None = "none";
   public const string Hard = "hard";

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/assistant.dart';
+import '../models/assistant_lookup.dart';
 import '../utils/api_error.dart';
 import 'assistant_chat_session.dart';
 
@@ -102,7 +103,9 @@ class AssistantChatProvider extends ChatSession {
                   ..origin = event.origin
                   ..messageId = event.messageId
                   ..state = ChatItemState.done
-                  ..safety = event.redFlag;
+                  ..safety = event.redFlag
+                  ..lookupOffered = event.lookupOffered && !event.redFlag
+                  ..questionMessageId = event.userMessageId;
                 user.messageId ??= event.userMessageId;
             }
             notify();
@@ -148,6 +151,26 @@ class AssistantChatProvider extends ChatSession {
       ..remove(user);
     notify();
     return send(user.text);
+  }
+
+  /// Adds a cloud answer the lookup sheet brought back, and the home
+  /// model's note on it when there is one. [from] is the reply whose offer
+  /// was used; its offer goes away so the same question is not sent twice by
+  /// accident.
+  void addLookupAnswer(
+    LookupDoneEvent done, {
+    ChatItem? from,
+    String? provider,
+  }) {
+    from?.lookupOffered = false;
+    items.add(
+      ChatItem.fromMessage(done.message)
+        ..provider = provider
+        ..lookupId ??= done.lookupId.isEmpty ? null : done.lookupId,
+    );
+    final applied = done.applied;
+    if (applied != null) items.add(ChatItem.fromMessage(applied));
+    notify();
   }
 
   @override

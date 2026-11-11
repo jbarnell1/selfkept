@@ -91,6 +91,10 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
   int _lastCollected = 0;
   bool _backgroundLimited = false;
   bool _collectRequested = false;
+  MetricPermissions? _metricPermissions;
+  Set<MetricKey> _notNow = const {};
+  bool _askingForMore = false;
+  bool _askedAndStillMissing = false;
   Future<void>? _inFlight;
   StreamSubscription<void>? _changes;
 
@@ -141,6 +145,36 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
   /// True when the phone may hold sends while the app is closed.
   bool get backgroundLimited => _backgroundLimited;
 
+  /// Collectable metrics this phone could read but has not been allowed to.
+  /// Empty when the platform cannot say (HealthKit, web) or before the first
+  /// check.
+  Set<MetricKey> get missingMetrics {
+    final missing = _metricPermissions?.missing;
+    if (missing == null) return const {};
+    return missing.intersection(MetricKey.collectable);
+  }
+
+  /// True when this phone is connected and some kinds are not allowed yet.
+  /// The Sources screen offers the ask whenever this holds.
+  bool get hasMissingMetrics => isConnected && missingMetrics.isNotEmpty;
+
+  /// True when Today should offer the new kinds: the phone already collects
+  /// (something is granted), something collectable is not, and the person
+  /// has not said "Not now" to every kind in that set. A phone that has
+  /// granted nothing is left to the first-time connect.
+  bool get offerMissingMetrics {
+    if (!hasMissingMetrics || _askingForMore) return false;
+    if (_metricPermissions?.granted.isEmpty ?? true) return false;
+    return !_notNow.containsAll(missingMetrics);
+  }
+
+  /// True while the system permission sheet is up.
+  bool get isAskingForMore => _askingForMore;
+
+  /// True when the last ask came back with kinds still missing (the person
+  /// declined, or Android no longer shows the sheet).
+  bool get askedAndStillMissing => _askedAndStillMissing && hasMissingMetrics;
+
   /// Checks the platform and restores a saved connection. Call once after
   /// sign-in; safe to call again. [collect] false leaves the first pass to
   /// the caller (the background upload awaits it).
@@ -152,6 +186,8 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
       return;
     }
     await _restore();
+    _notNow = _decodeKeys(await _outbox.readState(notNowKey));
+    await _readMetricPermissions();
     _backgroundLimited = await _collector.backgroundLimited();
     _changes ??= _collector.changes.listen((_) => collectAndFlush());
     _status = _sourceId == null
@@ -202,6 +238,7 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
       await _outbox.writeState(_cursorKey(userId), _cursor);
       _status = CollectorStatus.connected;
       _progress = null;
+      await _readMetricPermissions();
       notify();
       await collectAndFlush();
       return _error == null;
@@ -233,7 +270,85 @@ class CollectorProvider extends ChangeNotifier with SafeNotifier {
   /// Called by the app when it returns to the foreground.
   void onResume() {
     unawaited(_checkBackground());
+    unawaited(refreshMetricPermissions());
     if (_sourceId != null) unawaited(collectAndFlush());
+  }
+
+  /// Reads per-metric access again (the person may have changed it in the
+  /// Health Connect settings) and tells listeners when the answer moved.
+  Future<void> refreshMetricPermissions() async {
+    if (!isAvailable) return;
+    final before = missingMetrics;
+    final hadGranted = _metricPermissions?.granted.isNotEmpty ?? false;
+    await _readMetricPermissions();
+    final hasGranted = _metricPermissions?.granted.isNotEmpty ?? false;
+    if (!setEquals(before, missingMetrics) || hadGranted != hasGranted) {
+      notify();
+    }
+  }
+
+  /// Opens the system permission request for every collectable metric, so
+  /// the sheet shows the whole picture, then reads access again. Kinds that
+  /// are still missing afterwards count as "Not now" for that set. Newly
+  /// allowed kinds are read at once, each with its own backfill.
+  Future<void> askForMissingMetrics() async {
+    if (_askingForMore || !isAvailable) return;
+    final before = missingMetrics;
+    _askingForMore = true;
+    notify();
+    var shown = false;
+    try {
+      _permission = await _collector.requestPermissions(MetricKey.collectable);
+      shown = true;
+    } catch (e, stack) {
+      // No sheet was shown (no visible screen, or one already up): nothing
+      // was declined, so nothing is remembered.
+      _reporter?.report(e, stack, kind: 'collector');
+    }
+    await _readMetricPermissions();
+    _askingForMore = false;
+    final after = missingMetrics;
+    _askedAndStillMissing = shown && after.isNotEmpty;
+    if (_askedAndStillMissing) await _rememberNotNow(after);
+    notify();
+    if (_sourceId != null && !setEquals(before, after)) {
+      unawaited(collectAndFlush());
+    }
+  }
+
+  /// "Not now" on the Today card: remembered on this device for exactly the
+  /// kinds missing now. A later build that can read something new asks again.
+  Future<void> notNowForMissingMetrics() async {
+    final missing = missingMetrics;
+    if (missing.isEmpty) return;
+    await _rememberNotNow(missing);
+    notify();
+  }
+
+  Future<void> _rememberNotNow(Set<MetricKey> keys) async {
+    _notNow = Set.unmodifiable(keys);
+    await _outbox.writeState(notNowKey, _encodeKeys(keys));
+  }
+
+  Future<void> _readMetricPermissions() async {
+    try {
+      _metricPermissions = await _collector.metricPermissions();
+    } catch (e, stack) {
+      _reporter?.report(e, stack, kind: 'collector');
+      _metricPermissions = null;
+    }
+  }
+
+  /// Device-wide, not per person: Health Connect access belongs to the app
+  /// on this phone, whoever is signed in.
+  static const String notNowKey = 'collector.permissions.notNow';
+
+  static String _encodeKeys(Set<MetricKey> keys) =>
+      (keys.map((k) => k.wireValue).toList()..sort()).join(',');
+
+  static Set<MetricKey> _decodeKeys(String? raw) {
+    if (raw == null || raw.isEmpty) return const {};
+    return {for (final part in raw.split(',')) ?MetricKey.fromString(part)};
   }
 
   /// Opens the battery page. [onResume] reads the answer on the way back.

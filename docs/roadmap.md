@@ -1,7 +1,9 @@
 # Roadmap and handoff
 
-Status: v0.1.6 is the latest release. It adds sample retention and the connected record: four
-packages, backend and Flutter (see "Connected record"). v0.1.1 was the first tag (image
+Status: v0.1.7 is the latest release. It adds the opt-in cloud lookup, a one-time ask for
+Health Connect kinds added since a phone was connected, and an evening check-in fix (see
+"Cloud lookup and the permission ask"). v0.1.6 added sample retention and the connected
+record: four packages, backend and Flutter (see "Connected record"). v0.1.1 was the first tag (image
 `ghcr.io/jbarnell1/selfkept`, install with
 `install.sh` from the latest release). Work goes on a branch with a PR into the open `release/x.y.z`
 branch; a release PR into `main` and a `vX.Y.Z` tag publish it. Read this file first, then
@@ -37,12 +39,25 @@ replies worded by the local model, iOS.
 
 The routes are listed in `docs/api-contract.md`.
 
+### Cloud lookup and the permission ask (v0.1.7)
+
+Released in v0.1.7.
+
+| Piece | Backend | Flutter | Design |
+| --- | --- | --- | --- |
+| Cloud lookup: one question, read and sent by the person, to a cloud model with web search (migration 0021) | done, tested with a fake provider | done | `docs/lookup-design.md` |
+| Ask for Health Connect kinds added since the phone was connected (lean mass, bone mass, body water, food and drink) | none needed | done | card on Today, line on Sources |
+| Evening check-in: "none today" is no longer read as a symptom, and takeaway or sweets get a plain "noted" line, not a comment | done, tested | none needed | `docs/assistant-design.md` |
+
+Not yet checked: a real call to the provider (it needs the owner's own key), the Health Connect
+permission sheet on an upgraded phone, and the lookup on a phone.
+
 Homelab specifics (addresses, paths, what is installed where) are kept out of the repository,
 in `.dev/homelab.md`.
 
 
-Test counts at v0.1.6: backend 1317 (1203 unit, plus 114 that need `SELFKEPT_TEST_CONNECTION`;
-all green with it set), Flutter 966. `flutter analyze` and the backend build had zero warnings.
+Test counts at v0.1.7: backend 1482 (1362 unit, plus 120 that need `SELFKEPT_TEST_CONNECTION`;
+all green with it set), Flutter 1076. `flutter analyze` and the backend build had zero warnings.
 Run the suites again for current counts.
 
 ## What the app does today
@@ -103,7 +118,7 @@ Run the suites again for current counts.
 - The Flutter web build is never committed: `backend/src/SelfKept.Api/wwwroot/*` is ignored except
   the placeholder `index.html`.
 - Postgres-gated tests: `SELFKEPT_TEST_CONNECTION="Host=localhost;Port=5432;Database=postgres;Username=selfkept;Password=selfkept" dotnet test` from `backend/`.
-- Migrations run to `0020_lab_reseed`; the next free number is `0021`.
+- Migrations run to `0021_lookup`; the next free number is `0022`.
 - The in-app browser pane stops painting when hidden. A headless Chrome driven over the DevTools
   protocol is the reliable way to screenshot the web app without it.
 

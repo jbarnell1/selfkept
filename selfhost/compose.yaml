@@ -112,6 +112,13 @@ services:
       Ai__Enabled: ${SELFKEPT_AI_ENABLED:-false}
       Ai__BaseUrl: ${SELFKEPT_AI_BASE_URL:-}
       Ai__Model: ${SELFKEPT_AI_MODEL:-}
+      # Cloud lookup (docs/lookup-design.md). Off by default. When on, a person who turned it on
+      # for themselves can send one question they read and confirmed to Anthropic's API, with
+      # web search. The key is your own, from the Anthropic console; it can live in the secrets
+      # volume as a file named Lookup__ApiKey instead. An empty model means claude-opus-5-5.
+      Lookup__Enabled: ${SELFKEPT_LOOKUP_ENABLED:-false}
+      Lookup__ApiKey: ${SELFKEPT_LOOKUP_API_KEY:-}
+      Lookup__Model: ${SELFKEPT_LOOKUP_MODEL:-}
       # Oura: an API application's id and secret from cloud.ouraring.com. Empty keeps Oura off.
       # The secret can live in the secrets volume as a file named Oura__ClientSecret instead.
       Oura__ClientId: ${SELFKEPT_OURA_CLIENT_ID:-}

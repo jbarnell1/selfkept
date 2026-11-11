@@ -222,13 +222,19 @@ public static partial class CheckinHarvest
       }
       case CheckinTopics.Symptoms:
       {
-        if (ofTopic.Count == 0 && (bareNo || FeelingFine().IsMatch(lower)))
+        // "not great" holds the word "great": a negated fine is never read as fine.
+        var notFine = NotFine().IsMatch(lower);
+        if (ofTopic.Count == 0 && !notFine && (bareNo || FeelingFine().IsMatch(lower)))
         {
           drafts.Add(new CaptureDraft(JournalKinds.Symptom, null, [AssistantTags.NoSymptoms], null, nowUtc));
           return new CheckinHarvestResult(drafts, null, CheckinOutcome.None, CheckinTones.None);
         }
-        if (ofTopic.Count == 0) drafts.Add(Fallback(kind, text, nowUtc));
-        return new CheckinHarvestResult(drafts, null, CheckinOutcome.Harvested, CheckinTones.Unwell);
+        if (ofTopic.Count > 0) return new CheckinHarvestResult(drafts, null, CheckinOutcome.Harvested, CheckinTones.Unwell);
+
+        // Words the lexicon does not know are kept as written. Sympathy is only for an answer
+        // that names a symptom or says the person is not fine; anything else gets the plain line.
+        drafts.Add(Fallback(kind, text, nowUtc));
+        return new CheckinHarvestResult(drafts, null, CheckinOutcome.Harvested, notFine ? CheckinTones.Unwell : CheckinTones.Noted);
       }
       default:
       {
@@ -240,8 +246,8 @@ public static partial class CheckinHarvest
           return new CheckinHarvestResult(drafts, null, CheckinOutcome.None, CheckinTones.None);
         }
         if (ofTopic.Count == 0) drafts.Add(Fallback(kind, text, nowUtc));
+        // No tone for sweets, fried food or takeaway: the line after a food answer never grades it.
         var tone = tags.Contains(JournalTags.SkippedMeal) ? CheckinTones.None
-          : tags.Overlaps([JournalTags.Sweets, JournalTags.FriedFood, JournalTags.Takeaway]) ? CheckinTones.Treat
           : tags.Overlaps([JournalTags.Vegetables, JournalTags.Fruit, JournalTags.WholeGrains, JournalTags.HighProtein, JournalTags.HomeCooked]) ? CheckinTones.Balanced
           : CheckinTones.Noted;
         return new CheckinHarvestResult(drafts, null, CheckinOutcome.Harvested, tone);
@@ -299,7 +305,8 @@ public static partial class CheckinHarvest
   [GeneratedRegex(@"^\s*(?:skip|pass|next|rather not(?: say)?|prefer not to say|no comment|not telling|n/?a)\s*[.!]*\s*$", RegexOptions.CultureInvariant)]
   private static partial Regex SkipAnswer();
 
-  [GeneratedRegex(@"^\s*(?:(?:no|nope|nah|none|nothing|not really|not today|zero|neither|no to both|nothing at all|not at all)[\s.!,]*)+(?:thanks|thank you)?[\s.!]*$", RegexOptions.CultureInvariant)]
+  // A no with nothing after it but filler: "none today", "no, nothing really", "nope, not that I noticed".
+  [GeneratedRegex(@"^\s*(?:(?:no to both|nothing at all|not at all|not really|not today|not that i (?:know of|noticed|can think of)|nope|nah|none|nothing|neither|zero|no)(?:\s+(?:today|tonight|really|at all|this time|so far|for me|to report|to speak of|that i (?:know of|noticed|can think of)|thankfully|luckily))*[\s.!,]*)+(?:thanks|thank you)?[\s.!]*$", RegexOptions.CultureInvariant)]
   private static partial Regex BareNo();
 
   [GeneratedRegex(@"\bno (?:alcohol|drinks?|booze|beer|wine)\b|\bdidn'?t drink\b|\bdid not drink\b|\bsober\b|\bdry (?:day|night)\b|\bnothing to drink\b|\bno to (?:both|alcohol)\b|\bneither\b", RegexOptions.CultureInvariant)]
@@ -311,8 +318,11 @@ public static partial class CheckinHarvest
   [GeneratedRegex(@"\b(?:didn'?t|did not|no|not)\s+(?:train|lift|work out|workout|exercise|go to the gym|gym|training)\b|\brest(?:ed)?\b|\bday off\b|\btook it easy\b", RegexOptions.CultureInvariant)]
   private static partial Regex NoTraining();
 
-  [GeneratedRegex(@"\b(?:fine|good|great|well|ok|okay|all good|no symptoms|nothing to report|feeling normal|healthy|all clear)\b", RegexOptions.CultureInvariant)]
+  [GeneratedRegex(@"\b(?:fine|good|great|well|ok|okay|all good|no (?:symptoms|issues|problems|complaints)|nothing (?:to report|wrong|new)|none (?:today|at all|really|that i (?:know of|noticed|can think of))|not (?:too |so |that )?bad|feeling (?:normal|myself)|healthy|all clear)\b", RegexOptions.CultureInvariant)]
   private static partial Regex FeelingFine();
+
+  [GeneratedRegex(@"\b(?:not|never|hardly|barely|isn'?t|aren'?t|wasn'?t|don'?t|doesn'?t|didn'?t|haven'?t|can'?t)\s+(?:\w+\s+){0,2}(?:fine|good|great|well|ok|okay|healthy|normal|myself|right|100)\b|\bunwell\b|\bunder the weather\b|\brun ?down\b|\bfeel(?:ing|s)? (?:\w+ )?(?:off|rough|ill|poorly|awful|terrible|rubbish|crap)\b", RegexOptions.CultureInvariant)]
+  private static partial Regex NotFine();
 
   [GeneratedRegex(@"\b(?:didn'?t eat|did not eat|barely ate|hardly ate|not much|fasted|fasting|forgot to eat)\b", RegexOptions.CultureInvariant)]
   private static partial Regex NotEating();

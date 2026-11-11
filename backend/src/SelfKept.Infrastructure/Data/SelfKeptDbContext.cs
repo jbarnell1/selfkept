@@ -63,6 +63,8 @@ public class SelfKeptDbContext : DbContext
   public DbSet<AssistantBrief> AssistantBriefs => Set<AssistantBrief>();
   public DbSet<NudgeSetting> NudgeSettings => Set<NudgeSetting>();
   public DbSet<NudgeLog> NudgeLogs => Set<NudgeLog>();
+  public DbSet<LookupSetting> LookupSettings => Set<LookupSetting>();
+  public DbSet<AssistantLookup> AssistantLookups => Set<AssistantLookup>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -74,6 +76,7 @@ public class SelfKeptDbContext : DbContext
     ConfigureBody(modelBuilder);
     ConfigureContext(modelBuilder);
     AssistantModel.Configure(modelBuilder);
+    LookupModel.Configure(modelBuilder);
 
     modelBuilder.Entity<User>(e =>
     {
