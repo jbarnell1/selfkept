@@ -20,11 +20,15 @@ public sealed class SystemController : BaseController
   /// <summary>Added when a local model is configured (Ai:Enabled with a base URL and a model name).</summary>
   private const string ModelFeature = "insights.model";
 
+  /// <summary>Added when the owner turned the cloud lookup on (Lookup:Enabled with a provider key). docs/lookup-design.md.</summary>
+  private const string LookupFeature = "assistant.lookup";
+
   private readonly BrandOptions _brand;
   private readonly IConfiguration _configuration;
   private readonly IAuthService _authService;
   private readonly SelfKeptDbContext _dbContext;
   private readonly IChatModel _model;
+  private readonly ICloudLookupClient _lookup;
   private readonly McpSettings _mcp;
   private readonly ILogger<SystemController> _logger;
 
@@ -34,6 +38,7 @@ public sealed class SystemController : BaseController
     IAuthService authService,
     SelfKeptDbContext dbContext,
     IChatModel model,
+    ICloudLookupClient lookup,
     McpSettings mcp,
     ILogger<SystemController> logger)
   {
@@ -42,6 +47,7 @@ public sealed class SystemController : BaseController
     _authService = authService;
     _dbContext = dbContext;
     _model = model;
+    _lookup = lookup;
     _mcp = mcp;
     _logger = logger;
   }
@@ -61,6 +67,7 @@ public sealed class SystemController : BaseController
     },
     features = Features
       .Concat(_model.Enabled ? [ModelFeature] : [])
+      .Concat(_lookup.IsUsable ? [LookupFeature] : [])
       .Concat(_mcp.IsConfigured ? ["connect.mcp"] : []),
   });
 

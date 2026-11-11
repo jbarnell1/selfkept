@@ -23,6 +23,18 @@ public static class StateBriefComposer
 {
   public const int Cap = 6000;
 
+  /// <summary>The "- " lines of one titled section of a composed brief, or empty when it is not there.</summary>
+  public static IReadOnlyList<string> SectionLines(string brief, string title)
+  {
+    foreach (var block in brief.Split("\n\n"))
+    {
+      var lines = block.Split('\n');
+      if (lines.Length == 0 || lines[0] != title + ":") continue;
+      return lines.Skip(1).Where(l => l.StartsWith("- ", StringComparison.Ordinal)).Select(l => l[2..]).ToList();
+    }
+    return [];
+  }
+
   public static StateBrief Compose(IReadOnlyList<BriefSection> sections, IReadOnlyList<PlaybookMatch> playbook, BriefFacts facts, int cap = Cap)
   {
     var text = new StringBuilder();
@@ -64,6 +76,12 @@ public static class StateBriefComposer
 /// </summary>
 public sealed class StateBriefBuilder : IStateBriefBuilder
 {
+  // Section titles the cloud lookup's "About me" block reads back out of the brief.
+  public const string GoalsTitle = "Goals";
+  public const string ReadingsTitle = "Readings against their usual range";
+  public const string MedicinesTitle = "Medicines and supplements they take";
+  public const string NoGoalLine = "No goal is set.";
+
   private static readonly string[] ReadingKeys =
   [
     MetricKeys.SleepStage, MetricKeys.HrvRmssdMs, MetricKeys.HrvSdnnMs, MetricKeys.RestingHrBpm, MetricKeys.RespiratoryRateBpm,
@@ -128,14 +146,14 @@ public sealed class StateBriefBuilder : IStateBriefBuilder
 
     var body = await _body.LoadAsync(person, today, ct);
     var goalLines = body.Goals.Select(GoalLine).ToList();
-    sections.Add(new BriefSection("Goals", goalLines.Count > 0 ? goalLines : ["No goal is set."]));
+    sections.Add(new BriefSection(GoalsTitle, goalLines.Count > 0 ? goalLines : [NoGoalLine]));
 
     var tally = await _targets.TallyOwnAsync(person.Id, today, ct);
     var targetLines = tally.Select(TargetLine).ToList();
     sections.Add(new BriefSection("Targets", targetLines));
 
     var (readingLines, sleepText, standouts) = await ReadingsAsync(person.Id, today, ct);
-    sections.Add(new BriefSection("Readings against their usual range", readingLines));
+    sections.Add(new BriefSection(ReadingsTitle, readingLines));
 
     var insights = await _insights.ListOwnAsync(person.Id, today.AddDays(-1), today, ct);
     var ranked = insights
@@ -155,7 +173,7 @@ public sealed class StateBriefBuilder : IStateBriefBuilder
         (p.Cautions.Count > 0 ? " Caution: " + string.Join(" ", p.Cautions) : string.Empty)).ToList()));
 
     var medicines = (await _medications.ListOwnAsync(person.Id, ct)).Where(m => m.ActiveOn(today)).ToList();
-    sections.Add(new BriefSection("Medicines and supplements they take", medicines.Select(MedicineLine).ToList()));
+    sections.Add(new BriefSection(MedicinesTitle, medicines.Select(MedicineLine).ToList()));
 
     sections.Add(new BriefSection("Latest blood panel", await LabLinesAsync(person, ct)));
 

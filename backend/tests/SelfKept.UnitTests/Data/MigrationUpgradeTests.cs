@@ -35,6 +35,7 @@ public class MigrationUpgradeTests
      "goal", "daily_target", "journal_entry", "medication", "strength_set",
      "context_event",
      "assistant_conversation", "assistant_message", "assistant_brief", "nudge_setting", "nudge_log",
+     "lookup_setting", "assistant_lookup",
      "trial"];
 
   [RequiresPostgresFact]

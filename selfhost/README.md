@@ -24,6 +24,25 @@ Three layers, later wins:
 3. Environment variables on the `app` service. `compose.yaml` maps each `SELFKEPT_*` line in `.env`
    to one of them (for example `SELFKEPT_ORIGIN` becomes `App__BaseUrl`).
 
+## Cloud lookup
+
+Off by default, and the one thing that can send text a person wrote to a model outside the
+server (`docs/lookup-design.md`). With `SELFKEPT_LOOKUP_ENABLED=true` and `SELFKEPT_LOOKUP_API_KEY`
+set, each person can turn it on for themselves in the app; then the assistant may offer to look
+a question up. What is sent is exactly the text on the lookup screen, which the person reads, may
+edit and sends with a button, once: by default their question with names, contact details,
+dates and exact numbers taken out, or, if they choose "With my details", their question plus an
+"About me" block (age as a decade, sex, recent readings, goals, medicines). It goes to Anthropic's
+API (`api.anthropic.com`) and nowhere else, with web search; the request carries no history, no
+person id and no record beyond that text. Anthropic can tell the request came from this server's
+account.
+
+The key is yours to add: create it in the Anthropic console, put it in `.env` or in a file named
+`Lookup__ApiKey` in the `secrets` volume, and the usage is billed to your Anthropic account. It
+is never logged, returned by any route or shown in the app. `SELFKEPT_LOOKUP_MODEL` picks the
+model (empty means `claude-opus-5-5`). Without the switch and a key the feature does not exist:
+the app shows nothing and the routes answer 404.
+
 ## Ports and networks
 
 - The app listens on 8080 inside the container and is published on `${SELFKEPT_BIND:-127.0.0.1}:${SELFKEPT_PORT:-8080}`.

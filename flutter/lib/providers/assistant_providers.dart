@@ -6,6 +6,7 @@ import '../services/api_client.dart';
 import '../services/assistant_service.dart';
 import '../services/sse/event_stream_client.dart';
 import '../services/sse/event_stream_transport.dart';
+import 'assistant_lookup_providers.dart';
 import 'assistant_provider.dart';
 import 'assistant_today_provider.dart';
 import 'auth_provider.dart';
@@ -18,7 +19,11 @@ class AssistantProviders {
   final AssistantProvider assistant;
   final AssistantTodayProvider today;
 
-  AssistantProviders._(this.service, this.assistant, this.today);
+  /// The cloud lookup's settings and sent list. Asks nothing until a page
+  /// that exists only with `assistant.lookup` asks it to.
+  final AssistantLookupProvider lookups;
+
+  AssistantProviders._(this.service, this.assistant, this.today, this.lookups);
 
   factory AssistantProviders({
     required ApiClient api,
@@ -31,6 +36,7 @@ class AssistantProviders {
       service,
       AssistantProvider(service: service, auth: auth),
       AssistantTodayProvider(service: service, auth: auth, changes: changes),
+      AssistantLookupProvider(service: service, auth: auth),
     );
   }
 
@@ -57,9 +63,11 @@ class AssistantProviders {
     Provider<AssistantService>.value(value: service),
     ChangeNotifierProvider.value(value: assistant),
     ChangeNotifierProvider.value(value: today),
+    ChangeNotifierProvider.value(value: lookups),
   ];
 
   void dispose() {
+    lookups.dispose();
     today.dispose();
     assistant.dispose();
   }

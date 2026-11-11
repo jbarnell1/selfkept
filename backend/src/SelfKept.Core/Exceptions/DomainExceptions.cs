@@ -23,3 +23,18 @@ public class ConflictException : Exception
 {
   public ConflictException(string message) : base(message) { }
 }
+
+/// <summary>
+/// The request is well formed but cannot be acted on as it stands (a missing acknowledgement, a
+/// hard identifier left in a cloud lookup). Mapped to 422; Findings, when set, is added to the
+/// problem as "findings".
+/// </summary>
+public class UnprocessableException : Exception
+{
+  public UnprocessableException(string message, object? findings = null) : base(message)
+  {
+    Findings = findings;
+  }
+
+  public object? Findings { get; }
+}

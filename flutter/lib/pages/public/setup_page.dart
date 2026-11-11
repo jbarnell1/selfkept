@@ -155,7 +155,9 @@ class _SetupPageState extends State<SetupPage> {
             const SizedBox(width: Space.x2),
             Expanded(
               child: Text(
-                'Everything stays on this server. Nothing is sent anywhere else.',
+                'Everything stays on this server. Nothing is sent anywhere '
+                'else unless you turn on cloud lookup and send a question '
+                'yourself.',
                 style: theme.textTheme.bodySmall,
               ),
             ),

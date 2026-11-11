@@ -5,8 +5,11 @@ Self-hosted household health app. C# .NET 10 API, Flutter 3.44 clients (iOS, And
 ## Critical rules
 
 - No magic brand strings. Product name, bundle IDs, colours, URLs come from `brand/brand.yaml` via `scripts/brand-gen.*`.
-- Health data never leaves the host except through an explicit, audited export the user built.
-- No telemetry, no third-party analytics SDKs, no cloud model calls.
+- Health data never leaves the host except through an explicit, audited export the user built,
+  or a cloud lookup whose exact text the person saw and sent (`docs/lookup-design.md`).
+- No telemetry, no third-party analytics SDKs. No cloud model calls except the cloud lookup:
+  off by default, turned on by each person for themselves, one reviewed question at a time.
+  Nothing else may call a cloud model, and the lookup never sends on its own.
 - Every data query is scoped by `(viewerPersonId, targetPersonId)` and checked against `share_grant` in the repository layer.
 - Migrations are SQL-first (DbUp), additive only, numbered `NNNN_name.up.sql` with a `.down.sql`.
 - No em dashes in code comments, copy, commits or docs.
@@ -22,6 +25,7 @@ Self-hosted household health app. C# .NET 10 API, Flutter 3.44 clients (iOS, And
 | Context, new rules, patterns, systems, weekly review | `docs/context-design.md` |
 | In-app assistant: chat, capture, guard, check-in, brief, playbook, nudges, API | `docs/assistant-design.md` |
 | Body and goals: goals, targets, tally, day log, medicines, strength, measurements, Progress | `docs/body-design.md`, `docs/body-research.md` |
+| Cloud lookup: the opt-in question to a cloud model, consent, scrubber, API | `docs/lookup-design.md` |
 | Lab review, draw conditions, trials, link catalogue, cross-reference rules, household overview | `docs/labs-design.md`, `docs/cross-reference.md` |
 | Backend conventions | `.claude/rules/backend.md` |
 | Flutter conventions | `.claude/rules/flutter.md` |

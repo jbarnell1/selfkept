@@ -18,6 +18,8 @@ What it does:
 What it never does:
 
 - Calls a cloud model, or any host except the configured model URL and the person's ntfy URL.
+  The one exception is the opt-in cloud lookup, which sends only text the person read and
+  confirmed, when they press send (`docs/lookup-design.md`).
 - Estimates calories or macros, or stores amounts of food.
 - Lets the model decide the check-in flow or call tools.
 - Shares anything with another household member.
@@ -33,7 +35,9 @@ gets a 404 on someone else's conversation or message, and an empty list for memo
 When the assistant reads the record (goals, targets, readings, insights, the day log, medicines,
 labs), it uses the server-internal own reads (`ListOwnAsync`, `TallyOwnAsync`,
 `GetLatestOwnPerMetricAsync` and the like). The brief therefore only ever holds the caller's own
-data, and it only ever goes to the local model.
+data, and it only ever goes to the local model. A cloud lookup never sends the brief: with "With
+my details" a few of its lines (goals, readings, medicines) become part of the text the person
+reads, may edit and sends themselves (`docs/lookup-design.md`).
 
 The following are encrypted with `IEncryptionService`:
 
@@ -55,6 +59,9 @@ refusal reason). The text is never written there. The purposes are:
 - `assistant_checkin`
 - `assistant_brief`
 - `assistant_model_check`
+- `assistant_lookup` (the cloud call of a lookup), `assistant_lookup_applied` (the local model
+  wording what the answer means for the person) and `assistant_lookup_draft` (the local model
+  rewording an anonymized draft); see `docs/lookup-design.md`
 
 ## Tables (migration 0016_assistant)
 
@@ -81,7 +88,7 @@ Indexes: `(person_id, updated_at DESC)`, and a unique `(person_id, day) WHERE ki
 | id, conversation_id, person_id | conversation_id cascades |
 | role | `user` or `assistant` |
 | content_cipher | text, encrypted |
-| origin | `model`, `template`, `guard` or `code` |
+| origin | `model`, `template`, `guard`, `code` or `cloud` (widened by 0021_lookup) |
 | meta | jsonb: `captures` (type, id, kind, tags), `undone`, `topic`, `reason` |
 | created_at | |
 
@@ -91,6 +98,8 @@ Origins:
 - `template`: worded from a template (the model is off or unreachable, or the line was not reworded).
 - `guard`: the guard replaced the model's answer, or a red flag was answered by code.
 - `code`: typed by the person.
+- `cloud`: the answer to a cloud lookup (`docs/lookup-design.md`); its meta holds the lookup id
+  and nothing else.
 
 `assistant_brief`: `(person_id, day)` primary key, `facts_hash` (SHA-256 of the facts),
 `text_cipher`, `generated`, `computed_at`.
@@ -350,11 +359,17 @@ The flow:
 
    | Topic | Tones |
    | --- | --- |
-   | eating | balanced, treat, none, noted |
+   | eating | balanced, none, noted |
    | training | hard, done, none, noted |
    | drinks | alcohol, late_caffeine, none, noted |
-   | symptoms | unwell, none |
+   | symptoms | unwell, none, noted |
    | mood | high, middle, low |
+
+   A line never grades the answer. Food has no tone for sweets, fried food or takeaway: the
+   answer is saved with its tags and gets the plain "noted" line. The "unwell" line is only for
+   an answer that names a symptom or says the person is not fine; "none today" and the like
+   save the no_symptoms marker and get the "none" line, and words the lexicon does not know
+   are kept as written with the "noted" line.
 
    For example, training answered hard gives: "That was great work today. It will be
    interesting to see if it is reflected in tomorrow's recovery readings." The model may reword
@@ -551,11 +566,13 @@ Returns the conversation with every message, oldest first:
 }
 AssistantMessageDto = {
   id: uuid, role: "user" | "assistant", content: string,
-  origin: "model" | "template" | "guard" | "code",
+  origin: "model" | "template" | "guard" | "code" | "cloud",
   createdAt: datetime,
   captures: CaptureRefDto[],    // what this user message saved; [] for replies
   capturesUndone: bool,         // true once Undo ran for this message
-  redFlag: bool                 // true on a reply code wrote for a red flag; shown prominently and in full
+  redFlag: bool,                // true on a reply code wrote for a red flag; shown prominently and in full
+  sources: LookupSourceDto[],   // { title, url }; [] unless origin is "cloud"
+  lookupId?: uuid               // set on a cloud answer while its lookup is kept (docs/lookup-design.md)
 }
 404 "No such conversation."
 ```
@@ -617,7 +634,11 @@ data: {
   "userMessageId": uuid,
   "origin": "model" | "template" | "guard",
   "text": string,                    // the final reply, the same as what is stored
-  "redFlag": bool                    // true when code answered a red flag
+  "redFlag": bool,                   // true when code answered a red flag
+  "lookup"?: {                       // the cloud lookup offer, or null (docs/lookup-design.md)
+    "offered": true,
+    "reason": "question" | "refused" | "model_off"
+  }
 }
 ```
 
@@ -859,6 +880,8 @@ the record" or "the model did not answer: timeout".
 - `assistant.nudges_changed`
 - `assistant.nudge_tested`
 - `assistant.model_checked` (with the pass count)
+- `assistant.lookup_enabled`, `assistant.lookup_disabled`, `assistant.lookup_sent` (mode,
+  provider, model, character count) and `assistant.lookup_deleted`; see `docs/lookup-design.md`
 
 Day log saves and deletes are also audited as `journal.created` and `journal.deleted`, with source
 `assistant` or `checkin`.

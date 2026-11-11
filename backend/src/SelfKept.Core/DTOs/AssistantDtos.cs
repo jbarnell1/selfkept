@@ -18,6 +18,10 @@ public sealed record ConversationSummaryDto(
 /// <summary>Something one user message saved: a day log entry, a remembered fact or a mood check-in.</summary>
 public sealed record CaptureRefDto(string Type, Guid Id, string? Kind, IReadOnlyList<string> Tags);
 
+/// <summary>
+/// One turn. Sources is empty unless the origin is cloud; LookupId is null unless the origin is
+/// cloud and the lookup that produced it has not been deleted (docs/lookup-design.md).
+/// </summary>
 public sealed record AssistantMessageDto(
   Guid Id,
   string Role,
@@ -26,7 +30,9 @@ public sealed record AssistantMessageDto(
   DateTime CreatedAt,
   IReadOnlyList<CaptureRefDto> Captures,
   bool CapturesUndone,
-  bool RedFlag = false);
+  bool RedFlag,
+  IReadOnlyList<LookupSourceDto> Sources,
+  Guid? LookupId);
 
 public sealed record ConversationDto(
   Guid Id,
@@ -56,9 +62,10 @@ public sealed record ReplaceEventDto(string Text, string Reason);
 
 /// <summary>
 /// SSE event "done": the stored reply. Origin is model, template or guard. RedFlag is true when
-/// code answered a red flag, so the client shows the reply prominently and in full.
+/// code answered a red flag, so the client shows the reply prominently and in full. Lookup is the
+/// cloud lookup offer under the reply, or null when there is none.
 /// </summary>
-public sealed record DoneEventDto(Guid ConversationId, Guid MessageId, Guid UserMessageId, string Origin, string Text, bool RedFlag = false);
+public sealed record DoneEventDto(Guid ConversationId, Guid MessageId, Guid UserMessageId, string Origin, string Text, bool RedFlag = false, LookupOfferDto? Lookup = null);
 
 public sealed record UndoResultDto(Guid MessageId, int RemovedEntries, int RemovedMemories, int RemovedCheckins);
 

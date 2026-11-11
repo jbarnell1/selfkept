@@ -153,7 +153,22 @@ enum MetricKey {
     'level',
     MetricKind.instant,
     ShareCategory.checkins,
-  );
+  ),
+
+  // Added in 0.1.6, read from Health Connect only. Kept at the end so the
+  // earlier indices do not move.
+  leanMassKg('lean_mass_kg', 'kg', MetricKind.instant, ShareCategory.body),
+  boneMassKg('bone_mass_kg', 'kg', MetricKind.instant, ShareCategory.body),
+  bodyWaterKg('body_water_kg', 'kg', MetricKind.instant, ShareCategory.body),
+  energyIntakeKcal(
+    'energy_intake_kcal',
+    'kcal',
+    MetricKind.interval,
+    ShareCategory.body,
+  ),
+  proteinG('protein_g', 'g', MetricKind.interval, ShareCategory.body),
+  carbsG('carbs_g', 'g', MetricKind.interval, ShareCategory.body),
+  fatG('fat_g', 'g', MetricKind.interval, ShareCategory.body);
 
   /// Stable identifier on the wire.
   final String wireValue;
@@ -218,7 +233,84 @@ enum MetricKey {
     ouraResilience => 'Resilience',
     ouraStressHighS => 'Time in high stress',
     checkinMood => 'Mood',
+    leanMassKg => 'Lean mass',
+    boneMassKg => 'Bone mass',
+    bodyWaterKg => 'Body water',
+    energyIntakeKcal => 'Energy eaten',
+    proteinG => 'Protein',
+    carbsG => 'Carbohydrate',
+    fatG => 'Fat',
   };
+
+  /// What a person would call this kind of reading when asked to allow it,
+  /// in lower case for the middle of a sentence. The four nutrition fields
+  /// share one name because Health Connect asks for them as one. Null for
+  /// keys no phone store is asked for.
+  String? get everydayName => switch (this) {
+    steps => 'steps',
+    distanceM => 'distance',
+    activeEnergyKcal => 'active energy',
+    basalEnergyKcal => 'resting energy',
+    exerciseMin => 'workouts',
+    flights => 'flights climbed',
+    heartRateBpm => 'heart rate',
+    restingHrBpm => 'resting heart rate',
+    hrvSdnnMs || hrvRmssdMs => 'heart rate variability',
+    spo2Pct => 'blood oxygen',
+    respiratoryRateBpm => 'breathing rate',
+    wristTempDeltaC => 'skin temperature',
+    bodyTempC => 'body temperature',
+    sleepStage => 'sleep',
+    vo2max => 'VO2 max',
+    weightKg => 'weight',
+    bodyFatPct => 'body fat',
+    heightCm => 'height',
+    menstrualFlow => 'menstrual flow',
+    basalBodyTempC => 'basal body temperature',
+    bloodGlucoseMmol => 'blood glucose',
+    bloodPressureSys || bloodPressureDia => 'blood pressure',
+    energyIntakeKcal || proteinG || carbsG || fatG => 'food and drink',
+    leanMassKg => 'lean mass',
+    boneMassKg => 'bone mass',
+    bodyWaterKg => 'body water',
+    ouraReadiness ||
+    ouraSleepScore ||
+    ouraActivityScore ||
+    ouraResilience ||
+    ouraStressHighS ||
+    checkinMood => null,
+  };
+
+  /// The everyday names of [keys] as one phrase, in a fixed order with
+  /// nutrition first and repeats folded: "food and drink, lean mass, bone
+  /// mass and body water". Empty when nothing has a name.
+  static String everydayList(Iterable<MetricKey> keys) {
+    final present = keys.toSet();
+    final names = <String>[];
+    for (final key in _everydayOrder) {
+      if (!present.contains(key)) continue;
+      final name = key.everydayName;
+      if (name != null && !names.contains(name)) names.add(name);
+    }
+    if (names.length < 2) return names.join();
+    return '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
+  }
+
+  /// Newest kinds first, so the names a person has not seen before lead.
+  static const List<MetricKey> _newest = [
+    energyIntakeKcal,
+    proteinG,
+    carbsG,
+    fatG,
+    leanMassKg,
+    boneMassKg,
+    bodyWaterKg,
+  ];
+  static List<MetricKey> get _everydayOrder => [
+    ..._newest,
+    for (final key in values)
+      if (!_newest.contains(key)) key,
+  ];
 }
 
 /// Sleep stage values in `sleep_stage` samples.

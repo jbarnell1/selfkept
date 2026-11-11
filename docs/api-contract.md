@@ -174,10 +174,29 @@ one `data: <json>` line per frame. The order is `capture` exactly once
 (`{ conversationId, messageId, entries, remembered }`), then `delta` zero or more times
 (`{ text }`, one checked sentence), then `replace` at most once (`{ text, reason: "guard" |
 "unreachable" }`, the client discards what it showed), then `done` exactly once
-(`{ conversationId, messageId, userMessageId, origin: "model" | "template" | "guard", text, redFlag }`).
+(`{ conversationId, messageId, userMessageId, origin: "model" | "template" | "guard", text, redFlag, lookup }`).
 `redFlag` is true only when the reply answers a red-flag message (the urgent-care wording); a
 refused model answer is origin `guard` too and has `redFlag` false. Stored messages carry the same
-`redFlag` field.
+`redFlag` field. `lookup` is the cloud lookup offer (`{ offered: true, reason: "question" |
+"refused" | "model_off" }`) or null; see below. Stored messages also carry `sources` (`[{ title,
+url }]`, empty unless `origin` is `cloud`) and `lookupId` (null unless `origin` is `cloud` and the
+lookup is kept); `origin` may be `cloud`.
+
+### Cloud lookup
+
+Full shapes, the scrub rules, events and failure reasons: `docs/lookup-design.md`, "API".
+Migration 0021. Off unless the owner set `Lookup:Enabled` and a provider key; then
+`features` in `/system/version` lists `assistant.lookup`. Without that every route below answers
+404. Own-only like the rest of the assistant; another member's message or lookup is a 404.
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/assistant/lookup` | | `{ available, enabled, provider, model, localModel }` |
+| PUT | `/assistant/lookup` | `{ enabled, acknowledged }` | the same shape; 422 when turning it on without `acknowledged: true` |
+| POST | `/assistant/lookups/draft` | `{ messageId, mode: "anonymized" \| "detailed" }` | `{ text, mode, changes: [{ kind, count }], reworded, provider, model }`; nothing is sent or stored. 409 when the person switch is off, 422 for a red flag, 404 "No such message." |
+| POST | `/assistant/lookups` | `{ messageId, mode, text (1 to 4000), acknowledged }` | `text/event-stream`: `sent` `{ lookupId }`, `waiting` `{}` every 10 seconds, then `done` `{ lookupId, message, applied }` or `failed` `{ lookupId, reason, text }`. Before the stream: 409 switch off, 422 without `acknowledged`, for a red flag, or with `findings` (same shape as `changes`) when the text holds a hard identifier; 404 "No such message."; 5 a minute |
+| GET | `/assistant/lookups` | | `[{ id, conversationId, mode, status, provider, model, text, sentAt }]`, newest first, up to 100 |
+| DELETE | `/assistant/lookups/{id}` | | 204; the answer stays in the conversation. 404 "No such lookup." |
 
 ## Context, patterns, read-backs, systems and weekly review
 

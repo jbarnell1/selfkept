@@ -15,7 +15,7 @@ NNNN_short_description.down.sql   committed for manual, reviewed rollback (never
 
 - Only `*.up.sql` files are embedded (see the `.csproj` `EmbeddedResource` glob) and run on
   startup, in filename order. Keep the numeric prefix zero-padded and monotonic. The next free
-  number is 0021.
+  number is 0022.
 - The labs review package holds 0017 (`labs_review`: draw conditions, the reference age split,
   `trial`), 0019 (`metric_reseed`, generated from `MetricSeed.cs`) and 0020 (`lab_reseed`,
   generated from `LabSeed.cs`). 0014 and 0007 stay as they shipped; the reseeds deliver the
@@ -71,3 +71,11 @@ extension yet.
 `nudge_setting` and `nudge_log` for the in-app assistant (`docs/assistant-design.md`). All five
 are own-only and cascade from `person`; free text is encrypted and the jsonb columns hold keys
 and ids only. Its down script drops the five tables and leaves `journal_entry` alone.
+
+## Cloud lookup (0021)
+
+`0021_lookup` adds `lookup_setting` (each person's own switch) and `assistant_lookup` (one row per
+question sent to the cloud model, with the outgoing text and the sources encrypted) for the
+opt-in cloud lookup (`docs/lookup-design.md`), and widens `ck_assistant_message_origin` to allow
+`cloud`. Both tables are own-only and cascade from `person`; a lookup also cascades from its
+conversation. Its down script removes the cloud answers, narrows the check and drops the tables.

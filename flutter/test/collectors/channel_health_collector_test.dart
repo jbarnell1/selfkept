@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:selfkept/collectors/channel_health_collector.dart';
+import 'package:selfkept/collectors/health_collector.dart';
+import 'package:selfkept/models/metric.dart';
 import 'package:selfkept/models/source.dart';
 
 /// The rows HealthConnectCollector.kt writes for one NutritionRecord that
@@ -50,6 +52,75 @@ void main() {
     });
   });
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+  group('metricPermissions', () {
+    test('decodes what Health Connect granted and what it did not', () async {
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'metricPermissions');
+        return {
+          'granted': ['steps', 'heart_rate_bpm'],
+          'missing': [
+            'energy_intake_kcal',
+            'protein_g',
+            'lean_mass_kg',
+            'a_key_from_a_newer_build',
+          ],
+        };
+      });
+      final collector = ChannelHealthCollector(kind: SourceKind.healthConnect);
+      final access = await collector.metricPermissions();
+      expect(access, isNotNull);
+      expect(access!.granted, {MetricKey.steps, MetricKey.heartRateBpm});
+      // The unknown key is dropped, not guessed at.
+      expect(access.missing, {
+        MetricKey.energyIntakeKcal,
+        MetricKey.proteinG,
+        MetricKey.leanMassKg,
+      });
+    });
+
+    test('accepts PascalCase keys', () async {
+      messenger.setMockMethodCallHandler(
+        channel,
+        (_) async => {
+          'Granted': ['steps'],
+          'Missing': ['bone_mass_kg'],
+        },
+      );
+      final collector = ChannelHealthCollector(kind: SourceKind.healthConnect);
+      final access = await collector.metricPermissions();
+      expect(access!.granted, {MetricKey.steps});
+      expect(access.missing, {MetricKey.boneMassKg});
+    });
+
+    test('Health Connect missing answers null', () async {
+      messenger.setMockMethodCallHandler(channel, (_) async => null);
+      final collector = ChannelHealthCollector(kind: SourceKind.healthConnect);
+      expect(await collector.metricPermissions(), isNull);
+    });
+
+    test('iOS, which does not implement it, answers null', () async {
+      messenger.setMockMethodCallHandler(
+        channel,
+        (_) async => throw MissingPluginException(),
+      );
+      final collector = ChannelHealthCollector(kind: SourceKind.healthkit);
+      expect(await collector.metricPermissions(), isNull);
+    });
+
+    test('a platform error answers null', () async {
+      messenger.setMockMethodCallHandler(
+        channel,
+        (_) async => throw PlatformException(code: 'permissions'),
+      );
+      final collector = ChannelHealthCollector(kind: SourceKind.healthConnect);
+      expect(await collector.metricPermissions(), isNull);
+    });
+
+    test('the web collector cannot say', () async {
+      expect(await const NoopHealthCollector().metricPermissions(), isNull);
+    });
+  });
 
   test('nutrition and body composition rows reach the outbox shape', () async {
     final collector = ChannelHealthCollector(kind: SourceKind.healthConnect);

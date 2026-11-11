@@ -54,6 +54,7 @@ public sealed class ErrorHandlingMiddleware
       DomainValidationException e => (StatusCodes.Status400BadRequest, "Validation failed", e.Message),
       BadHttpRequestException e => (e.StatusCode, "Bad request", e.Message),
       ConflictException e => (StatusCodes.Status409Conflict, "Conflict", e.Message),
+      UnprocessableException e => (StatusCodes.Status422UnprocessableEntity, "Unprocessable", e.Message),
       KeyNotFoundException => (StatusCodes.Status404NotFound, "Not found", "The resource does not exist."),
       _ => (StatusCodes.Status500InternalServerError, "Internal server error",
         _environment.IsDevelopment() ? exception.ToString() : "An internal error occurred. Please try again later."),
@@ -68,13 +69,16 @@ public sealed class ErrorHandlingMiddleware
       _logger.LogInformation("{Status} {Title}: {Detail}. TraceId: {TraceId}", status, title, detail, context.TraceIdentifier);
     }
 
+    var extensions = new Dictionary<string, object?> { ["traceId"] = context.TraceIdentifier };
+    if (exception is UnprocessableException { Findings: { } findings }) extensions["findings"] = findings;
+
     context.Response.Clear();
     await Results.Problem(
       statusCode: status,
       title: title,
       detail: detail,
       instance: context.Request.Path,
-      extensions: new Dictionary<string, object?> { ["traceId"] = context.TraceIdentifier })
+      extensions: extensions)
       .ExecuteAsync(context);
   }
 }

@@ -46,6 +46,8 @@ public sealed class AssistantRepository : IAssistantRepository
   {
     // The foreign key cascades in Postgres; removing the messages here keeps the InMemory provider in step.
     var messages = await _context.AssistantMessages.Where(m => m.ConversationId == conversation.Id && m.PersonId == conversation.PersonId).ToListAsync(ct);
+    var lookups = await _context.AssistantLookups.Where(l => l.ConversationId == conversation.Id && l.PersonId == conversation.PersonId).ToListAsync(ct);
+    _context.AssistantLookups.RemoveRange(lookups);
     _context.AssistantMessages.RemoveRange(messages);
     _context.AssistantConversations.Remove(conversation);
     await _context.SaveChangesAsync(ct);

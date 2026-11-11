@@ -37,6 +37,19 @@ replies worded by the local model, iOS.
 
 The routes are listed in `docs/api-contract.md`.
 
+### Cloud lookup and the permission ask (for v0.1.7)
+
+Built on `release/0.1.7`, not yet released.
+
+| Piece | Backend | Flutter | Design |
+| --- | --- | --- | --- |
+| Cloud lookup: one question, read and sent by the person, to a cloud model with web search (migration 0021) | done, tested with a fake provider | done | `docs/lookup-design.md` |
+| Ask for Health Connect kinds added since the phone was connected (lean mass, bone mass, body water, food and drink) | none needed | done | card on Today, line on Sources |
+| Evening check-in: "none today" is no longer read as a symptom, and takeaway or sweets get a plain "noted" line, not a comment | done, tested | none needed | `docs/assistant-design.md` |
+
+Not yet checked: a real call to the provider (it needs the owner's own key), the Health Connect
+permission sheet on an upgraded phone, and the lookup on a phone.
+
 Homelab specifics (addresses, paths, what is installed where) are kept out of the repository,
 in `.dev/homelab.md`.
 
@@ -103,7 +116,7 @@ Run the suites again for current counts.
 - The Flutter web build is never committed: `backend/src/SelfKept.Api/wwwroot/*` is ignored except
   the placeholder `index.html`.
 - Postgres-gated tests: `SELFKEPT_TEST_CONNECTION="Host=localhost;Port=5432;Database=postgres;Username=selfkept;Password=selfkept" dotnet test` from `backend/`.
-- Migrations run to `0020_lab_reseed`; the next free number is `0021`.
+- Migrations run to `0021_lookup`; the next free number is `0022`.
 - The in-app browser pane stops painting when hidden. A headless Chrome driven over the DevTools
   protocol is the reliable way to screenshot the web app without it.
 
