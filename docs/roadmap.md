@@ -1,9 +1,8 @@
 # Roadmap and handoff
 
-Status: v0.1.5 is the latest release. The branch `claude/connected-record` (connected record,
-unreleased) builds on it and targets `release/0.1.6`: four packages whose backend is merged and
-tested, and whose Flutter screens are in progress (see "Connected record"). Nothing after v0.1.5
-is released. v0.1.1 was the first tag (image `ghcr.io/jbarnell1/selfkept`, install with
+Status: v0.1.6 is the latest release. It adds sample retention and the connected record: four
+packages, backend and Flutter (see "Connected record"). v0.1.1 was the first tag (image
+`ghcr.io/jbarnell1/selfkept`, install with
 `install.sh` from the latest release). Work goes on a branch with a PR into the open `release/x.y.z`
 branch; a release PR into `main` and a `vX.Y.Z` tag publish it. Read this file first, then
 `CLAUDE.md`, then the design doc for the area you are touching.
@@ -22,18 +21,19 @@ ring, an iOS build, and a signed Android release (see "Owner steps").
 | 5 Connect | done | done | MCP server with OAuth 2.1, personal access tokens, 12 tools, AI memory, Oura, redacted export. Live: Open WebUI 0.12.5 registered itself, a person signed in through the consent page and qwen3.5:9b answered from two tool calls, all audited. Oura not yet tried with a real account |
 | 6 Ship | done | done | One-command installer (`selfhost/install.sh`), nightly `backup.sh`, first-run questions and setup steps, Oura application entered in the app. Installed on a home server over Tailscale, with Open WebUI on a second machine connected to it. iOS build and store uploads remain |
 
-### Connected record (unreleased)
+### Connected record (v0.1.6)
 
-Four packages on `claude/connected-record`, for `release/0.1.6`. The backend of all four is
-merged on the branch and its tests pass. The Flutter screens are being built and are not done;
-none of this has been released, installed or run on a phone.
+Four packages, released in v0.1.6. Checked in a browser with seeded data, on a Pixel with
+Health Connect, and as an upgrade of a 0.1.5 install with data (migrations 0012 to 0020).
+Not yet checked: nutrition and scale body composition from Health Connect with real records,
+replies worded by the local model, iOS.
 
 | Package | Backend | Flutter | Design |
 | --- | --- | --- | --- |
-| Body and goals (migrations 0013 to 0015) | done, tested | in progress | `docs/body-design.md`, `docs/body-research.md` |
-| In-app assistant (0016) | done, tested | in progress | `docs/assistant-design.md` |
-| Context, patterns, systems, weekly review (0018) | done, tested | in progress | `docs/context-design.md` |
-| Lab review, trials, link catalogue, cross-reference rules, household overview (0017, 0019, 0020) | done, tested | in progress | `docs/labs-design.md`, `docs/cross-reference.md` |
+| Body and goals (migrations 0013 to 0015) | done, tested | done | `docs/body-design.md`, `docs/body-research.md` |
+| In-app assistant (0016) | done, tested | done | `docs/assistant-design.md` |
+| Context, patterns, systems, weekly review (0018) | done, tested | done | `docs/context-design.md` |
+| Lab review, trials, link catalogue, cross-reference rules, household overview (0017, 0019, 0020) | done, tested | done | `docs/labs-design.md`, `docs/cross-reference.md` |
 
 The routes are listed in `docs/api-contract.md`.
 
@@ -41,9 +41,9 @@ Homelab specifics (addresses, paths, what is installed where) are kept out of th
 in `.dev/homelab.md`.
 
 
-Test counts at the last recorded run, before the connected record work: backend 484 (480 plus 4
-that need `SELFKEPT_TEST_CONNECTION`; all green with it set), Flutter 527. `flutter analyze` and
-the backend build had zero warnings. Run the suites again for current counts.
+Test counts at v0.1.6: backend 1317 (1203 unit, plus 114 that need `SELFKEPT_TEST_CONNECTION`;
+all green with it set), Flutter 966. `flutter analyze` and the backend build had zero warnings.
+Run the suites again for current counts.
 
 ## What the app does today
 
