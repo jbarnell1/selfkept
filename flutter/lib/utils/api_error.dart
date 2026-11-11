@@ -108,6 +108,12 @@ class ApiException implements Exception {
   String toString() => 'ApiException(${statusCode ?? 'network'}): $message';
 }
 
+/// What a page says when your own record answers 404. Nobody withholds your
+/// own record from you, so the server does not have that page: it is older
+/// than the app.
+const String missingOnServerMessage =
+    'Your server does not have this yet. It may need an update.';
+
 /// Message for any thrown object, so screens can show one line.
 String describeError(Object error) {
   if (error is ApiException) return error.message;

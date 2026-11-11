@@ -72,8 +72,14 @@ class MedicationsProvider extends ChangeNotifier with SafeNotifier {
     } else {
       debugPrint('Medicines did not load: $failure');
       if (failure is ApiException && failure.isNotFound) {
-        _notShared = true;
         _items = const [];
+        // Your own record is never withheld from you: the server does not
+        // have the page, which is an error with a retry.
+        if (personId == null) {
+          _error = missingOnServerMessage;
+        } else {
+          _notShared = true;
+        }
       } else {
         _error = describeError(failure);
       }

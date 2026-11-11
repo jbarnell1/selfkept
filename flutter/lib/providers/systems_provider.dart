@@ -53,8 +53,12 @@ class SystemsProvider extends PersonRead<SystemsOverview> {
     } catch (e) {
       if (who != personId || isDisposed) return;
       if (e is ApiException && e.isNotFound) {
-        _detailNotShared.add(k);
         _details.remove(k);
+        if (who == null) {
+          _detailErrors[k] = missingOnServerMessage;
+        } else {
+          _detailNotShared.add(k);
+        }
       } else {
         _detailErrors[k] = describeError(e);
       }

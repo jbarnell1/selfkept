@@ -321,10 +321,19 @@ class _AppState extends State<App> {
       changes: _recordChanges,
     );
     _auth.addListener(_onAuthChanged);
-    // A foreground pass every time the app comes back.
-    _lifecycle = AppLifecycleListener(onResume: _collector.onResume);
+    _lifecycle = AppLifecycleListener(onResume: _onResume);
     _router = buildRouter(auth: _auth, startup: _startup);
     widget.reporter.where = () => _router.state.uri.path;
+  }
+
+  /// A foreground pass every time the app comes back, and a fresh look at
+  /// the server: it may have been updated while the app was open, and the
+  /// pages that failed against the old one get another go.
+  void _onResume() {
+    _collector.onResume();
+    _startup.refreshVersion().then((changed) {
+      if (changed) _recordChanges.changed(_startup);
+    });
   }
 
   /// The collector needs a signed-in person (its source belongs to one), so

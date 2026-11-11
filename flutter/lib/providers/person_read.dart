@@ -6,8 +6,10 @@ import 'auth_provider.dart';
 import 'viewed_person.dart';
 
 /// One read of the record of the person being viewed (yourself, or someone
-/// who shares with you), loaded the way Progress loads: a 404 means "not
-/// shared", a change of person starts again, a sign-out forgets everything.
+/// who shares with you), loaded the way Progress loads: a 404 for someone
+/// else means "not shared", a 404 for your own record means the server does
+/// not have the page, a change of person starts again, a sign-out forgets
+/// everything.
 abstract class PersonRead<T> extends ChangeNotifier with SafeNotifier {
   final AuthProvider? _auth;
   final ViewedPerson? _viewing;
@@ -32,7 +34,8 @@ abstract class PersonRead<T> extends ChangeNotifier with SafeNotifier {
   bool get hasLoaded => _hasLoaded;
   String? get error => _error;
 
-  /// The server answered 404: no such person, or nothing shared.
+  /// The server answered 404 for someone else: no such person, or nothing
+  /// shared.
   bool get notShared => _notShared;
 
   /// Null while you are looking at your own record.
@@ -71,8 +74,15 @@ abstract class PersonRead<T> extends ChangeNotifier with SafeNotifier {
     } else {
       debugPrint('$runtimeType did not load: $failure');
       if (failure is ApiException && failure.isNotFound) {
-        _notShared = true;
         _data = null;
+        // Your own record is never withheld from you, so there the 404 is
+        // an error with a retry. A read with no person switcher keeps its
+        // own meaning for a 404.
+        if (who == null && _viewing != null) {
+          _error = missingOnServerMessage;
+        } else {
+          _notShared = true;
+        }
       } else {
         _error = describeError(failure);
       }

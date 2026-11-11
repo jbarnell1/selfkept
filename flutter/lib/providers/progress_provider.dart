@@ -91,8 +91,14 @@ class ProgressProvider extends ChangeNotifier with SafeNotifier {
     } else {
       debugPrint('Progress did not load: $failure');
       if (failure is ApiException && failure.isNotFound) {
-        _notShared = true;
         _progress = null;
+        // Your own record is never withheld from you: the server does not
+        // have the page, which is an error with a retry.
+        if (personId == null) {
+          _error = missingOnServerMessage;
+        } else {
+          _notShared = true;
+        }
       } else {
         _error = describeError(failure);
       }
@@ -214,8 +220,13 @@ class ProgressProvider extends ChangeNotifier with SafeNotifier {
   }
 
   void _onRecordChanged() {
-    if (identical(_changes.origin, this)) return;
-    if (_hasLoaded && !isDisposed) _reloadQuietly();
+    if (identical(_changes.origin, this) || isDisposed) return;
+    if (_hasLoaded) {
+      _reloadQuietly();
+    } else if ((_error != null || _notShared) && !_loading) {
+      // A page that failed gets another go, so an updated server shows.
+      load();
+    }
   }
 
   void _onViewingChanged() {

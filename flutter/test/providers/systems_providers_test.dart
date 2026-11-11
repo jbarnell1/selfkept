@@ -80,14 +80,26 @@ void main() {
       expect(provider.error, 'Down');
     });
 
-    test('a detail loads by key and a 404 marks it not shared', () async {
+    test('a detail loads by key and their 404 marks it not shared', () async {
       api.on('GET', '/systems/heart', (_) => SystemsFixtures.system());
       await provider.loadSystem('Heart');
       expect(provider.detail('heart')?.readings, hasLength(1));
+      viewing.view('p2');
       api.fail('GET', '/systems/cycle', _notShared);
       await provider.loadSystem('cycle');
       expect(provider.detailNotShared('cycle'), isTrue);
       expect(provider.detailError('cycle'), isNull);
+    });
+
+    test('a 404 on your own record is an error, never not shared', () async {
+      api.fail('GET', '/systems', _notShared);
+      await provider.load();
+      expect(provider.notShared, isFalse);
+      expect(provider.error, missingOnServerMessage);
+      api.fail('GET', '/systems/cycle', _notShared);
+      await provider.loadSystem('cycle');
+      expect(provider.detailNotShared('cycle'), isFalse);
+      expect(provider.detailError('cycle'), missingOnServerMessage);
     });
 
     test('sign-out forgets the record', () async {

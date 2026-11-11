@@ -48,6 +48,7 @@ class StartupProvider extends ChangeNotifier with SafeNotifier {
   VersionCheckResult? _versionResult;
   SetupStatus? _setupStatus;
   bool _running = false;
+  bool _refreshing = false;
 
   StartupProvider({
     required this._versions,
@@ -113,6 +114,33 @@ class StartupProvider extends ChangeNotifier with SafeNotifier {
     } finally {
       _running = false;
       notify();
+    }
+  }
+
+  /// Asks the server for its version again without leaving the screen, so
+  /// a server updated while the app was open shows what it can now do.
+  /// True when the version or its features changed. An answer that is not
+  /// compatible, or no answer, changes nothing: the next launch deals
+  /// with it.
+  Future<bool> refreshVersion() async {
+    if (_running || _refreshing || _phase != StartupPhase.ready) return false;
+    _refreshing = true;
+    try {
+      final result = await _versions.check();
+      final info = result.info;
+      if (!result.isOk || info == null || isDisposed) return false;
+      if (_running || _phase != StartupPhase.ready) return false;
+      final before = _versionResult?.info;
+      if (before != null &&
+          before.version == info.version &&
+          setEquals(before.features.toSet(), info.features.toSet())) {
+        return false;
+      }
+      _versionResult = result;
+      notify();
+      return true;
+    } finally {
+      _refreshing = false;
     }
   }
 

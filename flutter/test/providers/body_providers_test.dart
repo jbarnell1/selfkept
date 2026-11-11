@@ -145,12 +145,32 @@ void main() {
       expect(lastQuery('GET /progress'), isEmpty);
     });
 
-    test('a 404 is the not shared state, not an error', () async {
+    test('a 404 for someone else is the not shared state', () async {
+      h.viewing.view('p2', displayName: 'Sam');
       h.api.fail('GET', '/progress', _notFound);
       await h.progress.load();
       expect(h.progress.notShared, isTrue);
       expect(h.progress.error, isNull);
       expect(h.progress.progress, isNull);
+    });
+
+    test('a 404 on your own record is an error, never not shared', () async {
+      h.api.fail('GET', '/progress', _notFound);
+      await h.progress.load();
+      expect(h.progress.notShared, isFalse);
+      expect(h.progress.error, missingOnServerMessage);
+      expect(h.progress.progress, isNull);
+    });
+
+    test('a failed page loads again when the record changes', () async {
+      h.api.fail('GET', '/progress', _notFound);
+      await h.progress.load();
+      expect(h.progress.error, isNotNull);
+      h.api.on('GET', '/progress', (_) => BodyFixtures.progress());
+      h.recordChanges.changed(h.startup);
+      await pumpEventQueue();
+      expect(h.progress.error, isNull);
+      expect(h.progress.hasLoaded, isTrue);
     });
 
     test('another failure is an error', () async {
@@ -334,6 +354,13 @@ void main() {
       );
       expect(ok, isFalse);
       expect(h.goals.saveError, 'At most 12 targets. Remove one first.');
+    });
+
+    test('a 404 on your own goals is an error, never not shared', () async {
+      h.api.fail('GET', '/goals', _notFound);
+      await h.goals.load();
+      expect(h.goals.notShared, isFalse);
+      expect(h.goals.error, missingOnServerMessage);
     });
 
     test('a 404 for someone else is the not shared state', () async {
