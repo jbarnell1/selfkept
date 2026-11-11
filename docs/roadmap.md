@@ -1,7 +1,9 @@
 # Roadmap and handoff
 
-Status: v0.1.6 is the latest release. It adds sample retention and the connected record: four
-packages, backend and Flutter (see "Connected record"). v0.1.1 was the first tag (image
+Status: v0.1.7 is the latest release. It adds the opt-in cloud lookup, a one-time ask for
+Health Connect kinds added since a phone was connected, and an evening check-in fix (see
+"Cloud lookup and the permission ask"). v0.1.6 added sample retention and the connected
+record: four packages, backend and Flutter (see "Connected record"). v0.1.1 was the first tag (image
 `ghcr.io/jbarnell1/selfkept`, install with
 `install.sh` from the latest release). Work goes on a branch with a PR into the open `release/x.y.z`
 branch; a release PR into `main` and a `vX.Y.Z` tag publish it. Read this file first, then
@@ -37,9 +39,9 @@ replies worded by the local model, iOS.
 
 The routes are listed in `docs/api-contract.md`.
 
-### Cloud lookup and the permission ask (for v0.1.7)
+### Cloud lookup and the permission ask (v0.1.7)
 
-Built on `release/0.1.7`, not yet released.
+Released in v0.1.7.
 
 | Piece | Backend | Flutter | Design |
 | --- | --- | --- | --- |
@@ -54,8 +56,8 @@ Homelab specifics (addresses, paths, what is installed where) are kept out of th
 in `.dev/homelab.md`.
 
 
-Test counts at v0.1.6: backend 1317 (1203 unit, plus 114 that need `SELFKEPT_TEST_CONNECTION`;
-all green with it set), Flutter 966. `flutter analyze` and the backend build had zero warnings.
+Test counts at v0.1.7: backend 1482 (1362 unit, plus 120 that need `SELFKEPT_TEST_CONNECTION`;
+all green with it set), Flutter 1076. `flutter analyze` and the backend build had zero warnings.
 Run the suites again for current counts.
 
 ## What the app does today
