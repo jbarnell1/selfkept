@@ -400,6 +400,8 @@ class _DayLogSheetState extends State<DayLogSheet> {
             minLines: 1,
             maxLines: 4,
             textCapitalization: TextCapitalization.sentences,
+            // Keeps the Add button above the keyboard while typing.
+            scrollPadding: const EdgeInsets.only(bottom: Space.x8 * 5),
             decoration: const InputDecoration(labelText: DayLogSheet.textLabel),
           ),
           AttentionLine(journal.saveError ?? ''),

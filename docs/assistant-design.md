@@ -178,6 +178,9 @@ A few rules apply to particular tags:
   clock time ("at 4pm"), a part of the day ("this afternoon", "before noon"), or the time the
   message was sent. A check-in answer looks back over the day, so there only a stated time counts:
   "two coffees" said at 21:00 is caffeine, not late caffeine.
+- A meal word that only says when something happened ("lifted legs at lunch", "a walk after
+  dinner") is not food. It counts again when the sentence has an eating verb (ate, eating) or the
+  check-in topic is `eating`, and a named food still counts on its own ("had pasta at lunch").
 
 Portion (food and drink only) is set only when the person says it:
 

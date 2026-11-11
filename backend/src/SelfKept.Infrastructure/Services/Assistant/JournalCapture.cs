@@ -173,9 +173,17 @@ public sealed partial class JournalCapture : IJournalCapture
     }
     return kept
       .Where(h => h.Lexeme.NegationSafe || !Negated(lower, h.Index))
+      .Where(h => !MealAsTime(lower, h, topic))
       .OrderBy(h => h.Index)
       .ToList();
   }
+
+  /// <summary>A meal named only as a time of day ("lifted legs at lunch") is not something eaten.</summary>
+  private static bool MealAsTime(string lower, Hit hit, string? topic) =>
+    hit.Lexeme.Kind == JournalKinds.Food && hit.Lexeme.Tag == null && topic != CheckinTopics.Eating
+    && MealWord().IsMatch(lower.AsSpan(hit.Index, hit.Length))
+    && MealTimeLead().IsMatch(lower.AsSpan(0, hit.Index))
+    && !AteVerb().IsMatch(lower);
 
   /// <summary>A negation earlier in the same clause, not reset by a later "had" ("no beer", "didn't have any coffee").</summary>
   private static bool Negated(string lower, int index)
@@ -352,6 +360,15 @@ public sealed partial class JournalCapture : IJournalCapture
 
   [GeneratedRegex(@"\b(?:had|ate|drank|grabbed|got|ordered)\b", RegexOptions.CultureInvariant)]
   private static partial Regex ConsumptionVerb();
+
+  [GeneratedRegex(@"^(?:breakfast|brunch|lunch|dinner|supper)$", RegexOptions.CultureInvariant)]
+  private static partial Regex MealWord();
+
+  [GeneratedRegex(@"\b(?:at|before|after|around|during|until|since|by) $", RegexOptions.CultureInvariant)]
+  private static partial Regex MealTimeLead();
+
+  [GeneratedRegex(@"\b(?:ate|eat|eaten|eating)\b", RegexOptions.CultureInvariant)]
+  private static partial Regex AteVerb();
 
   [GeneratedRegex(@"\b(?:had|have had|ate|eaten|eating|snacked|snacking|grabbed|finished|enjoyed|cooked|made|ordered|got|tried|munched|scoffed)\b|\bfor (?:breakfast|brunch|lunch|dinner|supper|tea|a snack)\b|\b(?:breakfast|brunch|lunch|dinner|supper) (?:was|were|is)\b", RegexOptions.CultureInvariant)]
   private static partial Regex EatCue();

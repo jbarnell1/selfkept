@@ -134,6 +134,24 @@ public class JournalCaptureTests
   }
 
   [Fact]
+  public void Extract_MealNamedOnlyAsATime_IsNotFood()
+  {
+    var result = _capture.Extract("Had two coffees this morning and lifted legs at lunch, felt strong", Now, London);
+
+    result.Drafts.Select(d => d.Kind).Should().BeEquivalentTo([JournalKinds.Drink, JournalKinds.Training]);
+    result.Drafts.Single(d => d.Kind == JournalKinds.Drink).Text.Should().NotBeNull("the words go with the first kind kept");
+  }
+
+  [Theory]
+  [InlineData("Had pasta at lunch.")]
+  [InlineData("Ate at lunch with the team.")]
+  [InlineData("Had a big lunch.")]
+  public void Extract_MealEatenAtAMealTime_IsStillFood(string message)
+  {
+    _capture.Extract(message, Now, London).Drafts.Should().ContainSingle(d => d.Kind == JournalKinds.Food);
+  }
+
+  [Fact]
   public void Extract_LookingBackInTheEvening_OnlyAStatedTimeMakesCoffeeLate()
   {
     var evening = new DateTime(2026, 11, 10, 21, 30, 0, DateTimeKind.Utc);
