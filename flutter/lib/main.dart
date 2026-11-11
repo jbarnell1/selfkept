@@ -22,6 +22,7 @@ import 'providers/labs_provider.dart';
 import 'providers/oura_app_provider.dart';
 import 'providers/oura_provider.dart';
 import 'providers/recent_problems_provider.dart';
+import 'providers/retention_provider.dart';
 import 'providers/setup_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/server_settings.dart';
@@ -39,6 +40,7 @@ import 'services/ingest_service.dart';
 import 'services/insights_service.dart';
 import 'services/labs_service.dart';
 import 'services/diagnostics_service.dart';
+import 'services/retention_service.dart';
 import 'services/integration_service.dart';
 import 'services/oura_service.dart';
 import 'services/setup_service.dart';
@@ -187,6 +189,7 @@ class _AppState extends State<App> {
   late final OuraAppProvider _ouraApp;
   late final SetupProvider _setup;
   late final RecentProblemsProvider _recentProblems;
+  late final RetentionProvider _retention;
   late final AppLifecycleListener _lifecycle;
   late final GoRouter _router;
   bool _collectorStarted = false;
@@ -248,6 +251,10 @@ class _AppState extends State<App> {
       service: DiagnosticsService(client),
       auth: _auth,
     );
+    _retention = RetentionProvider(
+      service: RetentionService(client),
+      auth: _auth,
+    );
     _auth.addListener(_onAuthChanged);
     // A foreground pass every time the app comes back.
     _lifecycle = AppLifecycleListener(onResume: _collector.onResume);
@@ -271,6 +278,7 @@ class _AppState extends State<App> {
     _lifecycle.dispose();
     _auth.removeListener(_onAuthChanged);
     _router.dispose();
+    _retention.dispose();
     _recentProblems.dispose();
     _setup.dispose();
     _ouraApp.dispose();
@@ -317,6 +325,7 @@ class _AppState extends State<App> {
         ChangeNotifierProvider.value(value: _ouraApp),
         ChangeNotifierProvider.value(value: _setup),
         ChangeNotifierProvider.value(value: _recentProblems),
+        ChangeNotifierProvider.value(value: _retention),
         ChangeNotifierProvider.value(value: _sso),
         Provider<UrlOpener>.value(value: openExternalUrl),
       ],

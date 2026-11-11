@@ -48,6 +48,16 @@ Provider sign-in is described in `docs/sso-design.md`.
 | PUT | `/me/password` | `{ currentPassword, newPassword }` | 204 |
 | PUT | `/me/setup` | `{ plan: SetupItem[], completed: bool }` | `UserDto`. Saves the first-run answers; `completed` true finishes setup, false never reopens it. |
 
+## Retention (admin)
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/retention` | | `RetentionDto` |
+| PUT | `/retention` | `{ rawMonths }` | `RetentionDto`; 400 unless 0 or 4 to 600, 409 when the environment sets it |
+| POST | `/retention/run` | | `RetentionRunDto`; 409 while another run is going |
+
+Shapes and rules are in `docs/retention-design.md`. `features` in `/system/version` lists `data.retention`. Members get 403.
+
 ## Integrations (admin)
 
 | Method | Path | Body | Returns |

@@ -44,6 +44,7 @@ Rules:
 - `unit` must match the catalogue unit for that metric; the server converts a short allowlist (`count/min` to `bpm`, `mi` to `m`, `lb` to `kg`, `F` to `C`) and rejects anything else.
 - Samples are attributed to the source's person. A client cannot post for another person.
 - Daily summaries are never posted by clients; the server derives them.
+- Heart rate older than the retention window (12 months by default, `docs/retention-design.md`) is kept as one row per source per minute. A resent reading for a minute its source already has there counts as a duplicate. A source never seen before keeps its old readings, and they are folded on the next nightly run.
 
 ## Metric catalogue, first release
 
@@ -117,5 +118,7 @@ All read endpoints take an optional `personId`. Absent means the caller. Present
 | GET | `/api/catalogue/metrics` | the metric catalogue: `{ key, unit, kind, category: ShareCategory, displayName, blurb, goodDirection }[]` |
 
 `SampleDto = { id, metric, start, end, value, unit, sourceId, meta }`
+
+A folded heart rate minute comes back on the samples page as a `SampleDto` too: `start` is the minute, `end` one minute later, `value` the mean, and `meta` is `{ "rollup": { "min", "max", "count" } }`. Raw readings never carry a `rollup` key. The overview's `firstAt`, `lastAt` and `count` include folded minutes (count is readings, not rows).
 
 Metric to `ShareCategory` mapping lives in the catalogue: steps, distance, energy, exercise, flights, workouts are `activity`; sleep_stage is `sleep`; heart rate, HRV, SpO2, respiratory rate, temperatures, blood pressure, glucose, Oura scores are `vitals`; weight, body fat, height, vo2max are `body`; menstrual and basal temperature are `cycle`; checkin_mood is `checkins`; `lab.*` is `labs`.
