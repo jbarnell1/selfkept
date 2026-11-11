@@ -4,7 +4,8 @@
 > scripts, or anything under `selfhost/`, `.github/`, `scripts/`.
 
 There is one edition of SelfKept and it runs on the user's own machine. No hosted service, no
-cloud, no telemetry, no staging box. Everything below is about making that one install safe and
+cloud, no telemetry, no staging box. The one outbound model call is the opt-in cloud lookup
+(`docs/lookup-design.md`), which does nothing until the person running the box sets a key. Everything below is about making that one install safe and
 easy.
 
 ## Topology
@@ -40,7 +41,9 @@ laptop (Tailscale) ──┘                                                    
 ## Settings and secrets
 - `SELFKEPT_X` in `selfhost/.env` is mapped by compose to a `Section__Key` environment variable.
   The code never reads `SELFKEPT_*` directly. Current map: `SELFKEPT_ORIGIN` to `App__BaseUrl`,
-  `SELFKEPT_RETENTION_MONTHS` to `Retention__RawMonths`; `SELFKEPT_PORT`, `SELFKEPT_BIND`, `SELFKEPT_VERSION`, `SELFKEPT_IMAGE` are compose-only.
+  `SELFKEPT_RETENTION_MONTHS` to `Retention__RawMonths`, `SELFKEPT_LOOKUP_ENABLED`,
+  `SELFKEPT_LOOKUP_API_KEY` and `SELFKEPT_LOOKUP_MODEL` to `Lookup__Enabled`, `Lookup__ApiKey`
+  and `Lookup__Model`; `SELFKEPT_PORT`, `SELFKEPT_BIND`, `SELFKEPT_VERSION`, `SELFKEPT_IMAGE` are compose-only.
 - `selfhost/init-secrets.sh` writes one file per setting into the `secrets` volume:
   `db_password`, `ConnectionStrings__SelfKept`, `Jwt__Key`, `Encryption__Key`. The app reads the
   folder named by `SelfKept:SecretsDirectory`. Nothing in the repo is a secret.

@@ -16,6 +16,18 @@ class FakeHealthCollector implements HealthCollector {
   final List<String?> cursorsSeen = [];
   final List<DateTime?> backfillsSeen = [];
   Set<MetricKey>? requested;
+  int requestCount = 0;
+
+  /// What [metricPermissions] answers. Null is a platform that cannot say,
+  /// which is the default (HealthKit, web).
+  MetricPermissions? metricAccess;
+
+  /// When set, a permission request replaces [metricAccess] with this, as if
+  /// the person changed their answer on the system sheet.
+  MetricPermissions? metricAccessAfterRequest;
+
+  /// When set, a permission request throws this instead of showing a sheet.
+  Object? requestError;
   bool limited = false;
   int batterySettingsOpened = 0;
   Object? collectError;
@@ -33,8 +45,16 @@ class FakeHealthCollector implements HealthCollector {
   @override
   Future<PermissionState> requestPermissions(Set<MetricKey> metrics) async {
     requested = metrics;
+    requestCount++;
+    final error = requestError;
+    if (error != null) throw error;
+    final after = metricAccessAfterRequest;
+    if (after != null) metricAccess = after;
     return permission;
   }
+
+  @override
+  Future<MetricPermissions?> metricPermissions() async => metricAccess;
 
   @override
   Future<CollectResult> collectSince(

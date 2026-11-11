@@ -18,6 +18,7 @@ import '../widgets/check_in_entry.dart';
 import '../widgets/day_log.dart';
 import '../widgets/insight_actions.dart';
 import '../widgets/insight_card.dart';
+import '../widgets/missing_metrics_card.dart';
 import '../widgets/page_body.dart';
 import '../widgets/readiness_row.dart';
 import '../widgets/status_views.dart';
@@ -160,6 +161,8 @@ class _TodayPageState extends State<TodayPage> {
             const SizedBox(height: Space.x6),
             const _Cards(),
             const WeeklyReviewTodayCard(),
+            // Kinds a newer build can read that this phone has not allowed.
+            const MissingMetricsTodayCard(),
             CheckInEntry(key: ValueKey(_entryGeneration), onKeep: _keep),
             const _LastCheckin(),
             const SizedBox(height: Space.x6),

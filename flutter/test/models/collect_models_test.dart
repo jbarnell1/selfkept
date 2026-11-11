@@ -182,7 +182,7 @@ void main() {
       expect(MetricKey.collectable, isNot(contains(MetricKey.ouraReadiness)));
       expect(MetricKey.collectable, isNot(contains(MetricKey.checkinMood)));
       expect(MetricKey.collectable, contains(MetricKey.steps));
-      expect(MetricKey.values.length, 30);
+      expect(MetricKey.values.length, 37);
       for (final k in MetricKey.values) {
         expect(k.displayName, isNotEmpty);
         expect(MetricKey.fromString(k.wireValue), k);

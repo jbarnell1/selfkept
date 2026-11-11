@@ -38,6 +38,22 @@ class ChatItem {
   /// A red-flag reply written by code: shown prominently and in full.
   bool safety;
 
+  /// For a reply: the server offered a cloud lookup of the question it
+  /// answered. Only a live reply carries this.
+  bool lookupOffered;
+
+  /// For a reply: the user message it answered, which a lookup drafts from.
+  String? questionMessageId;
+
+  /// For a cloud answer: its sources and the lookup it came from (null once
+  /// that lookup was deleted).
+  List<LookupSource> sources;
+  String? lookupId;
+
+  /// For a cloud answer sent in this session: the provider's name from the
+  /// draft.
+  String? provider;
+
   ChatItem({
     required this.key,
     required this.role,
@@ -49,9 +65,17 @@ class ChatItem {
     this.undoing = false,
     this.state = ChatItemState.done,
     this.safety = false,
+    this.lookupOffered = false,
+    this.questionMessageId,
+    this.sources = const [],
+    this.lookupId,
+    this.provider,
   }) : captures = captures ?? [];
 
   bool get isUser => role == MessageRole.user;
+
+  /// An answer from a cloud model, set apart from local replies.
+  bool get isCloud => !isUser && origin == MessageOrigin.cloud;
 
   factory ChatItem.fromMessage(AssistantMessage m) => ChatItem(
     key: m.id,
@@ -62,6 +86,8 @@ class ChatItem {
     captures: [...m.captures],
     capturesUndone: m.capturesUndone,
     safety: m.role == MessageRole.assistant && m.redFlag,
+    sources: [...m.sources],
+    lookupId: m.lookupId,
   );
 }
 

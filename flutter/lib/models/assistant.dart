@@ -102,13 +102,14 @@ enum MessageRole {
 }
 
 /// Who worded a message: the model (and the guard passed it), a template,
-/// the guard (it replaced the answer, or code answered a red flag), or the
-/// person.
+/// the guard (it replaced the answer, or code answered a red flag), the
+/// person, or a cloud model the person sent one question to.
 enum MessageOrigin {
   model,
   template,
   guard,
-  code;
+  code,
+  cloud;
 
   String get wireValue => name;
   String toJson() => wireValue;
@@ -126,6 +127,7 @@ enum MessageOrigin {
     template => 'From your record',
     guard => 'Checked reply',
     code => 'You',
+    cloud => 'Cloud model',
   };
 }
 
@@ -198,6 +200,49 @@ class CaptureRef {
   );
 }
 
+/// One source a cloud answer cites.
+class LookupSource {
+  final String title;
+  final String url;
+
+  const LookupSource({this.title = '', required this.url});
+
+  /// Only a real http or https address is offered as a link.
+  Uri? get link {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || uri.host.isEmpty) return null;
+    if (uri.scheme != 'https' && uri.scheme != 'http') return null;
+    return uri;
+  }
+
+  /// The title, or the address when the source has none.
+  String get label => title.trim().isEmpty ? url : title.trim();
+
+  factory LookupSource.fromJson(Map<String, dynamic> json) {
+    final r = JsonReader(json);
+    return LookupSource(title: r.string('title'), url: r.string('url'));
+  }
+}
+
+/// The `lookup` object on a chat reply's done event: whether the reply may
+/// be followed by a cloud lookup. Tapping the offer sends nothing.
+class LookupOffer {
+  final bool offered;
+
+  /// `question`, `refused` (the guard replaced the reply) or `model_off`.
+  final String reason;
+
+  const LookupOffer({this.offered = false, this.reason = ''});
+
+  factory LookupOffer.fromJson(Map<String, dynamic> json) {
+    final r = JsonReader(json);
+    return LookupOffer(
+      offered: r.boolean('offered'),
+      reason: r.string('reason'),
+    );
+  }
+}
+
 /// One message of a conversation, oldest first.
 class AssistantMessage {
   final String id;
@@ -216,6 +261,13 @@ class AssistantMessage {
   /// lines). It is shown prominently and in full.
   final bool redFlag;
 
+  /// What a cloud answer cites; empty unless [origin] is cloud.
+  final List<LookupSource> sources;
+
+  /// The lookup a cloud answer came from. Null once that lookup was deleted,
+  /// and for every other message.
+  final String? lookupId;
+
   const AssistantMessage({
     required this.id,
     required this.role,
@@ -225,6 +277,8 @@ class AssistantMessage {
     this.captures = const [],
     this.capturesUndone = false,
     this.redFlag = false,
+    this.sources = const [],
+    this.lookupId,
   });
 
   factory AssistantMessage.fromJson(Map<String, dynamic> json) {
@@ -238,6 +292,8 @@ class AssistantMessage {
       captures: [for (final c in r.objects('captures')) CaptureRef.fromJson(c)],
       capturesUndone: r.boolean('capturesUndone'),
       redFlag: r.boolean('redFlag'),
+      sources: [for (final s in r.objects('sources')) LookupSource.fromJson(s)],
+      lookupId: r.stringOrNull('lookupId'),
     );
   }
 }
@@ -336,6 +392,10 @@ class DoneEvent extends AssistantStreamEvent {
   /// True when code answered a red flag.
   final bool redFlag;
 
+  /// Whether a cloud lookup is offered under this reply; null from a server
+  /// without the lookup.
+  final LookupOffer? lookup;
+
   const DoneEvent({
     required this.conversationId,
     required this.messageId,
@@ -343,7 +403,10 @@ class DoneEvent extends AssistantStreamEvent {
     required this.origin,
     required this.text,
     this.redFlag = false,
+    this.lookup,
   });
+
+  bool get lookupOffered => lookup?.offered ?? false;
 
   factory DoneEvent.fromJson(Map<String, dynamic> json) {
     final r = JsonReader(json);
@@ -354,6 +417,10 @@ class DoneEvent extends AssistantStreamEvent {
       origin: MessageOrigin.fromString(r.stringOrNull('origin')),
       text: r.string('text'),
       redFlag: r.boolean('redFlag'),
+      lookup: switch (r.object('lookup')) {
+        final o? => LookupOffer.fromJson(o),
+        null => null,
+      },
     );
   }
 }

@@ -47,8 +47,14 @@ returns the brand block from those constants. No em dashes in comments, log mess
 - Refuse to start with a missing or placeholder `Jwt:Key` or `Encryption:Key`.
 - `ForwardedHeaders:TrustedNetworks` lists the proxies whose `X-Forwarded-*` are believed
   (loopback plus the compose gateway and Caddy). Private ranges are not trusted wholesale.
-- Nothing leaves the host: no telemetry, no analytics SDK, no cloud model calls, no update
-  pings. Outbound HTTP exists only where the user configured a target (an export they built).
+- Nothing leaves the host: no telemetry, no analytics SDK, no update pings. Outbound HTTP exists
+  only where the user configured a target (an export they built).
+- No cloud model calls, with one exception: the cloud lookup (`docs/lookup-design.md`). It is
+  off unless `Lookup:Enabled` and a key are set, each person turns it on for themselves, and it
+  sends only the text the person saw on the lookup screen, when they press send. The provider
+  SDK is referenced by `AnthropicLookupClient` alone. The state brief, check-ins, insights and
+  the record never go to it unseen: facts from the record are sent only as text the person
+  chose to add and read on that screen. Do not add a second caller or a background send.
 
 ## Migrations
 SQL-first with DbUp, under the infrastructure project's `Migrations/Sql/`:

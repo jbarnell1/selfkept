@@ -52,6 +52,31 @@ enum PermissionState {
   bool get allowsReading => this == granted || this == partial;
 }
 
+/// Which metrics this phone may read, per metric. Only a store that reports
+/// read access exactly can answer (Health Connect); HealthKit hides it.
+class MetricPermissions {
+  /// Metrics whose read permission is held.
+  final Set<MetricKey> granted;
+
+  /// Metrics the store could read but has not been allowed to.
+  final Set<MetricKey> missing;
+
+  const MetricPermissions({this.granted = const {}, this.missing = const {}});
+
+  /// Decodes `{ granted: [key], missing: [key] }`. Unknown keys are dropped:
+  /// a newer native side may know metrics this build does not.
+  factory MetricPermissions.fromJson(Map<String, dynamic> json) {
+    final r = JsonReader(json);
+    Set<MetricKey> keys(String name) => {
+      for (final raw in r.strings(name)) ?MetricKey.fromString(raw),
+    };
+    return MetricPermissions(
+      granted: keys('granted'),
+      missing: keys('missing'),
+    );
+  }
+}
+
 /// What one call to [HealthCollector.collectSince] returned.
 class CollectResult {
   final List<Sample> samples;
@@ -99,6 +124,10 @@ abstract class HealthCollector {
 
   Future<PermissionState> requestPermissions(Set<MetricKey> metrics);
 
+  /// Per-metric read access, or null when the platform cannot say (HealthKit
+  /// does not reveal read access; web and desktop have no store).
+  Future<MetricPermissions?> metricPermissions();
+
   /// Reads what changed since [cursor] (everything from [backfillFrom] when a
   /// type has no cursor yet). Pages: check [CollectResult.hasMore].
   Future<CollectResult> collectSince(String? cursor, {DateTime? backfillFrom});
@@ -130,6 +159,9 @@ class NoopHealthCollector implements HealthCollector {
   @override
   Future<PermissionState> requestPermissions(Set<MetricKey> metrics) async =>
       PermissionState.unavailable;
+
+  @override
+  Future<MetricPermissions?> metricPermissions() async => null;
 
   @override
   Future<CollectResult> collectSince(

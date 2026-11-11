@@ -140,7 +140,8 @@ class AboutSection extends StatelessWidget {
               const SizedBox(height: Space.x4),
               Text(
                 'Free software under the GNU Affero General Public License, version 3 (AGPL-3.0). '
-                'Your data stays on your server.',
+                'Your data stays on your server, except a cloud lookup '
+                'question you choose to send.',
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: Space.x2),

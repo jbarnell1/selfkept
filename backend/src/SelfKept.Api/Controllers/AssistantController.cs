@@ -1,7 +1,5 @@
-using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -83,12 +81,7 @@ public sealed class AssistantController : BaseController
     var turn = await _assistant.BeginTurnAsync(CurrentActor(), id, request.Text, ct);
     if (turn == null) return NotFoundProblem("No such conversation.");
 
-    Response.StatusCode = StatusCodes.Status200OK;
-    Response.ContentType = "text/event-stream; charset=utf-8";
-    Response.Headers.CacheControl = "no-cache, no-store";
-    Response.Headers["X-Accel-Buffering"] = "no";
-    HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
-
+    ServerSentEvents.Start(HttpContext);
     await WriteEventAsync(AssistantStreamEvent.Capture, turn.Capture, ct);
     await foreach (var e in _assistant.ReplyAsync(turn, ct))
     {
@@ -152,11 +145,5 @@ public sealed class AssistantController : BaseController
   [EnableRateLimiting(RateLimitPolicies.Recompute)]
   public async Task<IActionResult> ModelCheck(CancellationToken ct) => Ok(await _modelCheck.RunAsync(CurrentActor(), ct));
 
-  private async Task WriteEventAsync(string name, object data, CancellationToken ct)
-  {
-    var payload = JsonSerializer.Serialize(data, data.GetType(), _json);
-    var frame = Encoding.UTF8.GetBytes($"event: {name}\ndata: {payload}\n\n");
-    await Response.Body.WriteAsync(frame, ct);
-    await Response.Body.FlushAsync(ct);
-  }
+  private Task WriteEventAsync(string name, object data, CancellationToken ct) => ServerSentEvents.WriteAsync(Response, name, data, _json, ct);
 }

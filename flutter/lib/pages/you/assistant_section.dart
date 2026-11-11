@@ -25,11 +25,16 @@ class AssistantYouSection extends StatelessWidget {
   static const String nudgesTitle = 'Evening reminder';
   static const String nudgesLine =
       'A nudge to your own ntfy topic when the day is not closed out.';
+  static const String lookupTitle = 'Cloud lookup';
+  static const String lookupLine =
+      'Send one question at a time to a large cloud model. Off until you '
+      'turn it on.';
 
   @override
   Widget build(BuildContext context) {
     if (!AssistantFeature.watch(context)) return const SizedBox.shrink();
     final isAdmin = context.select<AuthProvider, bool>((a) => a.isAdmin);
+    final lookup = LookupFeature.watch(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -47,6 +52,15 @@ class AssistantYouSection extends StatelessWidget {
           line: nudgesLine,
           onTap: () => context.push('/you/evening-reminder'),
         ),
+        if (lookup) ...[
+          const SizedBox(height: Space.x3),
+          _Link(
+            icon: Icons.travel_explore,
+            title: lookupTitle,
+            line: lookupLine,
+            onTap: () => context.push('/you/cloud-lookup'),
+          ),
+        ],
         if (isAdmin) ...[
           const SizedBox(height: Space.x3),
           const ModelCheckCard(),

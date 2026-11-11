@@ -78,6 +78,7 @@ import kotlin.reflect.KClass
  *     isAvailable()                                 -> Boolean
  *     deviceInfo()                                  -> { name, platform, osVersion }
  *     requestPermissions({ metrics: [String] })     -> "granted" | "partial" | "denied" | "unavailable"
+ *     metricPermissions()                           -> { granted: [key], missing: [key] } | null
  *     collectSince({ cursor, backfillFrom, limit }) -> { samples, workouts, cursor, hasMore }
  *     backgroundLimited()                           -> Boolean
  *     openBatterySettings()                         -> null
@@ -192,6 +193,7 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
                 )
             )
             "requestPermissions" -> requestPermissions(result)
+            "metricPermissions" -> metricPermissions(result)
             "collectSince" -> {
                 val cursor = call.argument<String>("cursor")
                 val backfillFrom = call.argument<String>("backfillFrom")
@@ -285,6 +287,28 @@ class HealthConnectCollector : FlutterPlugin, ActivityAware, MethodChannel.Metho
                 val contract = PermissionController.createRequestPermissionResultContract()
                 val intent: Intent = contract.createIntent(host, wanted)
                 host.startActivityForResult(intent, PERMISSION_REQUEST)
+            }
+        }
+    }
+
+    /**
+     * Which catalogue keys may be read now, from the exact set of permissions
+     * Health Connect reports as granted. Null when Health Connect is missing.
+     * Asks nothing and shows nothing, so Dart can call it on every resume.
+     */
+    private fun metricPermissions(result: MethodChannel.Result) {
+        if (!isAvailable()) {
+            result.success(null)
+            return
+        }
+        scope.launch {
+            try {
+                val granted = withContext(Dispatchers.IO) {
+                    HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions()
+                }
+                result.success(HealthReader.metricPermissions(granted))
+            } catch (e: Exception) {
+                result.error("permissions", e.message, null)
             }
         }
     }
@@ -582,6 +606,8 @@ class HealthReader(private val context: Context) {
     private class Mapping(
         val name: String,
         val type: KClass<out Record>,
+        /** Catalogue keys RecordMapper writes for this record type. */
+        val metrics: List<String>,
     )
 
     companion object {
@@ -592,32 +618,32 @@ class HealthReader(private val context: Context) {
         private const val BACKFILL_PAGE = 1000
 
         private val mappings: List<Mapping> = listOf(
-            Mapping("StepsRecord", StepsRecord::class),
-            Mapping("DistanceRecord", DistanceRecord::class),
-            Mapping("ActiveCaloriesBurnedRecord", ActiveCaloriesBurnedRecord::class),
-            Mapping("BasalMetabolicRateRecord", BasalMetabolicRateRecord::class),
-            Mapping("FloorsClimbedRecord", FloorsClimbedRecord::class),
-            Mapping("HeartRateRecord", HeartRateRecord::class),
-            Mapping("RestingHeartRateRecord", RestingHeartRateRecord::class),
-            Mapping("HeartRateVariabilityRmssdRecord", HeartRateVariabilityRmssdRecord::class),
-            Mapping("OxygenSaturationRecord", OxygenSaturationRecord::class),
-            Mapping("RespiratoryRateRecord", RespiratoryRateRecord::class),
-            Mapping("SkinTemperatureRecord", SkinTemperatureRecord::class),
-            Mapping("BodyTemperatureRecord", BodyTemperatureRecord::class),
-            Mapping("SleepSessionRecord", SleepSessionRecord::class),
-            Mapping("Vo2MaxRecord", Vo2MaxRecord::class),
-            Mapping("WeightRecord", WeightRecord::class),
-            Mapping("BodyFatRecord", BodyFatRecord::class),
-            Mapping("HeightRecord", HeightRecord::class),
-            Mapping("LeanBodyMassRecord", LeanBodyMassRecord::class),
-            Mapping("BoneMassRecord", BoneMassRecord::class),
-            Mapping("BodyWaterMassRecord", BodyWaterMassRecord::class),
-            Mapping("NutritionRecord", NutritionRecord::class),
-            Mapping("MenstruationFlowRecord", MenstruationFlowRecord::class),
-            Mapping("BasalBodyTemperatureRecord", BasalBodyTemperatureRecord::class),
-            Mapping("BloodGlucoseRecord", BloodGlucoseRecord::class),
-            Mapping("BloodPressureRecord", BloodPressureRecord::class),
-            Mapping("ExerciseSessionRecord", ExerciseSessionRecord::class),
+            Mapping("StepsRecord", StepsRecord::class, listOf("steps")),
+            Mapping("DistanceRecord", DistanceRecord::class, listOf("distance_m")),
+            Mapping("ActiveCaloriesBurnedRecord", ActiveCaloriesBurnedRecord::class, listOf("active_energy_kcal")),
+            Mapping("BasalMetabolicRateRecord", BasalMetabolicRateRecord::class, listOf("basal_energy_kcal")),
+            Mapping("FloorsClimbedRecord", FloorsClimbedRecord::class, listOf("flights")),
+            Mapping("HeartRateRecord", HeartRateRecord::class, listOf("heart_rate_bpm")),
+            Mapping("RestingHeartRateRecord", RestingHeartRateRecord::class, listOf("resting_hr_bpm")),
+            Mapping("HeartRateVariabilityRmssdRecord", HeartRateVariabilityRmssdRecord::class, listOf("hrv_rmssd_ms")),
+            Mapping("OxygenSaturationRecord", OxygenSaturationRecord::class, listOf("spo2_pct")),
+            Mapping("RespiratoryRateRecord", RespiratoryRateRecord::class, listOf("respiratory_rate_bpm")),
+            Mapping("SkinTemperatureRecord", SkinTemperatureRecord::class, listOf("wrist_temp_delta_c")),
+            Mapping("BodyTemperatureRecord", BodyTemperatureRecord::class, listOf("body_temp_c")),
+            Mapping("SleepSessionRecord", SleepSessionRecord::class, listOf("sleep_stage")),
+            Mapping("Vo2MaxRecord", Vo2MaxRecord::class, listOf("vo2max")),
+            Mapping("WeightRecord", WeightRecord::class, listOf("weight_kg")),
+            Mapping("BodyFatRecord", BodyFatRecord::class, listOf("body_fat_pct")),
+            Mapping("HeightRecord", HeightRecord::class, listOf("height_cm")),
+            Mapping("LeanBodyMassRecord", LeanBodyMassRecord::class, listOf("lean_mass_kg")),
+            Mapping("BoneMassRecord", BoneMassRecord::class, listOf("bone_mass_kg")),
+            Mapping("BodyWaterMassRecord", BodyWaterMassRecord::class, listOf("body_water_kg")),
+            Mapping("NutritionRecord", NutritionRecord::class, listOf("energy_intake_kcal", "protein_g", "carbs_g", "fat_g")),
+            Mapping("MenstruationFlowRecord", MenstruationFlowRecord::class, listOf("menstrual_flow")),
+            Mapping("BasalBodyTemperatureRecord", BasalBodyTemperatureRecord::class, listOf("basal_body_temp_c")),
+            Mapping("BloodGlucoseRecord", BloodGlucoseRecord::class, listOf("blood_glucose_mmol")),
+            Mapping("BloodPressureRecord", BloodPressureRecord::class, listOf("blood_pressure_sys", "blood_pressure_dia")),
+            Mapping("ExerciseSessionRecord", ExerciseSessionRecord::class, listOf("exercise_min")),
         )
 
         /** Every read permission the contract needs, plus background and history. */
@@ -627,6 +653,21 @@ class HealthReader(private val context: Context) {
             set.add(BACKGROUND)
             set.add(HISTORY)
             return set
+        }
+
+        /**
+         * Per metric key, whether its record type may be read under [granted].
+         * A record type that yields several keys (nutrition, blood pressure)
+         * puts all of them on the same side.
+         */
+        fun metricPermissions(granted: Set<String>): Map<String, List<String>> {
+            val allowed = mutableListOf<String>()
+            val missing = mutableListOf<String>()
+            for (m in mappings) {
+                val target = if (HealthPermission.getReadPermission(m.type) in granted) allowed else missing
+                target.addAll(m.metrics)
+            }
+            return mapOf("granted" to allowed, "missing" to missing)
         }
 
         private val iso: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT

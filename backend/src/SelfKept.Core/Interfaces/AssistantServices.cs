@@ -126,7 +126,7 @@ public interface IReplyGuard
   GuardVerdict CheckLine(string line, GuardContext context);
 }
 
-/// <summary>A user message saved and captured, ready to be answered.</summary>
+/// <summary>A user message saved and captured, ready to be answered. UserText is the message, for the lookup offer.</summary>
 public sealed record AssistantTurn(
   Actor Actor,
   Guid ConversationId,
@@ -136,7 +136,8 @@ public sealed record AssistantTurn(
   IReadOnlyList<ChatTurn> ModelTurns,
   GuardContext Guard,
   string Fallback,
-  string Unavailable);
+  string Unavailable,
+  string UserText = "");
 
 /// <summary>One server-sent event: capture, delta, replace or done, with its JSON payload.</summary>
 public sealed record AssistantStreamEvent(string Event, object Data)

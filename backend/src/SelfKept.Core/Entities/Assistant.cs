@@ -111,8 +111,10 @@ public static class MessageOrigins
   public const string Guard = "guard";
   /// <summary>Typed by the person, or produced by the check-in state machine.</summary>
   public const string Code = "code";
+  /// <summary>The answer to a cloud lookup the person sent (docs/lookup-design.md). Not guarded; shown with its sources.</summary>
+  public const string Cloud = "cloud";
 
-  public static readonly string[] All = [Model, Template, Guard, Code];
+  public static readonly string[] All = [Model, Template, Guard, Code, Cloud];
 }
 
 public static class NudgeKinds
@@ -164,6 +166,10 @@ public static class AssistantAuditActions
   public const string NudgesChanged = "assistant.nudges_changed";
   public const string NudgeTested = "assistant.nudge_tested";
   public const string ModelChecked = "assistant.model_checked";
+  public const string LookupEnabled = "assistant.lookup_enabled";
+  public const string LookupDisabled = "assistant.lookup_disabled";
+  public const string LookupSent = "assistant.lookup_sent";
+  public const string LookupDeleted = "assistant.lookup_deleted";
 }
 
 /// <summary>Purposes written to ai_call for assistant work (32 characters at most).</summary>
@@ -173,6 +179,12 @@ public static class AssistantAiPurposes
   public const string CheckinLine = "assistant_checkin";
   public const string Brief = "assistant_brief";
   public const string ModelCheck = "assistant_model_check";
+  /// <summary>The one cloud call (docs/lookup-design.md).</summary>
+  public const string Lookup = "assistant_lookup";
+  /// <summary>The local model wording what a cloud answer means for the person.</summary>
+  public const string LookupApplied = "assistant_lookup_applied";
+  /// <summary>The local model rewording an anonymized draft into a general research question.</summary>
+  public const string LookupDraft = "assistant_lookup_draft";
 }
 
 /// <summary>The states GET /api/assistant/checkin/today reports.</summary>

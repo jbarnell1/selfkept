@@ -9,6 +9,7 @@ import '../../providers/journal_provider.dart';
 import '../../theme/tokens.dart';
 import '../day_log.dart' show journalKindIcon;
 import '../status_views.dart';
+import 'lookup_widgets.dart';
 
 /// The words on a saved-item chip: "Food: High protein, Vegetables",
 /// "Remembered: Eats a vegetarian diet", "Mood: Good".
@@ -199,6 +200,8 @@ class MessageBubble<T extends ChatSession> extends StatelessWidget {
       );
     }
 
+    if (item.isCloud) return CloudAnswerBubble(item: item);
+
     final waiting = item.state == ChatItemState.streaming && item.text.isEmpty;
     return Align(
       alignment: Alignment.centerLeft,
@@ -234,6 +237,7 @@ class MessageBubble<T extends ChatSession> extends StatelessWidget {
               ),
             ),
             if (item.state == ChatItemState.dropped) _Dropped<T>(item: item),
+            if (item.lookupOffered) LookupOfferLine<T>(item: item),
           ],
         ),
       ),

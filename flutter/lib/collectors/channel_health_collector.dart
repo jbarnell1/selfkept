@@ -14,6 +14,8 @@ import 'health_collector.dart';
 /// - `isAvailable()` -> bool
 /// - `deviceInfo()` -> `{ name, platform, osVersion }`
 /// - `requestPermissions({ metrics: [key] })` -> permission state string
+/// - `metricPermissions()` -> `{ granted: [key], missing: [key] }`, Android
+///   only. iOS does not implement it: HealthKit hides read access.
 /// - `collectSince({ cursor, backfillFrom, limit })` ->
 ///   `{ samples: [...], workouts: [...], cursor, hasMore }`
 ///
@@ -75,6 +77,21 @@ class ChannelHealthCollector implements HealthCollector {
       return PermissionState.fromString(result);
     } on MissingPluginException {
       return PermissionState.unavailable;
+    }
+  }
+
+  @override
+  Future<MetricPermissions?> metricPermissions() async {
+    try {
+      final raw = await _methods.invokeMapMethod<String, dynamic>(
+        'metricPermissions',
+      );
+      return raw == null ? null : MetricPermissions.fromJson(raw);
+    } on MissingPluginException {
+      // iOS, or a native side older than this build: it cannot say.
+      return null;
+    } on PlatformException {
+      return null;
     }
   }
 

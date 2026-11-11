@@ -23,7 +23,9 @@ Open WebUI can answer questions about your data. "SelfKept" is a working name; t
   questions about the household's data without that data going anywhere.
 
 Every data query is scoped by viewer and target person and checked against the household's
-sharing grants in the repository layer. No telemetry, no analytics, no cloud model calls.
+sharing grants in the repository layer. No telemetry, no analytics, and no cloud model calls
+unless you turn on the opt-in cloud lookup, which sends only a question you have read and sent
+yourself.
 
 ## Run it (self-host, Tailscale)
 

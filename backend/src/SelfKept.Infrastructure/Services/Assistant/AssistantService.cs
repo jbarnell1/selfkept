@@ -6,6 +6,7 @@ using SelfKept.Core.DTOs;
 using SelfKept.Core.Entities;
 using SelfKept.Core.Exceptions;
 using SelfKept.Core.Interfaces;
+using SelfKept.Infrastructure.Services.Assistant.Lookup;
 using SelfKept.Infrastructure.Services.Collect;
 
 namespace SelfKept.Infrastructure.Services.Assistant;
@@ -15,7 +16,8 @@ namespace SelfKept.Infrastructure.Services.Assistant;
 /// the day log at once (with Undo), a red-flag symptom is answered by code, and otherwise the
 /// local model answers over the state brief. The reply streams sentence by sentence through the
 /// guard; a reply that fails at the end is replaced. With the model off or unreachable the reply
-/// is a template built from the brief, and the captures still happen.
+/// is a template built from the brief, and the captures still happen. The done event carries the
+/// cloud lookup offer when the person has the lookup on (docs/lookup-design.md).
 /// </summary>
 public sealed class AssistantService : IAssistantService
 {
@@ -41,6 +43,8 @@ public sealed class AssistantService : IAssistantService
   private readonly ModelRewording _rewording;
   private readonly IEncryptionService _encryption;
   private readonly IAuditService _audit;
+  private readonly ILookupService _lookup;
+  private readonly ILookupRepository _lookups;
   private readonly TimeProvider _clock;
   private readonly ILogger<AssistantService> _logger;
 
@@ -59,6 +63,8 @@ public sealed class AssistantService : IAssistantService
     ModelRewording rewording,
     IEncryptionService encryption,
     IAuditService audit,
+    ILookupService lookup,
+    ILookupRepository lookups,
     TimeProvider clock,
     ILogger<AssistantService> logger)
   {
@@ -76,6 +82,8 @@ public sealed class AssistantService : IAssistantService
     _rewording = rewording;
     _encryption = encryption;
     _audit = audit;
+    _lookup = lookup;
+    _lookups = lookups;
     _clock = clock;
     _logger = logger;
   }
@@ -114,9 +122,15 @@ public sealed class AssistantService : IAssistantService
     var conversation = await _repository.GetOwnConversationAsync(personId, conversationId, ct);
     if (conversation == null) return null;
     var messages = await _repository.ListOwnMessagesAsync(personId, conversationId, 500, ct);
+    // Cloud answers show their sources and a link to what was sent, while the lookup is kept.
+    var lookupIds = messages.Where(m => m.Origin == MessageOrigins.Cloud)
+      .Select(m => AssistantMeta.From(m.Meta).LookupId)
+      .OfType<Guid>()
+      .ToHashSet();
+    var lookups = (await _lookups.ListOwnByIdsAsync(personId, lookupIds, ct)).ToDictionary(l => l.Id);
     var summary = Summary(conversation);
     return new ConversationDto(summary.Id, summary.Kind, summary.Title, summary.Day, summary.CreatedAt, summary.UpdatedAt,
-      messages.Select(ToDto).ToList());
+      messages.Select(m => ToDto(m, _encryption, LookupOf(m, lookups))).ToList());
   }
 
   public async Task<bool> DeleteAsync(Actor actor, Guid conversationId, CancellationToken ct = default)
@@ -181,7 +195,7 @@ public sealed class AssistantService : IAssistantService
     {
       await _audit.RecordAsync(new AuditEvent(AssistantAuditActions.RedFlagAnswered, actor.UserId, actor.HouseholdId,
         "assistant_message", userMessage.Id.ToString(), IpAddress: actor.Info.IpAddress), ct);
-      return new AssistantTurn(actor, conversationId, userMessage.Id, capture, redFlag, [], GuardContext.Empty, redFlag, redFlag);
+      return new AssistantTurn(actor, conversationId, userMessage.Id, capture, redFlag, [], GuardContext.Empty, redFlag, redFlag, message);
     }
 
     var today = DayBoundaries.LocalDay(now, zone);
@@ -207,7 +221,7 @@ public sealed class AssistantService : IAssistantService
     }
     turns.Add(new ChatTurn(ChatTurn.User, message));
 
-    return new AssistantTurn(actor, conversationId, userMessage.Id, capture, null, turns, guard, refused, unavailable);
+    return new AssistantTurn(actor, conversationId, userMessage.Id, capture, null, turns, guard, refused, unavailable, message);
   }
 
   public async IAsyncEnumerable<AssistantStreamEvent> ReplyAsync(AssistantTurn turn, [EnumeratorCancellation] CancellationToken ct = default)
@@ -365,7 +379,9 @@ public sealed class AssistantService : IAssistantService
       conversation.UpdatedAt = now;
       await _repository.UpdateOwnConversationAsync(conversation, ct);
     }
-    return new AssistantStreamEvent(AssistantStreamEvent.Done, new DoneEventDto(turn.ConversationId, reply.Id, turn.UserMessageId, origin, text, reason == AssistantMeta.RedFlagReason));
+    var redFlag = reason == AssistantMeta.RedFlagReason;
+    var offer = await _lookup.OfferAsync(turn.Actor.PersonId, turn.UserText, origin, redFlag, ct);
+    return new AssistantStreamEvent(AssistantStreamEvent.Done, new DoneEventDto(turn.ConversationId, reply.Id, turn.UserMessageId, origin, text, redFlag, offer));
   }
 
   /// <summary>"Evening check-in, Nov 10": month first, as every other date in the app.</summary>
@@ -409,17 +425,27 @@ public sealed class AssistantService : IAssistantService
     c.CreatedAt,
     c.UpdatedAt);
 
-  private AssistantMessageDto ToDto(AssistantMessage m)
+  private static AssistantLookup? LookupOf(AssistantMessage m, IReadOnlyDictionary<Guid, AssistantLookup> lookups) =>
+    m.Origin == MessageOrigins.Cloud && AssistantMeta.From(m.Meta).LookupId is { } id && lookups.TryGetValue(id, out var lookup) ? lookup : null;
+
+  /// <summary>
+  /// A stored message as the API shows it. A cloud answer whose lookup is still kept carries the
+  /// lookup's sources and id; once the lookup is deleted it has neither.
+  /// </summary>
+  public static AssistantMessageDto ToDto(AssistantMessage m, IEncryptionService encryption, AssistantLookup? lookup = null)
   {
     var meta = AssistantMeta.From(m.Meta);
+    var cloud = m.Origin == MessageOrigins.Cloud && lookup != null;
     return new AssistantMessageDto(
       m.Id,
       m.Role,
-      _encryption.TryDecrypt(m.ContentCipher) ?? string.Empty,
+      encryption.TryDecrypt(m.ContentCipher) ?? string.Empty,
       m.Origin,
       m.CreatedAt,
       meta.Captures ?? [],
       meta.Undone == true,
-      meta.Reason == AssistantMeta.RedFlagReason);
+      meta.Reason == AssistantMeta.RedFlagReason,
+      cloud ? LookupSources.Decode(lookup!.SourcesCipher, encryption) : [],
+      cloud ? lookup!.Id : null);
   }
 }

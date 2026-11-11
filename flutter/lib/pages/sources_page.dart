@@ -3,6 +3,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:provider/provider.dart';
 
 import '../models/connect.dart';
+import '../models/metric.dart';
 import '../models/source.dart';
 import '../offline/sync_engine.dart';
 import '../providers/auth_provider.dart';
@@ -13,6 +14,7 @@ import '../theme/app_theme.dart';
 import '../theme/tokens.dart';
 import '../utils/relative_time.dart';
 import '../widgets/key_value_row.dart';
+import '../widgets/missing_metrics_card.dart';
 import '../widgets/oura_app_form.dart';
 import '../widgets/page_body.dart';
 import '../widgets/status_views.dart';
@@ -31,6 +33,11 @@ class SourcesPage extends StatefulWidget {
 
   static const String webNotice =
       'Collection happens in the phone apps. Connect Apple Health or Health Connect there and the readings gather here.';
+
+  static String missingMetricsLine(String kinds) =>
+      'Some kinds are not allowed yet: $kinds.';
+  static String missingMetricsHint(String store) =>
+      'If nothing opened, allow them in the $store settings.';
 
   static const String ouraNotConfigured =
       'Oura needs a one-time setup by the household admin. Once it is done, connect your ring here.';
@@ -216,6 +223,8 @@ class _SyncCard extends StatelessWidget {
           ),
           _ProgressLine(collector.progress),
           AttentionLine(error ?? ''),
+          if (collector.hasMissingMetrics)
+            _MissingMetricsLine(collector: collector),
           if (collector.backgroundLimited)
             _BackgroundLimitedLine(collector: collector),
         ],
@@ -224,6 +233,48 @@ class _SyncCard extends StatelessWidget {
   }
 
   static String _rows(int n) => n == 1 ? 'reading' : 'readings';
+}
+
+/// Kinds this phone could read but has not been allowed to. The same ask as
+/// the Today card, always here even after "Not now".
+class _MissingMetricsLine extends StatelessWidget {
+  final CollectorProvider collector;
+
+  const _MissingMetricsLine({required this.collector});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final kinds = MetricKey.everydayList(collector.missingMetrics);
+    final store = collector.kind.displayName;
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.x4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            SourcesPage.missingMetricsLine(kinds),
+            style: theme.textTheme.bodyMedium,
+          ),
+          if (collector.askedAndStillMissing)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.x1),
+              child: Text(
+                SourcesPage.missingMetricsHint(store),
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+          const SizedBox(height: Space.x2),
+          TextButton(
+            onPressed: collector.isAskingForMore
+                ? null
+                : collector.askForMissingMetrics,
+            child: const Text(MissingMetricsCard.allowLabel),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Android holds the closed-app send for an app it thinks is seldom used.
