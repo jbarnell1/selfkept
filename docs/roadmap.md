@@ -1,7 +1,7 @@
 # Roadmap and handoff
 
-Status: v0.1.8 is the latest release. It lets the home model be a thinking model on another
-machine of yours (see "Home model settings"). v0.1.7 added the opt-in cloud lookup, a one-time ask for
+Status: v0.1.9 is the latest release. With v0.1.8 it lets the home model be a thinking model on
+another machine of yours, behind a gateway (see "Home model settings"). v0.1.7 added the opt-in cloud lookup, a one-time ask for
 Health Connect kinds added since a phone was connected, and an evening check-in fix (see
 "Cloud lookup and the permission ask"). v0.1.6 added sample retention and the connected
 record: four packages, backend and Flutter (see "Connected record"). v0.1.1 was the first tag (image
@@ -53,9 +53,9 @@ Released in v0.1.7.
 Not yet checked: a real call to the provider (it needs the owner's own key), the Health Connect
 permission sheet on an upgraded phone, and the lookup on a phone.
 
-### Home model settings (v0.1.8)
+### Home model settings (v0.1.8, v0.1.9)
 
-Released in v0.1.8. Backend and compose only; no migration and no app change.
+Released in v0.1.8, with a fix in v0.1.9. Backend and compose only; no migration and no app change.
 
 | Piece | State |
 | --- | --- |
@@ -63,15 +63,18 @@ Released in v0.1.8. Backend and compose only; no migration and no app change.
 | 600 tokens of headroom on every model call, for a model that thinks anyway | done, tested |
 | `SELFKEPT_AI_INTERACTIVE_HEADER`: one header for a gateway that queues by priority, sent with calls a person is waiting on (insight phrasing goes without it) | done, tested |
 | `SELFKEPT_AI_TIMEOUT_SECONDS` is settable from `.env` | done |
+| v0.1.9: model requests carry a Content-Length. In v0.1.8 the body was chunked, arrived empty behind a gateway that reads the stated length, and every call failed with 400 | done, tested through a real gateway |
 
-Not yet checked: the assistant in the app with the model on (replies, check-in lines, the
-brief), which needs a server with the settings in place.
+Checked against a real qwen3.5 model through a gateway: the built-in model check cases with the
+real guard (five of six pass; the diagnosis case is refused by the guard for naming a cold, and
+the template answers). Not yet checked: the assistant in the app with the model on (replies,
+check-in lines, the brief), which needs a server with the settings in place.
 
 Homelab specifics (addresses, paths, what is installed where) are kept out of the repository,
 in `.dev/homelab.md`.
 
 
-Test counts at v0.1.8: backend 1494 (1374 unit, plus 120 that need `SELFKEPT_TEST_CONNECTION`;
+Test counts at v0.1.9: backend 1495 (1375 unit, plus 120 that need `SELFKEPT_TEST_CONNECTION`;
 all green with it set), Flutter 1076. `flutter analyze` and the backend build had zero warnings.
 Run the suites again for current counts.
 
