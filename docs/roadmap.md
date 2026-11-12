@@ -1,6 +1,7 @@
 # Roadmap and handoff
 
-Status: v0.1.9 is the latest release. With v0.1.8 it lets the home model be a thinking model on
+Status: v0.1.9 is the latest release; v0.1.10 (photos read by the home model, see "Photos") is built
+and waits in `release/0.1.10`. With v0.1.8, v0.1.9 lets the home model be a thinking model on
 another machine of yours, behind a gateway (see "Home model settings"). v0.1.7 added the opt-in cloud lookup, a one-time ask for
 Health Connect kinds added since a phone was connected, and an evening check-in fix (see
 "Cloud lookup and the permission ask"). v0.1.6 added sample retention and the connected
@@ -53,6 +54,23 @@ Released in v0.1.7.
 Not yet checked: a real call to the provider (it needs the owner's own key), the Health Connect
 permission sheet on an upgraded phone, and the lookup on a phone.
 
+### Photos (v0.1.10, not released yet)
+
+A person picks or takes a photo in the assistant; the home model reads it once and the app shows
+a proposal to check and save (`docs/photo-design.md`). Off until `SELFKEPT_AI_VISION=true`.
+Migration `0022_photo`.
+
+| Piece | State |
+| --- | --- |
+| Meal photo: what is on the plate, tags, portion and a rough guess at energy and macros, saved to the day log after the person confirms | built; the guess has not been tried on a real meal photo |
+| Nutrition label: the printed numbers times the servings eaten | built, read correctly from a drawn label by a real qwen3.5 model |
+| Medicine or supplement label into the medicines form | built; not tried on a real label |
+| Scale, cuff or meter display into typed readings (six more metrics can be typed) | built, read correctly from a drawn scale display by a real model |
+| Lab report into the existing lab review | built; not tried on a real report |
+| Any other photo: its description goes with a chat message | built; the model often converts units, the guard refuses that, and the fallback says what the photo shows |
+| The photo is never stored: memory only, no temporary file, no log, no table | done |
+| The app: photo button, picker, a card per kind, "Not right?", numbers on the day log | built and widget tested; not seen on a phone or in a browser |
+
 ### Home model settings (v0.1.8, v0.1.9)
 
 Released in v0.1.8, with a fix in v0.1.9. Backend and compose only; no migration and no app change.
@@ -74,8 +92,8 @@ Homelab specifics (addresses, paths, what is installed where) are kept out of th
 in `.dev/homelab.md`.
 
 
-Test counts at v0.1.9: backend 1495 (1375 unit, plus 120 that need `SELFKEPT_TEST_CONNECTION`;
-all green with it set), Flutter 1076. `flutter analyze` and the backend build had zero warnings.
+Test counts at v0.1.10: backend 1582 (1445 unit, two of them opt-in calls to a real model, plus 137
+that need `SELFKEPT_TEST_CONNECTION`; all green with both set), Flutter 1122. `flutter analyze` and the backend build had zero warnings.
 Run the suites again for current counts.
 
 ## What the app does today

@@ -103,6 +103,97 @@ class JournalTagGroup {
   ];
 }
 
+/// Where the numbers on a food or drink entry came from.
+enum NutritionBasis {
+  /// The model's guess from a picture of a meal. It can be well off.
+  estimate,
+
+  /// Printed on a nutrition label, times the servings eaten.
+  label;
+
+  String get wireValue => name;
+  String toJson() => wireValue;
+
+  /// Null for anything unknown: the entry then has no numbers.
+  static NutritionBasis? fromString(String? value) {
+    final lower = value?.trim().toLowerCase();
+    for (final b in values) {
+      if (b.name == lower) return b;
+    }
+    return null;
+  }
+
+  String get displayName => switch (this) {
+    estimate => 'guessed from a photo',
+    label => 'from the label',
+  };
+}
+
+/// The numbers on a food or drink entry, with where they came from. Only a
+/// confirmed photo carries them.
+class JournalNutrition {
+  final NutritionBasis basis;
+  final double? energyKcal;
+  final double? proteinG;
+  final double? carbsG;
+  final double? fatG;
+
+  const JournalNutrition({
+    required this.basis,
+    this.energyKcal,
+    this.proteinG,
+    this.carbsG,
+    this.fatG,
+  });
+
+  /// The server refuses a basis without any number.
+  bool get hasAny =>
+      energyKcal != null || proteinG != null || carbsG != null || fatG != null;
+
+  /// Null when there is no known basis or no number.
+  static JournalNutrition? tryFromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final r = JsonReader(json);
+    final basis = NutritionBasis.fromString(r.stringOrNull('basis'));
+    if (basis == null) return null;
+    final n = JournalNutrition(
+      basis: basis,
+      energyKcal: readDouble(r.raw('energyKcal')),
+      proteinG: readDouble(r.raw('proteinG')),
+      carbsG: readDouble(r.raw('carbsG')),
+      fatG: readDouble(r.raw('fatG')),
+    );
+    return n.hasAny ? n : null;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'basis': basis.wireValue,
+    'energyKcal': ?energyKcal,
+    'proteinG': ?proteinG,
+    'carbsG': ?carbsG,
+    'fatG': ?fatG,
+  };
+
+  /// "About 620 kcal, 35 g protein (guessed from a photo)" or "230 kcal,
+  /// 3 g protein (from the label)".
+  String describe() {
+    final parts = <String>[
+      if (energyKcal != null) '${energyKcal!.round()} kcal',
+      if (proteinG != null) '${_grams(proteinG!)} g protein',
+      if (carbsG != null) '${_grams(carbsG!)} g carbohydrate',
+      if (fatG != null) '${_grams(fatG!)} g fat',
+    ];
+    final numbers = parts.join(', ');
+    final lead = basis == NutritionBasis.estimate ? 'About $numbers' : numbers;
+    return '$lead (${basis.displayName})';
+  }
+
+  static String _grams(double value) {
+    final text = value.toStringAsFixed(1);
+    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
+  }
+}
+
 /// One line of the journal.
 class JournalEntry {
   final String id;
@@ -114,6 +205,9 @@ class JournalEntry {
   final JournalPortion? portion;
   final String source;
 
+  /// The numbers from a confirmed photo; null for every other entry.
+  final JournalNutrition? nutrition;
+
   const JournalEntry({
     required this.id,
     this.at,
@@ -123,6 +217,7 @@ class JournalEntry {
     this.tags = const [],
     this.portion,
     this.source = '',
+    this.nutrition,
   });
 
   factory JournalEntry.fromJson(Map<String, dynamic> json) {
@@ -136,6 +231,7 @@ class JournalEntry {
       tags: r.strings('tags'),
       portion: JournalPortion.fromString(r.stringOrNull('portion')),
       source: r.string('source'),
+      nutrition: JournalNutrition.tryFromJson(r.object('nutrition')),
     );
   }
 
@@ -151,11 +247,15 @@ class JournalDraft {
   final List<String> tags;
   final JournalPortion? portion;
 
+  /// Numbers from a confirmed photo. With them the entry's source is photo.
+  final JournalNutrition? nutrition;
+
   const JournalDraft({
     required this.kind,
     this.text,
     this.tags = const [],
     this.portion,
+    this.nutrition,
   });
 
   /// The server refuses an entry with neither words nor a tag.
@@ -166,5 +266,7 @@ class JournalDraft {
     'text': text == null || text!.trim().isEmpty ? null : text!.trim(),
     'tags': tags,
     'portion': portion?.wireValue,
+    if (nutrition != null && nutrition!.hasAny)
+      'nutrition': nutrition!.toJson(),
   };
 }

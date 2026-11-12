@@ -162,8 +162,12 @@ public interface IAssistantService
   /// <summary>False when the conversation is not the caller's. What it saved to the day log stays.</summary>
   Task<bool> DeleteAsync(Actor actor, Guid conversationId, CancellationToken ct = default);
 
-  /// <summary>Saves the message, captures what it says and prepares the reply. Null when the conversation is not the caller's.</summary>
-  Task<AssistantTurn?> BeginTurnAsync(Actor actor, Guid conversationId, string text, CancellationToken ct = default);
+  /// <summary>
+  /// Saves the message, captures what it says and prepares the reply. Null when the conversation
+  /// is not the caller's. A photo's description goes with the message (docs/photo-design.md):
+  /// stored after the text, counted as the person's own words for the guard, never captured.
+  /// </summary>
+  Task<AssistantTurn?> BeginTurnAsync(Actor actor, Guid conversationId, string? text, MessagePhotoDto? photo = null, CancellationToken ct = default);
 
   /// <summary>The reply as checked sentences, ending with done. Stores the reply.</summary>
   IAsyncEnumerable<AssistantStreamEvent> ReplyAsync(AssistantTurn turn, CancellationToken ct = default);
@@ -210,4 +214,19 @@ public interface INtfySender
 public interface IModelCheckService
 {
   Task<ModelCheckDto> RunAsync(Actor actor, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Reads one photo with the home model and turns the answer into a proposal (docs/photo-design.md).
+/// Own-only. The photo is held in memory for the call and never logged, stored or written to
+/// ai_call. Throws DomainValidationException (400) on a bad file, kind or note,
+/// ConflictException (409) when photos are off, UnprocessableException (422) when the model's
+/// answer could not be used, and ServiceUnavailableException (503) when the model did not answer.
+/// </summary>
+public interface IPhotoAnalyzer
+{
+  /// <summary>True when the owner turned photos on and the model settings are usable.</summary>
+  bool Enabled { get; }
+
+  Task<PhotoAnalysisDto> AnalyzeAsync(Actor actor, byte[]? image, string? kind, string? note, CancellationToken ct = default);
 }

@@ -25,6 +25,20 @@ public sealed class AssistantService : IAssistantService
   public const int HistoryTurns = 12;
   public const int MaxMessageLength = 2000;
   public const int MaxTitleLength = 80;
+  public const int MaxPhotoDescriptionLength = 300;
+
+  /// <summary>What a message sent with a photo and no words stands as.</summary>
+  public const string PhotoQuestion = "What is in this photo?";
+
+  /// <summary>The line before a photo's description in the stored message.</summary>
+  public const string PhotoLinePrefix = "Photo: ";
+
+  /// <summary>Added to the system prompt when the person's latest message came with a photo.</summary>
+  public const string PhotoSystemLine =
+    "The person's latest message came with a photo. You cannot see the photo: the line starting with \"Photo:\" is what it shows, as the home model described it. " +
+    "Answer from that line and the brief, and do not claim to see anything more. " +
+    "Repeat a number from the photo exactly as it is written there, with its unit. Do not convert it to another unit and do not do sums with it.";
+
   private const int AutoTitleLength = 60;
 
   private static readonly ChatOptions ReplyOptions = new(Temperature: 0.4, MaxTokens: 400);
@@ -91,7 +105,7 @@ public sealed class AssistantService : IAssistantService
   public async Task<AssistantStatusDto> StatusAsync(CancellationToken ct = default)
   {
     if (!_model.Enabled) return new AssistantStatusDto(false, null, false);
-    return new AssistantStatusDto(true, _model.ModelName, await _model.PingAsync(ct));
+    return new AssistantStatusDto(true, _model.ModelName, await _model.PingAsync(ct), _model.VisionEnabled);
   }
 
   public async Task<IReadOnlyList<ConversationSummaryDto>> ListAsync(Guid personId, CancellationToken ct = default) =>
@@ -143,11 +157,15 @@ public sealed class AssistantService : IAssistantService
     return true;
   }
 
-  public async Task<AssistantTurn?> BeginTurnAsync(Actor actor, Guid conversationId, string text, CancellationToken ct = default)
+  public async Task<AssistantTurn?> BeginTurnAsync(Actor actor, Guid conversationId, string? text, MessagePhotoDto? photo = null, CancellationToken ct = default)
   {
-    var message = (text ?? string.Empty).Trim();
-    if (message.Length == 0) throw new DomainValidationException("Say something first.");
-    if (message.Length > MaxMessageLength) throw new DomainValidationException($"A message is at most {MaxMessageLength} characters.");
+    var typed = (text ?? string.Empty).Trim();
+    var (photoKind, description) = CheckPhoto(photo);
+    if (typed.Length == 0 && photoKind == null) throw new DomainValidationException("Say something first.");
+    if (typed.Length > MaxMessageLength) throw new DomainValidationException($"A message is at most {MaxMessageLength} characters.");
+    // The person's words; with a photo and no words, the question it stands for.
+    var words = typed.Length > 0 ? typed : PhotoQuestion;
+    var message = description == null ? words : words + "\n" + PhotoLinePrefix + description;
 
     var conversation = await _repository.GetOwnConversationAsync(actor.PersonId, conversationId, ct);
     if (conversation == null) return null;
@@ -172,37 +190,42 @@ public sealed class AssistantService : IAssistantService
     };
     await _repository.AddOwnMessageAsync(userMessage, ct);
 
-    var found = _capture.Extract(message, now, zone);
+    // Capture runs on what the person typed, never on a photo's description.
+    var found = typed.Length > 0 ? _capture.Extract(typed, now, zone) : CaptureResult.Empty;
     var (entries, remembered) = await _saver.SaveAsync(actor, found, JournalSources.Assistant, userMessage.Id, ct);
-    if (entries.Count > 0 || remembered.Count > 0)
+    if (entries.Count > 0 || remembered.Count > 0 || photoKind != null)
     {
-      userMessage.Meta = new AssistantMeta(CaptureSaver.Refs(entries, remembered)).ToJson();
+      userMessage.Meta = new AssistantMeta(
+        entries.Count > 0 || remembered.Count > 0 ? CaptureSaver.Refs(entries, remembered) : null,
+        Photo: photoKind).ToJson();
       await _repository.UpdateOwnMessageAsync(userMessage, ct);
     }
 
     conversation.UpdatedAt = now;
     if (conversation.TitleCipher == null)
     {
-      conversation.TitleCipher = _encryption.Encrypt(AutoTitle(message));
+      conversation.TitleCipher = _encryption.Encrypt(AutoTitle(words));
     }
     await _repository.UpdateOwnConversationAsync(conversation, ct);
 
     var capture = new CaptureEventDto(conversationId, userMessage.Id, entries, remembered);
     var saved = entries.Count > 0 || remembered.Count > 0;
 
-    var redFlag = _guard.RedFlagReply(message);
+    var redFlag = _guard.RedFlagReply(words);
     if (redFlag != null)
     {
       await _audit.RecordAsync(new AuditEvent(AssistantAuditActions.RedFlagAnswered, actor.UserId, actor.HouseholdId,
         "assistant_message", userMessage.Id.ToString(), IpAddress: actor.Info.IpAddress), ct);
-      return new AssistantTurn(actor, conversationId, userMessage.Id, capture, redFlag, [], GuardContext.Empty, redFlag, redFlag, message);
+      return new AssistantTurn(actor, conversationId, userMessage.Id, capture, redFlag, [], GuardContext.Empty, redFlag, redFlag, words);
     }
 
     var today = DayBoundaries.LocalDay(now, zone);
     var brief = await _briefs.BuildAsync(person, today, ct);
+    // The description counts as the person's own words, so a number in it may be repeated.
     var guard = GuardNumbers.Context(brief.Text, message);
-    var refused = AssistantTemplates.Refused(brief.Facts, saved);
-    var unavailable = AssistantTemplates.Unavailable(brief.Facts, saved);
+    // A question about a photo falls back to what the photo shows, not to the day's record.
+    var refused = description == null ? AssistantTemplates.Refused(brief.Facts, saved) : AssistantTemplates.PhotoRefused(description, saved);
+    var unavailable = description == null ? AssistantTemplates.Unavailable(brief.Facts, saved) : AssistantTemplates.PhotoUnavailable(description, saved);
 
     var system = new StringBuilder(AssistantTemplates.SystemPrompt).Append("\n\nBrief:\n").Append(brief.Text);
     if (saved)
@@ -212,6 +235,7 @@ public sealed class AssistantService : IAssistantService
         .Append(remembered.Count > 0 ? (entries.Count > 0 ? "; " : string.Empty) + "a fact to remember" : string.Empty)
         .Append('.');
     }
+    if (photoKind != null) system.Append("\n\n").Append(PhotoSystemLine);
     var turns = new List<ChatTurn> { new(ChatTurn.System, system.ToString()) };
     foreach (var past in history)
     {
@@ -221,7 +245,18 @@ public sealed class AssistantService : IAssistantService
     }
     turns.Add(new ChatTurn(ChatTurn.User, message));
 
-    return new AssistantTurn(actor, conversationId, userMessage.Id, capture, null, turns, guard, refused, unavailable, message);
+    return new AssistantTurn(actor, conversationId, userMessage.Id, capture, null, turns, guard, refused, unavailable, words);
+  }
+
+  /// <summary>The photo part of a message, checked: its kind and its trimmed description, or nulls when there is none.</summary>
+  private static (string? Kind, string? Description) CheckPhoto(MessagePhotoDto? photo)
+  {
+    if (photo == null) return (null, null);
+    if (!PhotoKinds.IsKnown(photo.Kind)) throw new DomainValidationException(PhotoKinds.KindMessage);
+    var description = System.Text.RegularExpressions.Regex.Replace(photo.Description ?? string.Empty, @"\s+", " ").Trim();
+    if (description.Length == 0) throw new DomainValidationException("A photo needs its description.");
+    if (description.Length > MaxPhotoDescriptionLength) throw new DomainValidationException($"A photo description is at most {MaxPhotoDescriptionLength} characters.");
+    return (photo.Kind, description);
   }
 
   public async IAsyncEnumerable<AssistantStreamEvent> ReplyAsync(AssistantTurn turn, [EnumeratorCancellation] CancellationToken ct = default)

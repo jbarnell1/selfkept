@@ -83,7 +83,8 @@ public abstract class BodyTestBase : IAsyncLifetime
   protected GoalService Goals => new(GoalRepo, Catalogue, Persons, Encryption, Audit, UnitOfWork, Cache, Clock);
   protected TargetService Targets => new(
     TargetRepo, GoalRepo, JournalRepo, StrengthRepo, SummaryRepo, Persons, Catalogue, Encryption, Audit, Cache, Clock);
-  protected JournalService Journal => new(JournalRepo, Persons, Encryption, Audit, Cache, Clock);
+  protected NutritionSamples Nutrition => new(SourceRepo, SampleRepo, new DailySummaryService(SampleRepo, SummaryRepo, Clock));
+  protected JournalService Journal => new(JournalRepo, Persons, Encryption, Audit, Cache, Nutrition, UnitOfWork, Clock);
   protected MedicationService Medications => new(MedicationRepo, Persons, Encryption, Audit, Cache, Clock);
   protected StrengthService Strength => new(StrengthRepo, Persons, Audit, Cache, Clock);
   protected MeasurementService Measurements => new(

@@ -549,6 +549,11 @@ public class SelfKeptDbContext : DbContext
       e.Property(x => x.Tags).HasColumnType("text[]");
       e.Property(x => x.Portion).HasMaxLength(8);
       e.Property(x => x.Source).HasMaxLength(16).IsRequired();
+      e.Property(x => x.NutritionBasis).HasMaxLength(16);
+      e.Property(x => x.EnergyKcal).HasColumnType("numeric(7,1)");
+      e.Property(x => x.ProteinG).HasColumnType("numeric(7,1)");
+      e.Property(x => x.CarbsG).HasColumnType("numeric(7,1)");
+      e.Property(x => x.FatG).HasColumnType("numeric(7,1)");
       e.HasIndex(x => new { x.PersonId, x.Day }).IsDescending(false, true);
       e.HasOne<Person>().WithMany().HasForeignKey(x => x.PersonId).OnDelete(DeleteBehavior.Cascade);
     });

@@ -35,6 +35,16 @@ abstract class ApiClient {
 
   Future<T> post<T>(String path, {Object? data, FromBody<T>? fromJson});
 
+  /// POST multipart/form-data, for a photo. [receiveTimeout], when given,
+  /// replaces the usual wait for the answer: a home model reading a picture
+  /// can take a minute or more.
+  Future<T> postForm<T>(
+    String path, {
+    required FormData data,
+    Duration? receiveTimeout,
+    FromBody<T>? fromJson,
+  });
+
   Future<T> put<T>(String path, {Object? data, FromBody<T>? fromJson});
 
   Future<T> patch<T>(String path, {Object? data, FromBody<T>? fromJson});
@@ -171,6 +181,9 @@ class DioApiClient implements ApiClient {
     final token = await _tokens.readAccessToken();
     if (token != null) options.headers['Authorization'] = 'Bearer $token';
     options.extra['retried'] = true;
+    // A form body is read once; the retry sends a fresh copy.
+    final data = options.data;
+    if (data is FormData) options.data = data.clone();
     return _dio.fetch<dynamic>(options);
   }
 
@@ -250,6 +263,21 @@ class DioApiClient implements ApiClient {
   @override
   Future<T> post<T>(String path, {Object? data, FromBody<T>? fromJson}) =>
       _send(() => _dio.post<dynamic>(path, data: data), fromJson);
+
+  @override
+  Future<T> postForm<T>(
+    String path, {
+    required FormData data,
+    Duration? receiveTimeout,
+    FromBody<T>? fromJson,
+  }) => _send(
+    () => _dio.post<dynamic>(
+      path,
+      data: data,
+      options: Options(receiveTimeout: receiveTimeout),
+    ),
+    fromJson,
+  );
 
   @override
   Future<T> put<T>(String path, {Object? data, FromBody<T>? fromJson}) =>

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/assistant.dart';
+import '../models/journal.dart';
+import '../models/photo.dart';
 import '../services/assistant_service.dart';
 import '../utils/api_error.dart';
 import '../utils/safe_notifier.dart';
@@ -16,6 +18,54 @@ enum ChatItemState {
 
   /// The connection dropped part way. What arrived is kept.
   dropped,
+}
+
+/// Where a photo card stands.
+enum PhotoStage {
+  /// The home model is looking at the picture.
+  reading,
+
+  /// The proposal is on screen.
+  ready,
+
+  /// The read failed; [PhotoRead.error] says why.
+  failed,
+
+  /// Saved (or handed to the form that saved it). The picture is gone.
+  saved,
+}
+
+/// One photo in the thread. The app holds the picture only while the card
+/// needs it: saving, discarding or sending drops [bytes].
+class PhotoRead {
+  Uint8List? bytes;
+
+  /// The kind asked for on the last read; null lets the server sort.
+  PhotoKind? asked;
+  PhotoStage stage;
+  PhotoAnalysis? result;
+  String? error;
+
+  /// Counts reads, so an answer to an older read is ignored.
+  int attempt = 0;
+
+  /// Set while a save is on its way.
+  bool saving = false;
+  String? saveError;
+
+  /// After a save: the line that stays, and the day log entry Undo removes
+  /// (null for what Undo does not apply to).
+  String savedLine = '';
+  JournalKind? savedKind;
+  String? savedEntryId;
+  bool undoing = false;
+  bool undone = false;
+  String? undoError;
+
+  PhotoRead({required this.bytes, this.asked, this.stage = PhotoStage.reading});
+
+  /// The kind the card shows now.
+  PhotoKind? get shownKind => result?.shownKind;
 }
 
 /// One bubble in the chat view. Mutable: a streamed reply grows in place.
@@ -54,6 +104,13 @@ class ChatItem {
   /// draft.
   String? provider;
 
+  /// A photo card instead of a bubble.
+  PhotoRead? photo;
+
+  /// For a user message sent in this session: what an `other` photo shows,
+  /// sent with it.
+  PhotoNote? sentPhoto;
+
   ChatItem({
     required this.key,
     required this.role,
@@ -70,9 +127,26 @@ class ChatItem {
     this.sources = const [],
     this.lookupId,
     this.provider,
+    this.photo,
+    this.sentPhoto,
   }) : captures = captures ?? [];
 
+  /// What a photo message stands for when the person typed nothing; the
+  /// server stores the same words.
+  static const String photoQuestion = 'What is in this photo?';
+
   bool get isUser => role == MessageRole.user;
+
+  bool get isPhoto => photo != null;
+
+  /// The words in the bubble. A message sent with a photo reads as the
+  /// server stores it: the question, then a line with what the photo shows.
+  String get shownText {
+    final sent = sentPhoto;
+    if (sent == null) return text;
+    final question = text.trim().isEmpty ? photoQuestion : text;
+    return '$question\nPhoto: ${sent.description}';
+  }
 
   /// An answer from a cloud model, set apart from local replies.
   bool get isCloud => !isUser && origin == MessageOrigin.cloud;

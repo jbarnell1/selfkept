@@ -113,11 +113,7 @@ public sealed partial class ReplyGuard : IReplyGuard
       if (!allowed) return $"dose unit {unit} not in the record";
     }
 
-    if (Diagnostic().IsMatch(lower)) return "diagnostic language";
-    if (YouHaveCondition().IsMatch(lower)) return "names a condition";
-    if (YouAreCondition().IsMatch(lower)) return "names a condition";
-    if (Detected().IsMatch(lower)) return "detection claim";
-    if (CauseClaim().IsMatch(lower)) return "cause claim";
+    if (ClaimBreak(lower) is { } claim) return claim;
 
     if (BodyScaleScores().IsMatch(lower)) return "scale score";
     if (Calories().IsMatch(lower)) return "calorie or macro count";
@@ -132,6 +128,20 @@ public sealed partial class ReplyGuard : IReplyGuard
     {
       if (ContainsWord(lower, remedy) && !ContainsWord(allowedLower, remedy)) return $"remedy {remedy} not in the playbook or the record";
     }
+    return null;
+  }
+
+  /// <summary>
+  /// The diagnosis, condition, detection and cause rules alone, on lowercased text: what a photo
+  /// description must also pass (docs/photo-design.md). Null when none is broken.
+  /// </summary>
+  public static string? ClaimBreak(string lower)
+  {
+    if (Diagnostic().IsMatch(lower)) return "diagnostic language";
+    if (YouHaveCondition().IsMatch(lower)) return "names a condition";
+    if (YouAreCondition().IsMatch(lower)) return "names a condition";
+    if (Detected().IsMatch(lower)) return "detection claim";
+    if (CauseClaim().IsMatch(lower)) return "cause claim";
     return null;
   }
 

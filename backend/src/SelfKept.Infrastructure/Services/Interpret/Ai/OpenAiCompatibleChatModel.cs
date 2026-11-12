@@ -40,6 +40,8 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
 
   public string ModelName => _options.Model;
 
+  public bool VisionEnabled => _options.IsVisionUsable;
+
   public Task<ChatCompletion> CompleteAsync(string system, string user, ChatOptions options, CancellationToken ct = default) =>
     CompleteAsync([new ChatTurn(ChatTurn.System, system), new ChatTurn(ChatTurn.User, user)], options, ct);
 
@@ -49,7 +51,7 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
 
     var client = _httpClientFactory.CreateClient(HttpClientName);
     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-    timeout.CancelAfter(Timeout);
+    timeout.CancelAfter(TimeoutFor(options));
 
     using var request = BuildRequest(turns, options, stream: false);
     using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
@@ -75,7 +77,7 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
 
     var client = _httpClientFactory.CreateClient(HttpClientName);
     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-    timeout.CancelAfter(Timeout);
+    timeout.CancelAfter(TimeoutFor(options));
 
     using var request = BuildRequest(turns, options, stream: true);
     using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
@@ -86,7 +88,7 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
     await using var body = await response.Content.ReadAsStreamAsync(timeout.Token);
     await foreach (var piece in ReadStreamAsync(body, timeout.Token))
     {
-      timeout.CancelAfter(Timeout);
+      timeout.CancelAfter(TimeoutFor(options));
       yield return piece;
     }
   }
@@ -145,7 +147,9 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
 
   public static Uri Endpoint(string baseUrl) => new(baseUrl.TrimEnd('/') + "/chat/completions");
 
-  private TimeSpan Timeout => TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds));
+  /// <summary>Ai:TimeoutSeconds, or Ai:VisionTimeoutSeconds for a photo call.</summary>
+  public TimeSpan TimeoutFor(ChatOptions options) =>
+    TimeSpan.FromSeconds(Math.Max(1, options.Vision ? _options.VisionTimeoutSeconds : _options.TimeoutSeconds));
 
   private static string? DeltaContent(string payload)
   {
@@ -173,17 +177,34 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
       request.Headers.TryAddWithoutValidation(header.Name, header.Value);
     }
     // Serialized up front so the body goes out with a Content-Length. A streamed (chunked) body
-    // arrives empty behind a small proxy that only reads the stated length.
+    // arrives empty behind a small proxy that only reads the stated length. A photo makes the body
+    // large, which is all the more reason to state it.
     var body = JsonSerializer.SerializeToUtf8Bytes(new ChatRequest(
-      _options.Model,
-      turns.Select(t => new ChatMessage(t.Role, t.Content)).ToList(),
+      options.Vision ? _options.PhotoModel : _options.Model,
+      turns.Select(RequestMessage).ToList(),
       options.Temperature,
       options.MaxTokens + Math.Max(0, _options.HeadroomTokens),
       stream,
-      string.IsNullOrWhiteSpace(_options.ReasoningEffort) ? null : _options.ReasoningEffort.Trim()), Json);
+      string.IsNullOrWhiteSpace(_options.ReasoningEffort) ? null : _options.ReasoningEffort.Trim(),
+      options.JsonMode ? new ResponseFormat("json_object") : null), Json);
     request.Content = new ByteArrayContent(body);
     request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
     return request;
+  }
+
+  /// <summary>
+  /// A turn as it goes on the wire: a plain string, or, when it carries photos, OpenAI content
+  /// parts (the text, then one image_url part per photo with a data: URL).
+  /// </summary>
+  private static OutgoingMessage RequestMessage(ChatTurn turn)
+  {
+    if (turn.Images is not { Count: > 0 } images) return new OutgoingMessage(turn.Role, turn.Content);
+    var parts = new List<object> { new TextPart("text", turn.Content) };
+    foreach (var image in images)
+    {
+      parts.Add(new ImagePart("image_url", new ImageUrl($"data:{image.MediaType};base64,{Convert.ToBase64String(image.Bytes)}")));
+    }
+    return new OutgoingMessage(turn.Role, parts);
   }
 
   /// <summary>"Name: value" as its two parts. Null when either part is missing.</summary>
@@ -253,11 +274,23 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
 
   private sealed record ChatRequest(
     string Model,
-    IReadOnlyList<ChatMessage> Messages,
+    IReadOnlyList<OutgoingMessage> Messages,
     double Temperature,
     [property: JsonPropertyName("max_tokens")] int MaxTokens,
     bool Stream,
-    [property: JsonPropertyName("reasoning_effort")] string? ReasoningEffort);
+    [property: JsonPropertyName("reasoning_effort")] string? ReasoningEffort,
+    [property: JsonPropertyName("response_format")] ResponseFormat? ResponseFormat);
+
+  private sealed record ResponseFormat(string Type);
+
+  /// <summary>Content is a string or a list of content parts; both serialize by their runtime type.</summary>
+  private sealed record OutgoingMessage(string Role, object Content);
+
+  private sealed record TextPart(string Type, string Text);
+
+  private sealed record ImagePart(string Type, [property: JsonPropertyName("image_url")] ImageUrl ImageUrl);
+
+  private sealed record ImageUrl(string Url);
 
   private sealed record ChatMessage(string? Role, string? Content);
 

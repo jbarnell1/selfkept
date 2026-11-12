@@ -160,13 +160,31 @@ public class JournalEntry
   /// <summary>small, usual or large; food and drink only.</summary>
   public string? Portion { get; set; }
 
-  /// <summary>chip, typed, assistant or checkin. See <see cref="JournalSources"/>.</summary>
+  /// <summary>chip, typed, assistant, checkin or photo. See <see cref="JournalSources"/>.</summary>
   public string Source { get; set; } = JournalSources.Typed;
 
   /// <summary>The assistant message this entry was saved from, when it was. Lets the save be undone from the chat.</summary>
   public Guid? MessageId { get; set; }
 
+  /// <summary>estimate or label when the entry has numbers (docs/photo-design.md), else null. See <see cref="NutritionBases"/>.</summary>
+  public string? NutritionBasis { get; set; }
+
+  public decimal? EnergyKcal { get; set; }
+  public decimal? ProteinG { get; set; }
+  public decimal? CarbsG { get; set; }
+  public decimal? FatG { get; set; }
+
   public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>Where the numbers of a day log entry came from.</summary>
+public static class NutritionBases
+{
+  /// <summary>The model's guess from a picture of a meal. It can be well off.</summary>
+  public const string Estimate = "estimate";
+  /// <summary>Read from a nutrition label, times the servings the person ate.</summary>
+  public const string Label = "label";
+  public static readonly string[] All = [Estimate, Label];
 }
 
 public static class JournalKinds
@@ -186,7 +204,9 @@ public static class JournalSources
   public const string Typed = "typed";
   public const string Assistant = "assistant";
   public const string Checkin = "checkin";
-  public static readonly string[] All = [Chip, Typed, Assistant, Checkin];
+  /// <summary>Confirmed from a photo proposal, with numbers (docs/photo-design.md).</summary>
+  public const string Photo = "photo";
+  public static readonly string[] All = [Chip, Typed, Assistant, Checkin, Photo];
 }
 
 public static class Portions

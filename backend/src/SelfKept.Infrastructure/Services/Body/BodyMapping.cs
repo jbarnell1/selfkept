@@ -71,7 +71,13 @@ public static class BodyMapping
     entry.Tags,
     entry.Portion,
     entry.Source,
-    entry.MessageId);
+    entry.MessageId,
+    entry.NutritionBasis == null ? null : new JournalNutritionDto(
+      entry.NutritionBasis,
+      (double?)entry.EnergyKcal,
+      (double?)entry.ProteinG,
+      (double?)entry.CarbsG,
+      (double?)entry.FatG));
 
   public static MedicationDto ToDto(this Medication medication, IEncryptionService encryption, DateOnly today)
   {

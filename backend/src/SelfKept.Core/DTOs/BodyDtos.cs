@@ -78,14 +78,26 @@ public sealed record JournalEntryDto(
   IReadOnlyList<string> Tags,
   string? Portion,
   string Source,
-  Guid? MessageId);
+  Guid? MessageId,
+  JournalNutritionDto? Nutrition = null);
 
+/// <summary>
+/// POST /api/journal. With Nutrition the entry's source is photo and each number is also written
+/// as a sample under the person's "Photo" source (docs/photo-design.md, "Numbers for food").
+/// </summary>
 public sealed record CreateJournalEntryRequest(
   [Required] string Kind,
   [MaxLength(500)] string? Text,
   IReadOnlyList<string>? Tags,
   string? Portion,
-  DateTime? At);
+  DateTime? At,
+  JournalNutritionDto? Nutrition = null);
+
+/// <summary>
+/// The numbers of a food or drink entry and where they came from: estimate (the model's guess
+/// from a meal photo) or label (read from a nutrition label). Energy in kcal, the rest in grams.
+/// </summary>
+public sealed record JournalNutritionDto(string? Basis, double? EnergyKcal, double? ProteinG, double? CarbsG, double? FatG);
 
 public sealed record JournalTagGroupDto(string Kind, IReadOnlyList<JournalTagDto> Tags);
 
