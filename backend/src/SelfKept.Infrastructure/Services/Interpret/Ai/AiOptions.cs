@@ -40,5 +40,22 @@ public sealed class AiOptions
   /// </summary>
   public string InteractiveHeader { get; set; } = string.Empty;
 
+  /// <summary>
+  /// Photos are offered in the assistant (docs/photo-design.md). Off by default: not every home
+  /// model can see. Needs Enabled and a model that takes images.
+  /// </summary>
+  public bool Vision { get; set; }
+
+  /// <summary>A different model for photo calls. Empty means <see cref="Model"/>.</summary>
+  public string VisionModel { get; set; } = string.Empty;
+
+  /// <summary>The longest one photo call may take. A cold model loads first, so this is longer than TimeoutSeconds.</summary>
+  public int VisionTimeoutSeconds { get; set; } = 90;
+
+  /// <summary>The model a photo call goes to.</summary>
+  public string PhotoModel => string.IsNullOrWhiteSpace(VisionModel) ? Model : VisionModel.Trim();
+
   public bool IsUsable => Enabled && !string.IsNullOrWhiteSpace(BaseUrl) && !string.IsNullOrWhiteSpace(Model);
+
+  public bool IsVisionUsable => Vision && IsUsable;
 }

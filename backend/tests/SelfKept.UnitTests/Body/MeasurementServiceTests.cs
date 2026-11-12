@@ -55,7 +55,7 @@ public class MeasurementServiceTests : BodyTestBase
   {
     await ShouldBeRefusedAsync(
       () => Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(MetricKeys.Steps, 9000, null)),
-      "metricKey must be one of: weight_kg, body_fat_pct, waist_cm.");
+      "metricKey must be one of: weight_kg, body_fat_pct, waist_cm, blood_pressure_sys, blood_pressure_dia, heart_rate_bpm, body_temp_c, blood_glucose_mmol, spo2_pct.");
   }
 
   [Fact]
@@ -74,6 +74,39 @@ public class MeasurementServiceTests : BodyTestBase
     await ShouldBeRefusedAsync(
       () => Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(MetricKeys.WaistCm, 20, null)),
       "Waist must be between 30 and 250 cm.");
+  }
+
+  [Theory]
+  [InlineData("blood_pressure_sys", 121, "mmHg")]
+  [InlineData("blood_pressure_dia", 79, "mmHg")]
+  [InlineData("heart_rate_bpm", 64, "bpm")]
+  [InlineData("body_temp_c", 36.8, "C")]
+  [InlineData("blood_glucose_mmol", 5.4, "mmol/L")]
+  [InlineData("spo2_pct", 97, "%")]
+  public async Task Create_DeviceReading_IsASampleUnderTheTypedInSource(string metricKey, double value, string unit)
+  {
+    var reading = await Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(metricKey, value, null));
+
+    (reading.MetricKey, reading.Value, reading.Unit).Should().Be((metricKey, value, unit));
+    (await Context.Sources.AsNoTracking().SingleAsync()).DeviceName.Should().Be(SourceKinds.TypedDeviceName);
+    (await Context.Samples.AsNoTracking().SingleAsync()).MetricKey.Should().Be(metricKey);
+  }
+
+  [Fact]
+  public async Task Create_DeviceReadingsOutsideTheirRange_AreRefused()
+  {
+    await ShouldBeRefusedAsync(() => Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(MetricKeys.BloodPressureSys, 301, null)),
+      "Blood pressure (systolic) must be between 50 and 300 mmHg.");
+    await ShouldBeRefusedAsync(() => Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(MetricKeys.BloodPressureDia, 19, null)),
+      "Blood pressure (diastolic) must be between 20 and 200 mmHg.");
+    await ShouldBeRefusedAsync(() => Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(MetricKeys.HeartRateBpm, 251, null)),
+      "Heart rate must be between 20 and 250 bpm.");
+    await ShouldBeRefusedAsync(() => Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(MetricKeys.BodyTempC, 98.6, null)),
+      "Body temperature must be between 30 and 45 C.");
+    await ShouldBeRefusedAsync(() => Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(MetricKeys.BloodGlucoseMmol, 0.5, null)),
+      "Blood glucose must be between 1 and 40 mmol/L.");
+    await ShouldBeRefusedAsync(() => Measurements.CreateAsync(OwnerActor, new CreateMeasurementRequest(MetricKeys.Spo2Pct, 49, null)),
+      "Blood oxygen must be between 50 and 100 %.");
   }
 
   [Fact]

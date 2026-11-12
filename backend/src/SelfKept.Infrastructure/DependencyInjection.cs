@@ -104,7 +104,9 @@ public static class DependencyInjection
     // Package 3 (Interpret). The model adapter is the app's only outbound HTTP, to the host the
     // user configured under Ai:, and only when Ai:Enabled is true.
     services.Configure<AiOptions>(configuration.GetSection(AiOptions.SectionName));
-    services.AddHttpClient(OpenAiCompatibleChatModel.HttpClientName);
+    // Every call sets its own deadline (Ai:TimeoutSeconds, or Ai:VisionTimeoutSeconds for a photo),
+    // so the client's own 100 second limit must not cut a longer photo call short.
+    services.AddHttpClient(OpenAiCompatibleChatModel.HttpClientName, c => c.Timeout = Timeout.InfiniteTimeSpan);
     services.AddSingleton<IChatModel, OpenAiCompatibleChatModel>();
     services.AddScoped<IBaselineRepository, BaselineRepository>();
     services.AddScoped<IInsightRepository, InsightRepository>();
@@ -140,6 +142,7 @@ public static class DependencyInjection
     services.AddScoped<IStrengthRepository, StrengthRepository>();
     services.AddScoped<IGoalService, GoalService>();
     services.AddScoped<ITargetService, TargetService>();
+    services.AddScoped<NutritionSamples>();
     services.AddScoped<IJournalService, JournalService>();
     services.AddScoped<IMedicationService, MedicationService>();
     services.AddScoped<IStrengthService, StrengthService>();

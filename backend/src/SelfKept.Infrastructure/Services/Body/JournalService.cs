@@ -9,8 +9,10 @@ namespace SelfKept.Infrastructure.Services.Body;
 
 /// <summary>
 /// The day log (docs/body-design.md, "Day log"): short entries in the person's own words plus
-/// coarse tags. No calories, no weighing of food. The words are encrypted; the tags and the kind
-/// are plain so targets and patterns can count them without decrypting anything.
+/// coarse tags. No weighing of food. The words are encrypted; the tags and the kind are plain so
+/// targets and patterns can count them without decrypting anything. The one place amounts come
+/// from is a confirmed photo (docs/photo-design.md): such an entry carries its numbers, and each
+/// number is also a sample under the person's "Photo" source.
 /// </summary>
 public sealed partial class JournalService : IJournalService
 {
@@ -24,6 +26,8 @@ public sealed partial class JournalService : IJournalService
   private readonly IEncryptionService _encryption;
   private readonly IAuditService _audit;
   private readonly ITodayCacheRepository _todayCache;
+  private readonly NutritionSamples _nutrition;
+  private readonly IUnitOfWork _unitOfWork;
   private readonly TimeProvider _clock;
 
   public JournalService(
@@ -32,6 +36,8 @@ public sealed partial class JournalService : IJournalService
     IEncryptionService encryption,
     IAuditService audit,
     ITodayCacheRepository todayCache,
+    NutritionSamples nutrition,
+    IUnitOfWork unitOfWork,
     TimeProvider clock)
   {
     _journal = journal;
@@ -39,6 +45,8 @@ public sealed partial class JournalService : IJournalService
     _encryption = encryption;
     _audit = audit;
     _todayCache = todayCache;
+    _nutrition = nutrition;
+    _unitOfWork = unitOfWork;
     _clock = clock;
   }
 
@@ -49,8 +57,9 @@ public sealed partial class JournalService : IJournalService
       request.Tags ?? [],
       request.Portion,
       request.At,
-      string.IsNullOrWhiteSpace(request.Text) ? JournalSources.Chip : JournalSources.Typed,
-      MessageId: null), ct);
+      request.Nutrition != null ? JournalSources.Photo : string.IsNullOrWhiteSpace(request.Text) ? JournalSources.Chip : JournalSources.Typed,
+      MessageId: null,
+      request.Nutrition), ct);
 
   public async Task<JournalEntryDto> SaveDraftAsync(Actor actor, JournalDraft draft, CancellationToken ct = default)
   {
@@ -65,6 +74,7 @@ public sealed partial class JournalService : IJournalService
       if (draft.Kind is not (JournalKinds.Food or JournalKinds.Drink)) throw new DomainValidationException("Only food and drink have a portion.");
       if (!Portions.All.Contains(draft.Portion)) throw new DomainValidationException($"portion must be one of: {string.Join(", ", Portions.All)}.");
     }
+    var nutrition = draft.Nutrition == null ? ((string Basis, decimal? Energy, decimal? Protein, decimal? Carbs, decimal? Fat)?)null : NutritionSamples.Validate(draft.Kind, draft.Nutrition);
 
     var now = _clock.GetUtcNow().UtcDateTime;
     var at = draft.At is { } requested ? DayBoundaries.AsUtc(requested) : now;
@@ -84,14 +94,35 @@ public sealed partial class JournalService : IJournalService
       Portion = draft.Portion,
       Source = draft.Source,
       MessageId = draft.MessageId,
+      NutritionBasis = nutrition?.Basis,
+      EnergyKcal = nutrition?.Energy,
+      ProteinG = nutrition?.Protein,
+      CarbsG = nutrition?.Carbs,
+      FatG = nutrition?.Fat,
       CreatedAt = now,
     };
-    await _journal.AddAsync(entry, ct);
-    await _todayCache.InvalidateAsync(actor.PersonId, ct);
+    if (nutrition == null)
+    {
+      await _journal.AddAsync(entry, ct);
+      await _todayCache.InvalidateAsync(actor.PersonId, ct);
+    }
+    else
+    {
+      // The entry, its samples, the day's summary and the Today cache change together or not at all.
+      await _unitOfWork.RunInTransactionAsync(async () =>
+      {
+        await _journal.AddAsync(entry, ct);
+        await _nutrition.WriteAsync(entry, person.TimeZone, now, ct);
+        await _todayCache.InvalidateAsync(actor.PersonId, ct);
+        return true;
+      }, ct: ct);
+    }
 
     await _audit.RecordAsync(new AuditEvent(
       AuditActions.JournalCreated, actor.UserId, actor.HouseholdId, "journal_entry", entry.Id.ToString(),
-      new { kind = entry.Kind, tagCount = tags.Length, source = entry.Source }, actor.Info.IpAddress), ct);
+      nutrition == null
+        ? new { kind = entry.Kind, tagCount = tags.Length, source = entry.Source }
+        : new { kind = entry.Kind, tagCount = tags.Length, source = entry.Source, basis = nutrition.Value.Basis }, actor.Info.IpAddress), ct);
     return entry.ToDto(_encryption);
   }
 
@@ -130,8 +161,22 @@ public sealed partial class JournalService : IJournalService
 
   private async Task RemoveAsync(Actor actor, JournalEntry entry, CancellationToken ct)
   {
-    await _journal.RemoveAsync(entry, ct);
-    await _todayCache.InvalidateAsync(actor.PersonId, ct);
+    if (entry.NutritionBasis == null)
+    {
+      await _journal.RemoveAsync(entry, ct);
+      await _todayCache.InvalidateAsync(actor.PersonId, ct);
+    }
+    else
+    {
+      var person = await _persons.GetByIdAsync(actor.PersonId, ct);
+      await _unitOfWork.RunInTransactionAsync(async () =>
+      {
+        await _journal.RemoveAsync(entry, ct);
+        await _nutrition.RemoveAsync(entry, person?.TimeZone ?? "UTC", ct);
+        await _todayCache.InvalidateAsync(actor.PersonId, ct);
+        return true;
+      }, ct: ct);
+    }
     await _audit.RecordAsync(new AuditEvent(
       AuditActions.JournalDeleted, actor.UserId, actor.HouseholdId, "journal_entry", entry.Id.ToString(),
       new { kind = entry.Kind }, actor.Info.IpAddress), ct);

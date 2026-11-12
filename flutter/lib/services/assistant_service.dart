@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart' show DioMediaType, FormData, MultipartFile;
 import 'package:flutter/foundation.dart';
 
 import '../models/assistant.dart';
 import '../models/assistant_lookup.dart';
 import '../models/connect.dart';
+import '../models/photo.dart';
 import '../utils/json_reader.dart';
 import 'api_client.dart';
 import 'sse/event_stream_client.dart';
@@ -48,15 +50,79 @@ class AssistantService {
 
   /// Sends a message and streams the reply: a capture, deltas, at most one
   /// replace, then done. Events the client does not know are skipped.
-  Stream<AssistantStreamEvent> send(String conversationId, String text) =>
-      _events
-          .post(
-            '/assistant/conversations/$conversationId/messages',
-            data: {'text': text},
-          )
-          .map(eventFrom)
-          .where((e) => e != null)
-          .cast<AssistantStreamEvent>();
+  /// [photo] carries what an `other` photo shows; [text] may then be empty.
+  Stream<AssistantStreamEvent> send(
+    String conversationId,
+    String text, {
+    PhotoNote? photo,
+  }) => _events
+      .post(
+        '/assistant/conversations/$conversationId/messages',
+        data: {'text': text, if (photo != null) 'photo': photo.toJson()},
+      )
+      .map(eventFrom)
+      .where((e) => e != null)
+      .cast<AssistantStreamEvent>();
+
+  /// The longest the app waits for a photo to be read. The server allows
+  /// 90 seconds per model call, and a photo can take two calls and a retry.
+  static const Duration photoTimeout = Duration(minutes: 5);
+
+  /// The server's limit on one photo.
+  static const int maxPhotoBytes = 6 * 1024 * 1024;
+
+  /// The server's limit on the person's note about a photo.
+  static const int maxPhotoNote = 300;
+
+  /// Hands one photo to the home model and returns its proposal. Nothing is
+  /// saved and the server keeps nothing. [kind] skips the sort.
+  Future<PhotoAnalysis> analyzePhoto(
+    Uint8List image, {
+    PhotoKind? kind,
+    String? note,
+  }) {
+    final type = photoMediaType(image);
+    final trimmed = note?.trim() ?? '';
+    return _api.postForm<PhotoAnalysis>(
+      '/assistant/photos',
+      data: FormData.fromMap({
+        'image': MultipartFile.fromBytes(
+          image,
+          filename: 'photo.${type.subtype == 'jpeg' ? 'jpg' : type.subtype}',
+          contentType: DioMediaType(type.type, type.subtype),
+        ),
+        if (kind != null) 'kind': kind.wireValue,
+        if (trimmed.isNotEmpty)
+          'note': trimmed.length > maxPhotoNote
+              ? trimmed.substring(0, maxPhotoNote)
+              : trimmed,
+      }),
+      receiveTimeout: photoTimeout,
+      fromJson: (body) => PhotoAnalysis.fromJson(asJsonMap(body)),
+    );
+  }
+
+  /// The media type told by the first bytes, as the server tells it. The
+  /// picker hands over a JPEG; a web browser may keep a PNG or WebP.
+  @visibleForTesting
+  static ({String type, String subtype}) photoMediaType(Uint8List bytes) {
+    bool starts(List<int> magic, [int offset = 0]) {
+      if (bytes.length < offset + magic.length) return false;
+      for (var i = 0; i < magic.length; i++) {
+        if (bytes[offset + i] != magic[i]) return false;
+      }
+      return true;
+    }
+
+    if (starts(const [0x89, 0x50, 0x4E, 0x47])) {
+      return (type: 'image', subtype: 'png');
+    }
+    if (starts(const [0x52, 0x49, 0x46, 0x46]) &&
+        starts(const [0x57, 0x45, 0x42, 0x50], 8)) {
+      return (type: 'image', subtype: 'webp');
+    }
+    return (type: 'image', subtype: 'jpeg');
+  }
 
   /// The typed event for one frame, or null for one this client ignores.
   @visibleForTesting

@@ -24,6 +24,7 @@ public sealed class AssistantController : BaseController
   private readonly IPlaybookService _playbook;
   private readonly INudgeService _nudges;
   private readonly IModelCheckService _modelCheck;
+  private readonly IPhotoAnalyzer _photos;
   private readonly IAiMemoryService _memory;
   private readonly IPersonRepository _persons;
   private readonly IAuditService _audit;
@@ -37,6 +38,7 @@ public sealed class AssistantController : BaseController
     IPlaybookService playbook,
     INudgeService nudges,
     IModelCheckService modelCheck,
+    IPhotoAnalyzer photos,
     IAiMemoryService memory,
     IPersonRepository persons,
     IAuditService audit,
@@ -49,6 +51,7 @@ public sealed class AssistantController : BaseController
     _playbook = playbook;
     _nudges = nudges;
     _modelCheck = modelCheck;
+    _photos = photos;
     _memory = memory;
     _persons = persons;
     _audit = audit;
@@ -78,7 +81,7 @@ public sealed class AssistantController : BaseController
   [HttpPost("conversations/{id:guid}/messages")]
   public async Task<IActionResult> SendMessage(Guid id, [FromBody] SendMessageRequest request, CancellationToken ct)
   {
-    var turn = await _assistant.BeginTurnAsync(CurrentActor(), id, request.Text, ct);
+    var turn = await _assistant.BeginTurnAsync(CurrentActor(), id, request.Text, request.Photo, ct);
     if (turn == null) return NotFoundProblem("No such conversation.");
 
     ServerSentEvents.Start(HttpContext);
@@ -89,6 +92,53 @@ public sealed class AssistantController : BaseController
     }
     return new EmptyResult();
   }
+
+  /// <summary>
+  /// Reads one photo with the home model and answers with a proposal (docs/photo-design.md).
+  /// multipart/form-data: image (JPEG, PNG or WebP, at most 6 MB), kind and note optional. The
+  /// photo is held in memory for this request only; nothing is saved.
+  /// </summary>
+  [HttpPost("photos")]
+  [RequestSizeLimit(PhotoRequestLimit)]
+  // The memory threshold equals the size limit, so the form reader never spills a photo into a
+  // temporary file: the photo stays in memory, as docs/photo-design.md promises.
+  [RequestFormLimits(MultipartBodyLengthLimit = PhotoRequestLimit, MemoryBufferThreshold = (int)PhotoRequestLimit)]
+  public async Task<IActionResult> Photo()
+  {
+    // No action parameters on purpose: binding one would read the form before this code runs, and
+    // a body over the limit would be answered by the framework instead of with the message below.
+    var ct = HttpContext.RequestAborted;
+    if (!Request.HasFormContentType) return PhotoProblem("Attach a photo.");
+    IFormCollection form;
+    try
+    {
+      form = await Request.ReadFormAsync(ct);
+    }
+    catch (Exception ex) when (ex is InvalidDataException or BadHttpRequestException { StatusCode: StatusCodes.Status413PayloadTooLarge })
+    {
+      // The body is over the request limit: the photo is too large, whatever else came with it.
+      return PhotoProblem("The photo is larger than 6 MB.");
+    }
+
+    var file = form.Files.GetFile("image");
+    if (file == null || file.Length == 0) return PhotoProblem("Attach a photo.");
+    if (file.Length > Infrastructure.Services.Assistant.PhotoAnalyzer.MaxBytes) return PhotoProblem("The photo is larger than 6 MB.");
+    byte[] image;
+    using (var buffer = new MemoryStream((int)file.Length))
+    {
+      await file.CopyToAsync(buffer, ct);
+      image = buffer.ToArray();
+    }
+    var kind = form.TryGetValue("kind", out var k) ? k.ToString() : null;
+    var note = form.TryGetValue("note", out var n) ? n.ToString() : null;
+    return Ok(await _photos.AnalyzeAsync(CurrentActor(), image, kind, note, ct));
+  }
+
+  /// <summary>A little above 6 MB, so a photo at the limit still fits with its form fields.</summary>
+  private const long PhotoRequestLimit = 6_500_000;
+
+  private ObjectResult PhotoProblem(string detail) =>
+    Problem(statusCode: StatusCodes.Status400BadRequest, title: "Validation failed", detail: detail);
 
   /// <summary>Undo: removes the day log entries, remembered facts and mood that one message saved.</summary>
   [HttpDelete("messages/{messageId:guid}/captures")]

@@ -14,13 +14,19 @@ What it does:
 - A reviewed playbook of suggestions, chosen by code.
 - An evening reminder through the person's own ntfy server.
 - A model check an admin runs to see whether their local model is good enough.
+- Reads a photo the person takes or picks (a meal, a nutrition label, a medicine label, a device
+  display, a lab report) with the home model and fills a form the person checks before anything is
+  saved, when the owner turned photos on (`docs/photo-design.md`).
 
 What it never does:
 
 - Calls a cloud model, or any host except the configured model URL and the person's ntfy URL.
   The one exception is the opt-in cloud lookup, which sends only text the person read and
   confirmed, when they press send (`docs/lookup-design.md`).
-- Estimates calories or macros, or stores amounts of food.
+- Estimates calories or macros, or stores amounts of food, in chat. The one place food numbers
+  come from is a photo the person confirmed (`docs/photo-design.md`); the assistant's own words
+  still never carry them.
+- Keeps a photo, or sends one anywhere but the configured model URL.
 - Lets the model decide the check-in flow or call tools.
 - Shares anything with another household member.
 
@@ -62,6 +68,8 @@ refusal reason). The text is never written there. The purposes are:
 - `assistant_lookup` (the cloud call of a lookup), `assistant_lookup_applied` (the local model
   wording what the answer means for the person) and `assistant_lookup_draft` (the local model
   rewording an anonymized draft); see `docs/lookup-design.md`
+- `assistant_photo_sort` (what kind of photo it is) and `assistant_photo_read` (reading the photo
+  as its kind); see `docs/photo-design.md`. The photo is never written there either.
 
 ## Tables (migration 0016_assistant)
 
@@ -523,8 +531,11 @@ CaptureRefDto = {
 ### GET /api/assistant/status
 
 ```
-200 { "enabled": true, "model": "qwen3:8b", "reachable": true }
+200 { "enabled": true, "model": "qwen3:8b", "reachable": true, "photos": false }
 ```
+
+- `photos` is true when `Ai:Vision` is on and the model settings are usable; the app shows the
+  photo button only then (`docs/photo-design.md`). It is false whenever `enabled` is false.
 
 - `enabled` is false when `Ai:Enabled`, `Ai:BaseUrl` or `Ai:Model` is not set. Then `model` is
   null and `reachable` is false.
@@ -589,13 +600,28 @@ Deleting a conversation removes its messages. Day log entries it saved stay.
 ### POST /api/assistant/conversations/{id}/messages
 
 ```
-body { "text": string (required, 1 to 2000 characters) }
+body {
+  "text": string,                    // 1 to 2000 characters; may be empty when photo is set
+  "photo"?: {                        // what a photo showed, from POST /api/assistant/photos
+    "kind": "meal" | "nutrition_label" | "medicine_label" | "device_display" | "lab_report" | "other",
+    "description": string            // at most 300 characters
+  }
+}
 ```
+
+With a photo and no text the message stands as "What is in this photo?". The stored message is
+the text followed by a line "Photo: {description}", and its meta holds `photo: kind`. Capture and
+the red-flag check run on the text only; the description counts as the person's own words for the
+guard, so a number in it may be repeated. The system prompt tells the model it cannot see the
+photo and that the line is what the photo shows. The photo itself never reaches this route.
 
 The errors come back before any stream starts:
 
 ```
-400 "Say something first."                                   // blank text
+400 "Say something first."                                   // blank text and no photo
+400 "kind must be one of: meal, nutrition_label, medicine_label, device_display, lab_report, other."
+400 "A photo needs its description."
+400 "A photo description is at most 300 characters."
 400 "The evening check-in is answered through /api/assistant/checkin."  // a check-in conversation
 404 "No such conversation."
 ```
@@ -655,6 +681,11 @@ data: {
   - `model` otherwise.
 - When the model is off, a single `delta` carries the template. With a red flag the model is
   never called.
+
+### POST /api/assistant/photos
+
+Reads one photo with the home model and answers with a proposal. Shapes, checks, ranges and
+errors: `docs/photo-design.md`, "API".
 
 ### DELETE /api/assistant/messages/{messageId}/captures
 
@@ -882,6 +913,7 @@ the record" or "the model did not answer: timeout".
 - `assistant.model_checked` (with the pass count)
 - `assistant.lookup_enabled`, `assistant.lookup_disabled`, `assistant.lookup_sent` (mode,
   provider, model, character count) and `assistant.lookup_deleted`; see `docs/lookup-design.md`
+- `assistant.photo_analyzed` (the kind and nothing else); see `docs/photo-design.md`
 
 Day log saves and deletes are also audited as `journal.created` and `journal.deleted`, with source
 `assistant` or `checkin`.

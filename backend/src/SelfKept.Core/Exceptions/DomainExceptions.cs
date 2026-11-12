@@ -38,3 +38,9 @@ public class UnprocessableException : Exception
 
   public object? Findings { get; }
 }
+
+/// <summary>Something the server depends on (the home model) did not answer. Mapped to 503 with its message.</summary>
+public class ServiceUnavailableException : Exception
+{
+  public ServiceUnavailableException(string message) : base(message) { }
+}

@@ -176,6 +176,8 @@ class _EntryRow extends StatelessWidget {
     final text = entry.text?.trim() ?? '';
     if (text.isNotEmpty) parts.add(text);
     if (entry.tags.isNotEmpty) parts.add(entry.tags.map(label).join(', '));
+    final numbers = entry.nutrition;
+    if (numbers != null) parts.add(numbers.describe());
     return parts.join('. ');
   }
 
@@ -185,6 +187,7 @@ class _EntryRow extends StatelessWidget {
     final at = entry.at;
     final text = entry.text?.trim() ?? '';
     final tags = entry.tags.map(labelFor).join(', ');
+    final numbers = entry.nutrition?.describe();
     return Semantics(
       container: true,
       label: describe(entry, labelFor),
@@ -236,6 +239,14 @@ class _EntryRow extends StatelessWidget {
                   if (tags.isNotEmpty) ...[
                     const SizedBox(height: Space.x1),
                     Text(tags, style: theme.textTheme.bodySmall),
+                  ],
+                  if (numbers != null) ...[
+                    const SizedBox(height: Space.x1),
+                    Text(
+                      numbers,
+                      key: ValueKey('entry-numbers-${entry.id}'),
+                      style: theme.textTheme.bodySmall,
+                    ),
                   ],
                 ],
               ),

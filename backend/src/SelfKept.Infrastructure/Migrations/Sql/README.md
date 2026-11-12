@@ -15,11 +15,14 @@ NNNN_short_description.down.sql   committed for manual, reviewed rollback (never
 
 - Only `*.up.sql` files are embedded (see the `.csproj` `EmbeddedResource` glob) and run on
   startup, in filename order. Keep the numeric prefix zero-padded and monotonic. The next free
-  number is 0022.
+  number is 0023.
 - The labs review package holds 0017 (`labs_review`: draw conditions, the reference age split,
   `trial`), 0019 (`metric_reseed`, generated from `MetricSeed.cs`) and 0020 (`lab_reseed`,
   generated from `LabSeed.cs`). 0014 and 0007 stay as they shipped; the reseeds deliver the
   wider lab catalogue to installs that already ran them.
+- 0022 (`photo`) gives day log entries their numbers from a confirmed photo and rewrites four
+  metric descriptions with plain UPDATEs, so installs that already ran 0019 get the text that
+  0019 (regenerated from `MetricSeed.cs`) now carries for fresh installs.
 - `*.down.sql` is the reviewed reverse of the up script. Downs are not auto-run: rolling back a
   schema is a deliberate, supervised act. Apply a down by hand (psql) and delete the matching
   `schemaversions` row.

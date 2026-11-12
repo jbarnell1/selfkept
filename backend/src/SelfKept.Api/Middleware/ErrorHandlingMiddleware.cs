@@ -55,12 +55,13 @@ public sealed class ErrorHandlingMiddleware
       BadHttpRequestException e => (e.StatusCode, "Bad request", e.Message),
       ConflictException e => (StatusCodes.Status409Conflict, "Conflict", e.Message),
       UnprocessableException e => (StatusCodes.Status422UnprocessableEntity, "Unprocessable", e.Message),
+      ServiceUnavailableException e => (StatusCodes.Status503ServiceUnavailable, "Service unavailable", e.Message),
       KeyNotFoundException => (StatusCodes.Status404NotFound, "Not found", "The resource does not exist."),
       _ => (StatusCodes.Status500InternalServerError, "Internal server error",
         _environment.IsDevelopment() ? exception.ToString() : "An internal error occurred. Please try again later."),
     };
 
-    if (status >= 500)
+    if (status >= 500 && exception is not ServiceUnavailableException)
     {
       _logger.LogError(exception, "Unhandled exception on {Method} {Path}. TraceId: {TraceId}", context.Request.Method, context.Request.Path.Value, context.TraceIdentifier);
     }

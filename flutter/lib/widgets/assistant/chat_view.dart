@@ -10,6 +10,7 @@ import '../../theme/tokens.dart';
 import '../day_log.dart' show journalKindIcon;
 import '../status_views.dart';
 import 'lookup_widgets.dart';
+import 'photo_cards.dart';
 
 /// The words on a saved-item chip: "Food: High protein, Vegetables",
 /// "Remembered: Eats a vegetarian diet", "Mood: Good".
@@ -135,6 +136,8 @@ class MessageBubble<T extends ChatSession> extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final maxWidth = (width * 0.85).clamp(240.0, 560.0);
 
+    if (item.isPhoto) return PhotoCard<T>(item: item);
+
     if (item.isUser) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -151,7 +154,7 @@ class MessageBubble<T extends ChatSession> extends StatelessWidget {
                   horizontal: Space.x4,
                   vertical: Space.x3,
                 ),
-                child: Text(item.text, style: theme.textTheme.bodyMedium),
+                child: Text(item.shownText, style: theme.textTheme.bodyMedium),
               ),
             ),
           ),
@@ -343,6 +346,12 @@ class ChatComposer extends StatefulWidget {
   final String? error;
   final Widget? trailing;
 
+  /// Before the field: the photo button, when photos are on.
+  final Widget? leading;
+
+  /// True when an empty message may go, as one carrying a photo can.
+  final bool allowEmpty;
+
   const ChatComposer({
     super.key,
     required this.enabled,
@@ -351,6 +360,8 @@ class ChatComposer extends StatefulWidget {
     this.hint = 'Message',
     this.error,
     this.trailing,
+    this.leading,
+    this.allowEmpty = false,
   });
 
   static const String sendTooltip = 'Send';
@@ -365,7 +376,7 @@ class _ChatComposerState extends State<ChatComposer> {
   Future<void> _send([String? quick]) async {
     if (!widget.enabled) return;
     final text = quick ?? _controller.text;
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty && !widget.allowEmpty) return;
     if (quick == null) _controller.clear();
     final ok = await widget.onSend(text);
     if (!ok && quick == null && mounted && _controller.text.isEmpty) {
@@ -418,6 +429,10 @@ class _ChatComposerState extends State<ChatComposer> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  if (widget.leading != null) ...[
+                    widget.leading!,
+                    const SizedBox(width: Space.x1),
+                  ],
                   Expanded(
                     child: TextField(
                       controller: _controller,

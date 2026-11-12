@@ -7,8 +7,9 @@ using SelfKept.Infrastructure.Services.Collect;
 namespace SelfKept.Infrastructure.Services.Body;
 
 /// <summary>
-/// Body measurements typed in by hand: weight, body fat and waist (docs/body-design.md, "Typed
-/// measurements"). Each lands as an ordinary sample under the person's "Typed in" source, so it
+/// Body measurements typed in by hand: weight, body fat and waist, and the readings of a home
+/// device (blood pressure, pulse, temperature, glucose, oxygen), which a confirmed photo of its
+/// display also arrives as (docs/body-design.md, "Typed measurements"; docs/photo-design.md). Each lands as an ordinary sample under the person's "Typed in" source, so it
 /// flows through daily summaries, trends and rules exactly like a reading from a scale.
 /// </summary>
 public sealed class MeasurementService : IMeasurementService
@@ -19,6 +20,12 @@ public sealed class MeasurementService : IMeasurementService
     [MetricKeys.WeightKg] = (20, 400),
     [MetricKeys.BodyFatPct] = (2, 75),
     [MetricKeys.WaistCm] = (30, 250),
+    [MetricKeys.BloodPressureSys] = (50, 300),
+    [MetricKeys.BloodPressureDia] = (20, 200),
+    [MetricKeys.HeartRateBpm] = (20, 250),
+    [MetricKeys.BodyTempC] = (30, 45),
+    [MetricKeys.BloodGlucoseMmol] = (1, 40),
+    [MetricKeys.Spo2Pct] = (50, 100),
   };
 
   private static readonly TimeSpan ListWindow = TimeSpan.FromDays(730);

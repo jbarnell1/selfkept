@@ -93,10 +93,10 @@ public static class MetricSeed
     Add("body_water_kg", "kg", Instant, ShareCategory.Body, "Body water", "Total body water as estimated by a scale or device.", Neutral);
 
     // Nutrition, read from the phone's health store when another app logs it there
-    Add("energy_intake_kcal", "kcal", Interval, ShareCategory.Body, "Energy eaten", "Calories eaten, as logged in another app.", Neutral);
-    Add("protein_g", "g", Interval, ShareCategory.Body, "Protein", "Protein eaten, as logged in another app.", Neutral);
-    Add("carbs_g", "g", Interval, ShareCategory.Body, "Carbohydrate", "Carbohydrate eaten, as logged in another app.", Neutral);
-    Add("fat_g", "g", Interval, ShareCategory.Body, "Fat", "Fat eaten, as logged in another app.", Neutral);
+    Add("energy_intake_kcal", "kcal", Interval, ShareCategory.Body, "Energy eaten", "Calories eaten, from a photo you confirmed or as logged in another app.", Neutral);
+    Add("protein_g", "g", Interval, ShareCategory.Body, "Protein", "Protein eaten, from a photo you confirmed or as logged in another app.", Neutral);
+    Add("carbs_g", "g", Interval, ShareCategory.Body, "Carbohydrate", "Carbohydrate eaten, from a photo you confirmed or as logged in another app.", Neutral);
+    Add("fat_g", "g", Interval, ShareCategory.Body, "Fat", "Fat eaten, from a photo you confirmed or as logged in another app.", Neutral);
 
     // Cycle
     Add("menstrual_flow", "level", Interval, ShareCategory.Cycle, "Menstrual flow", "Logged flow, from none to heavy.", Neutral, labels: MenstrualFlowLabels, sex: SexApplicabilities.Female);

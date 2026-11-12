@@ -182,6 +182,9 @@ Ai__BaseUrl=http://localhost:11434/v1
 Ai__Model=qwen3:8b
 Ai__TimeoutSeconds=20
 Ai__ReasoningEffort=none
+Ai__Vision=true
+Ai__VisionModel=
+Ai__VisionTimeoutSeconds=90
 ```
 
 From inside the self-host container the Ollama host is usually `http://host.docker.internal:11434/v1`
@@ -194,6 +197,11 @@ sentence and the two leading cards of each run are reworded; the output is valid
 number must already be in the templated text, under 480 characters, no diagnostic language, no
 em dashes) and the templated text is used whenever validation or the call fails.
 `/api/system/version` then lists `insights.model`.
+
+`Ai:Vision` (off by default) offers photos in the assistant (`docs/photo-design.md`,
+`POST /api/assistant/photos`): the photo is sent once as an OpenAI image content part with
+`response_format: json_object`, to `Ai:VisionModel` when set (else `Ai:Model`) with
+`Ai:VisionTimeoutSeconds` (90) as its deadline, and is never logged or stored.
 
 ## Labs (Package 4)
 

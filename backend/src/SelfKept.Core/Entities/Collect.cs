@@ -88,6 +88,9 @@ public static class MetricKeys
   public const string WeightKg = "weight_kg";
   public const string SleepStage = "sleep_stage";
   public const string BloodGlucoseMmol = "blood_glucose_mmol";
+  public const string BloodPressureSys = "blood_pressure_sys";
+  public const string BloodPressureDia = "blood_pressure_dia";
+  public const string BodyTempC = "body_temp_c";
   public const string CheckinMood = "checkin_mood";
   public const string OuraReadiness = "oura_readiness";
   public const string OuraSleepScore = "oura_sleep_score";
@@ -148,6 +151,9 @@ public static class SourceKinds
 
   /// <summary>The per-person system source that typed-in measurements (weight, waist, body fat) are written under.</summary>
   public const string TypedDeviceName = "Typed in";
+
+  /// <summary>The per-person system source that the numbers of confirmed photo entries are written under.</summary>
+  public const string PhotoDeviceName = "Photo";
 }
 
 /// <summary>
