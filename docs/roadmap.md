@@ -1,6 +1,7 @@
 # Roadmap and handoff
 
-Status: v0.1.7 is the latest release. It adds the opt-in cloud lookup, a one-time ask for
+Status: v0.1.8 is the latest release. It lets the home model be a thinking model on another
+machine of yours (see "Home model settings"). v0.1.7 added the opt-in cloud lookup, a one-time ask for
 Health Connect kinds added since a phone was connected, and an evening check-in fix (see
 "Cloud lookup and the permission ask"). v0.1.6 added sample retention and the connected
 record: four packages, backend and Flutter (see "Connected record"). v0.1.1 was the first tag (image
@@ -52,11 +53,25 @@ Released in v0.1.7.
 Not yet checked: a real call to the provider (it needs the owner's own key), the Health Connect
 permission sheet on an upgraded phone, and the lookup on a phone.
 
+### Home model settings (v0.1.8)
+
+Released in v0.1.8. Backend and compose only; no migration and no app change.
+
+| Piece | State |
+| --- | --- |
+| `SELFKEPT_AI_REASONING_EFFORT`: `none` stops a thinking model from spending the reply limit on thinking, which left the answer empty | done, tested against a real qwen3.5 model |
+| 600 tokens of headroom on every model call, for a model that thinks anyway | done, tested |
+| `SELFKEPT_AI_INTERACTIVE_HEADER`: one header for a gateway that queues by priority, sent with calls a person is waiting on (insight phrasing goes without it) | done, tested |
+| `SELFKEPT_AI_TIMEOUT_SECONDS` is settable from `.env` | done |
+
+Not yet checked: the assistant in the app with the model on (replies, check-in lines, the
+brief), which needs a server with the settings in place.
+
 Homelab specifics (addresses, paths, what is installed where) are kept out of the repository,
 in `.dev/homelab.md`.
 
 
-Test counts at v0.1.7: backend 1482 (1362 unit, plus 120 that need `SELFKEPT_TEST_CONNECTION`;
+Test counts at v0.1.8: backend 1494 (1374 unit, plus 120 that need `SELFKEPT_TEST_CONNECTION`;
 all green with it set), Flutter 1076. `flutter analyze` and the backend build had zero warnings.
 Run the suites again for current counts.
 
