@@ -49,6 +49,17 @@ public class ChatModelRequestTests
   }
 
   [Fact]
+  public async Task BuildRequest_Body_HasAStatedLengthAndJsonType()
+  {
+    using var request = Model(new AiOptions()).BuildRequest(Turns, new ChatOptions(0.4, 400), stream: true);
+
+    var bytes = await request.Content!.ReadAsByteArrayAsync();
+    request.Content.Headers.ContentLength.Should().Be(bytes.Length);
+    request.Content.Headers.ContentType!.MediaType.Should().Be("application/json");
+    request.Headers.TransferEncodingChunked.Should().NotBe(true);
+  }
+
+  [Fact]
   public async Task BuildRequest_ReasoningEffortSet_SendsIt()
   {
     var options = new AiOptions { ReasoningEffort = " none ", HeadroomTokens = 0 };
