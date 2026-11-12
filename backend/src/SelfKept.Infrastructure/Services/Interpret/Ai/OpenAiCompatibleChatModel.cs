@@ -172,13 +172,17 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
     {
       request.Headers.TryAddWithoutValidation(header.Name, header.Value);
     }
-    request.Content = JsonContent.Create(new ChatRequest(
+    // Serialized up front so the body goes out with a Content-Length. A streamed (chunked) body
+    // arrives empty behind a small proxy that only reads the stated length.
+    var body = JsonSerializer.SerializeToUtf8Bytes(new ChatRequest(
       _options.Model,
       turns.Select(t => new ChatMessage(t.Role, t.Content)).ToList(),
       options.Temperature,
       options.MaxTokens + Math.Max(0, _options.HeadroomTokens),
       stream,
-      string.IsNullOrWhiteSpace(_options.ReasoningEffort) ? null : _options.ReasoningEffort.Trim()), options: Json);
+      string.IsNullOrWhiteSpace(_options.ReasoningEffort) ? null : _options.ReasoningEffort.Trim()), Json);
+    request.Content = new ByteArrayContent(body);
+    request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
     return request;
   }
 
