@@ -160,20 +160,37 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
     }
   }
 
-  private HttpRequestMessage BuildRequest(IReadOnlyList<ChatTurn> turns, ChatOptions options, bool stream)
+  /// <summary>The request as it goes out. Public so the wire shape can be tested without a server.</summary>
+  public HttpRequestMessage BuildRequest(IReadOnlyList<ChatTurn> turns, ChatOptions options, bool stream)
   {
     var request = new HttpRequestMessage(HttpMethod.Post, Endpoint(_options.BaseUrl));
     if (!string.IsNullOrWhiteSpace(_options.ApiKey))
     {
       request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
     }
+    if (!options.Background && SplitHeader(_options.InteractiveHeader) is { } header)
+    {
+      request.Headers.TryAddWithoutValidation(header.Name, header.Value);
+    }
     request.Content = JsonContent.Create(new ChatRequest(
       _options.Model,
       turns.Select(t => new ChatMessage(t.Role, t.Content)).ToList(),
       options.Temperature,
-      options.MaxTokens,
-      stream), options: Json);
+      options.MaxTokens + Math.Max(0, _options.HeadroomTokens),
+      stream,
+      string.IsNullOrWhiteSpace(_options.ReasoningEffort) ? null : _options.ReasoningEffort.Trim()), options: Json);
     return request;
+  }
+
+  /// <summary>"Name: value" as its two parts. Null when either part is missing.</summary>
+  public static (string Name, string Value)? SplitHeader(string? header)
+  {
+    if (string.IsNullOrWhiteSpace(header)) return null;
+    var at = header.IndexOf(':', StringComparison.Ordinal);
+    if (at <= 0) return null;
+    var name = header[..at].Trim();
+    var value = header[(at + 1)..].Trim();
+    return name.Length == 0 || value.Length == 0 ? null : (name, value);
   }
 
   /// <summary>
@@ -235,7 +252,8 @@ public sealed class OpenAiCompatibleChatModel : IChatModel
     IReadOnlyList<ChatMessage> Messages,
     double Temperature,
     [property: JsonPropertyName("max_tokens")] int MaxTokens,
-    bool Stream);
+    bool Stream,
+    [property: JsonPropertyName("reasoning_effort")] string? ReasoningEffort);
 
   private sealed record ChatMessage(string? Role, string? Content);
 

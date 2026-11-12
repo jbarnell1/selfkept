@@ -181,10 +181,15 @@ Ai__Enabled=true
 Ai__BaseUrl=http://localhost:11434/v1
 Ai__Model=qwen3:8b
 Ai__TimeoutSeconds=20
+Ai__ReasoningEffort=none
 ```
 
 From inside the self-host container the Ollama host is usually `http://host.docker.internal:11434/v1`
-(the default). `Ai:ApiKey` is sent as a bearer token when set. With the model on, the Today
+(the default). `Ai:ApiKey` is sent as a bearer token when set. `Ai:ReasoningEffort` is sent as
+`reasoning_effort` when set (`none` stops a thinking model from spending the reply limit on
+thinking), `Ai:HeadroomTokens` (600) is added to every `max_tokens` for a model that thinks
+anyway, and `Ai:InteractiveHeader` is one `Name: value` header sent with calls a person is
+waiting on, for a gateway that queues by priority. With the model on, the Today
 sentence and the two leading cards of each run are reworded; the output is validated (every
 number must already be in the templated text, under 480 characters, no diagnostic language, no
 em dashes) and the templated text is used whenever validation or the call fails.
@@ -334,7 +339,7 @@ files in `SelfKept:SecretsDirectory`, environment variables.
 | `ForwardedHeaders:TrustedProxies`, `ForwardedHeaders:TrustedNetworks` | the only senders whose `X-Forwarded-*` are believed; default loopback only |
 | `Migrations:BackupBeforeMigrate` (false) | verified `pg_dump` before migrating an existing database |
 | `Household:InviteDays` (7) | invite code lifetime |
-| `Ai:Enabled` (false), `Ai:BaseUrl`, `Ai:Model`, `Ai:TimeoutSeconds` (20), `Ai:ApiKey` | the optional local model; see Interpret above |
+| `Ai:Enabled` (false), `Ai:BaseUrl`, `Ai:Model`, `Ai:TimeoutSeconds` (20), `Ai:ApiKey`, `Ai:ReasoningEffort`, `Ai:HeadroomTokens` (600), `Ai:InteractiveHeader` | the optional local model; see Interpret above |
 | `OpenApi:Enabled` | Swagger on or off (default: Development only) |
 | `Database:Provider` | `postgres` (default) or `inmemory` (tests only) |
 

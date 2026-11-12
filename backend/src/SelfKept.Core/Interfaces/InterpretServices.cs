@@ -255,7 +255,8 @@ public interface ITrendService
   Task<IReadOnlyList<TrendMetricDto>?> ListAsync(Guid viewerPersonId, Guid targetPersonId, CancellationToken ct = default);
 }
 
-public sealed record ChatOptions(double Temperature = 0.3, int MaxTokens = 300);
+/// <param name="Background">True when nobody is waiting on the answer, so it may queue behind calls a person is waiting on.</param>
+public sealed record ChatOptions(double Temperature = 0.3, int MaxTokens = 300, bool Background = false);
 
 public sealed record ChatCompletion(string Content, int? PromptTokens, int? CompletionTokens);
 
