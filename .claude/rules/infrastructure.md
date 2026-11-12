@@ -43,7 +43,9 @@ laptop (Tailscale) ──┘                                                    
   The code never reads `SELFKEPT_*` directly. Current map: `SELFKEPT_ORIGIN` to `App__BaseUrl`,
   `SELFKEPT_RETENTION_MONTHS` to `Retention__RawMonths`, `SELFKEPT_LOOKUP_ENABLED`,
   `SELFKEPT_LOOKUP_API_KEY` and `SELFKEPT_LOOKUP_MODEL` to `Lookup__Enabled`, `Lookup__ApiKey`
-  and `Lookup__Model`; `SELFKEPT_PORT`, `SELFKEPT_BIND`, `SELFKEPT_VERSION`, `SELFKEPT_IMAGE` are compose-only.
+  and `Lookup__Model`, `SELFKEPT_AI_ENABLED`, `SELFKEPT_AI_BASE_URL`, `SELFKEPT_AI_MODEL`,
+  `SELFKEPT_AI_REASONING_EFFORT`, `SELFKEPT_AI_INTERACTIVE_HEADER` and
+  `SELFKEPT_AI_TIMEOUT_SECONDS` to the matching `Ai__` keys; `SELFKEPT_PORT`, `SELFKEPT_BIND`, `SELFKEPT_VERSION`, `SELFKEPT_IMAGE` are compose-only.
 - `selfhost/init-secrets.sh` writes one file per setting into the `secrets` volume:
   `db_password`, `ConnectionStrings__SelfKept`, `Jwt__Key`, `Encryption__Key`. The app reads the
   folder named by `SelfKept:SecretsDirectory`. Nothing in the repo is a secret.

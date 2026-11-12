@@ -22,7 +22,8 @@ public sealed class InsightPhraser : IInsightPhraser
     "no medical jargon, no exclamation marks, no bullet points, no headings, no em dashes or en dashes; use only plain hyphens and commas. " +
     "Output only the rewritten paragraph.";
 
-  private static readonly ChatOptions Options = new(Temperature: 0.2, MaxTokens: 240);
+  // Phrasing runs after ingest with nobody waiting on it.
+  private static readonly ChatOptions Options = new(Temperature: 0.2, MaxTokens: 240, Background: true);
 
   private readonly IChatModel _model;
   private readonly IAiCallRepository _calls;

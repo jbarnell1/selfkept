@@ -107,6 +107,9 @@ All optional, in `.env`:
 | `SELFKEPT_HOST` | `localhost` | Only for the Caddy profile: the host name Caddy answers for. |
 | `SELFKEPT_WEB_SUBNET`, `SELFKEPT_WEB_GATEWAY`, `SELFKEPT_CADDY_IP` | `172.30.0.0/24`, `.1`, `.250` | Only if Docker reports "Pool overlaps". |
 | `SELFKEPT_AI_ENABLED`, `SELFKEPT_AI_BASE_URL`, `SELFKEPT_AI_MODEL` | off | A model you run (Ollama) rewrites the Today sentence and insight cards in plain words. See below. |
+| `SELFKEPT_AI_REASONING_EFFORT` | empty | `none` tells a thinking model to answer without thinking first. See below. |
+| `SELFKEPT_AI_INTERACTIVE_HEADER` | empty | One `Name: value` header for a gateway that queues by priority, sent with calls a person is waiting on. |
+| `SELFKEPT_AI_TIMEOUT_SECONDS` | `20` | How long the model may stay silent before the templated text is used. |
 | `SELFKEPT_OURA_CLIENT_ID`, `SELFKEPT_OURA_CLIENT_SECRET` | empty | Turns on Oura. See below. |
 | `SELFKEPT_RETENTION_MONTHS` | empty (the admin's choice in the app, 12) | Months of heart rate kept reading by reading. See "How much disk it uses". |
 
@@ -143,6 +146,13 @@ SELFKEPT_AI_MODEL=qwen3:8b
 
 Any 7B to 14B instruct model works on a 12 GB GPU. The model name is yours to choose; the server
 pins whatever you set.
+
+Thinking models (qwen3, qwen3.5, gemma and others) think before they answer, and the server
+counts that thinking against the short reply limit, so the answer can come back empty and the
+templated text is used. Add `SELFKEPT_AI_REASONING_EFFORT=none` for those: the model then answers
+at once. Leave it out for a server that does not know the field. The model may also run on
+another machine of yours: point `SELFKEPT_AI_BASE_URL` at it. What you write to the assistant
+then travels to that machine, so use an address only your own machines can reach.
 
 ## Oura (optional)
 
