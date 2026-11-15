@@ -1,0 +1,43 @@
+name: Feature request
+description: An idea for something SelfKept should do, or do differently.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check docs/roadmap.md first: it lists what is built and what is planned.
+        Two rules shape what gets accepted: health data stays on the host, and the app never gives a diagnosis.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like
+      description: How it could work, from the point of view of the person using it.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+  - type: dropdown
+    id: leaves-host
+    attributes:
+      label: Would this send any data off the server?
+      options:
+        - "No"
+        - "Yes, and it would be opt-in"
+        - Not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Helping
+      options:
+        - label: I could work on a pull request for this.
