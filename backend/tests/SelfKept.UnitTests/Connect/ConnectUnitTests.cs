@@ -151,8 +151,8 @@ public class ConnectUnitTests
     var households = new Mock<IHouseholdService>();
     households.Setup(h => h.GetForUserAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(new HouseholdDto(Guid.NewGuid(), "Home",
     [
-      new MemberDto(PersonId, UserId, "Jonathan Barnell", HouseholdRole.Admin, DateTime.UtcNow),
-      new MemberDto(OtherPerson, Guid.NewGuid(), "Sam Barnell", HouseholdRole.Member, DateTime.UtcNow),
+      new MemberDto(PersonId, UserId, "Alex Morgan", HouseholdRole.Admin, DateTime.UtcNow),
+      new MemberDto(OtherPerson, Guid.NewGuid(), "Sam Morgan", HouseholdRole.Member, DateTime.UtcNow),
     ]));
     var audit = new Mock<IAuditService>();
     return (new McpToolService(tools, households.Object, audit.Object, NullLogger<McpToolService>.Instance), audit);
@@ -212,7 +212,7 @@ public class ConnectUnitTests
     var tool = new EchoTool(true, true);
     var (service, _) = Service(tool);
 
-    await service.CallToolAsync(Principal("health:read"), Call("echo", new { word = "x", person = "Jonathan" }), null);
+    await service.CallToolAsync(Principal("health:read"), Call("echo", new { word = "x", person = "Alex" }), null);
 
     tool.Seen!.Target.IsSelf.Should().BeTrue();
     tool.Seen.Target.PersonId.Should().Be(PersonId);
@@ -224,7 +224,7 @@ public class ConnectUnitTests
     var (service, _) = Service(new EchoTool(true, true));
     var unknown = await service.CallToolAsync(Principal("health:read"), Call("echo", new { word = "x", person = "Mallory" }), null);
     unknown.IsError.Should().BeTrue();
-    Text(unknown).Should().Contain("Members: Jonathan Barnell, Sam Barnell");
+    Text(unknown).Should().Contain("Members: Alex Morgan, Sam Morgan");
 
     var (ownOnly, _) = Service(new EchoTool(true, false));
     var refused = await ownOnly.CallToolAsync(Principal("health:read"), Call("echo", new { word = "x", person = "Sam" }), null);
