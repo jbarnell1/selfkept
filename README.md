@@ -14,9 +14,9 @@ watches, a ring and blood panels, on a machine you own.
 [![Stars](https://img.shields.io/github/stars/jbarnell1/selfkept)](https://github.com/jbarnell1/selfkept/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/jbarnell1/selfkept)](https://github.com/jbarnell1/selfkept/commits/main)
 
-<img src="docs/screenshots/phone-today.png" alt="Today: last night in one sentence, with sleep, HRV and resting heart rate against your own range" width="270">
-<img src="docs/screenshots/phone-trend.png" alt="A trend: HRV over 28 days against your own usual band" width="270">
-<img src="docs/screenshots/phone-labs.png" alt="Labs: blood results by group with sparklines and ranges" width="270">
+<img src="docs/screenshots/phone-today.png" alt="Today: last night in one sentence, with sleep, HRV and resting heart rate against your own range" width="256">
+<img src="docs/screenshots/phone-trend.png" alt="A trend: HRV over 28 days against your own usual band" width="256">
+<img src="docs/screenshots/phone-labs.png" alt="Labs: blood results by group with sparklines and ranges" width="256">
 
 <sub>Screenshots show an invented household ("Alex" and "Sam") with generated data.</sub>
 
@@ -68,8 +68,8 @@ record across devices and people that stays at home.
   summary for when you choose to show a cloud model something.
 
 <div align="center">
-<img src="docs/screenshots/phone-progress.png" alt="Progress: a goal with its pace and the date it would be reached" width="270">
-<img src="docs/screenshots/phone-household.png" alt="Household: each member with only the categories they share with you" width="270">
+<img src="docs/screenshots/phone-progress.png" alt="Progress: a goal with its pace and the date it would be reached" width="256">
+<img src="docs/screenshots/phone-household.png" alt="Household: each member with only the categories they share with you" width="256">
 </div>
 
 The same app runs in a desktop browser:
