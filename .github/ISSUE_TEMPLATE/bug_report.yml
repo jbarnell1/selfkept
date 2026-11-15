@@ -1,0 +1,63 @@
+name: Bug report
+description: Something does not work the way the docs or the app say it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Two things first:
+
+        - A security problem does not belong here. See SECURITY.md.
+        - Remove names, emails, tokens, server addresses and real health values from anything you paste or attach.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What `GET /api/system/version` on your server shows, or the image tag you run.
+      placeholder: 0.1.9
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options:
+        - Web app
+        - Android app
+        - iOS app
+        - Server or API
+        - Install, upgrade or backup
+        - Assistant or MCP
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Tap ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host and front door
+      description: The machine and how you reach it.
+      placeholder: Raspberry Pi 5, Debian 12, Docker 28, Tailscale Serve
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "`docker compose logs app --tail 100`, with anything private removed."
+      render: text
