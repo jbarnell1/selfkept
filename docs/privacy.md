@@ -53,7 +53,8 @@ Nothing, unless you cause it:
 - **Connections you set up.** Each is off until you configure it. Oura: the server signs in at
   `cloud.ouraring.com` and pulls that person's data from `api.ouraring.com`. A home model: the
   figures behind a sentence go to the address in `SELFKEPT_AI_BASE_URL`, so keep that on a
-  machine of yours. The evening reminder: a fixed text with no health values goes to the ntfy
+  machine of yours. With `SELFKEPT_AI_VISION` on, a photo a person picks in the assistant goes
+  to that same address, is read once and is not stored anywhere (`docs/photo-design.md`). The evening reminder: a fixed text with no health values goes to the ntfy
   address the person typed. Single sign-on: the server talks to your own provider. An assistant
   that names itself with a metadata address: the server fetches that one public document.
 - **One thing not yet checked on Android.** Lab photos are read on the phone with Google's ML Kit

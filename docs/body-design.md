@@ -6,8 +6,9 @@ entries, list the medicines and supplements they take, log one top set per lift 
 weight, body fat and waist, and read all of it back in one call. Five rules turn the same data
 into insight cards.
 
-It is a record and some arithmetic. It does not count calories, it does not plan training and it
-does not advise on medicines. Every number on the Progress tab is worked out on read from daily
+It is a record and some arithmetic. It does not count calories (the one exception is the numbers
+of a photo the person confirmed, `docs/photo-design.md`), it does not plan training and it does
+not advise on medicines. Every number on the Progress tab is worked out on read from daily
 summaries; nothing derived is stored.
 
 The sources behind the guidance figures quoted in the copy are in `docs/body-research.md`.
@@ -65,8 +66,10 @@ Index on `(person_id, sort_order)`. Nothing here is encrypted.
 | text_cipher | bytea null, encrypted |
 | tags | text[], plain, default empty |
 | portion | null, or `small`, `usual`, `large` (check) |
-| source | `chip`, `typed`, `assistant` or `checkin` (check), default `typed` |
+| source | `chip`, `typed`, `assistant`, `checkin` or `photo` (check, `photo` since 0022), default `typed` |
 | message_id | uuid null; the assistant message an entry came from |
+| nutrition_basis | null, or `estimate` or `label` (check, since 0022); where the numbers came from |
+| energy_kcal, protein_g, carbs_g, fat_g | numeric(7,1) null (since 0022); a confirmed photo's numbers |
 | created_at | |
 
 Indexes on `(person_id, day DESC)` and on `(message_id)` where it is not null.
@@ -288,7 +291,9 @@ it was judged on:
 
 The code calls this both the day log and the journal; the table is `journal_entry` and the route
 is `/api/journal`. An entry is a kind, optional short text in the person's own words, coarse tags
-and, for food and drink, a portion. No calories and no weighing of food.
+and, for food and drink, a portion. No weighing of food. The one place amounts come from is a
+photo the person confirmed (`docs/photo-design.md`): such a food or drink entry carries its
+numbers (see "Numbers from a photo" below).
 
 Built-in tags, by kind:
 
@@ -312,7 +317,7 @@ of their own on an entry; only built-in tags can be the subject of a target.
   that have no route in this package; an assistant save can be undone by its message id.
 - A list covers `from` to `to`, newest first, at most 500 entries. `to` defaults to today in the
   target person's time zone and `from` to 13 days before `to` (14 days in all).
-- Text is encrypted. Kind, tags, portion and source are plain.
+- Text is encrypted. Kind, tags, portion, source and the numbers are plain.
 
 Checks:
 
@@ -328,7 +333,29 @@ Checks:
 | a tag that is not 1 to 32 letters, digits or underscores | "Tags are 1 to 32 letters, digits or underscores." |
 | list with `from` after `to` | "from must not be after to." |
 
-Audit: `journal.created` (kind, tag count, source) and `journal.deleted` (kind). Never the text.
+Audit: `journal.created` (kind, tag count, source, and the basis when the entry has numbers) and
+`journal.deleted` (kind). Never the text and never a number.
+
+### Numbers from a photo
+
+`POST /api/journal` may carry `nutrition: { basis: "estimate" | "label", energyKcal?, proteinG?,
+carbsG?, fatG? }`. The entry's source is then `photo`. Each number is also written as a sample
+(`energy_intake_kcal`, `protein_g`, `carbs_g`, `fat_g`) under a per-person source named "Photo"
+(created on first use), so the day's totals, the Protein target and Progress count it. The entry,
+its samples, the day's summary and the Today cache change in one transaction. Deleting the entry
+(directly, or by undoing the assistant message it came from) removes its samples and recomputes
+the day. A household member sees the numbers with the entry, through the `checkins` grant; the
+samples are read like any other intake sample, under `body`.
+
+| Check | Message |
+| --- | --- |
+| nutrition on anything but food or drink | "Only food and drink have numbers." |
+| basis | "basis must be one of: estimate, label." |
+| no number | "Give at least one number, or leave nutrition out." |
+| energy outside 0 to 5000 kcal | "Energy must be between 0 and 5000 kcal." |
+| protein outside 0 to 400 g | "Protein must be between 0 and 400 g." |
+| carbohydrate outside 0 to 1000 g | "Carbohydrate must be between 0 and 1000 g." |
+| fat outside 0 to 500 g | "Fat must be between 0 and 500 g." |
 
 ## Medicines and supplements
 
@@ -426,7 +453,9 @@ Audit: `strength.saved` and `strength.deleted`, with the lift.
 
 ## Typed measurements
 
-Weight, body fat and waist can be typed in. Each reading is stored as an ordinary sample under a
+Weight, body fat and waist can be typed in, and so can the readings of a home device: blood
+pressure, pulse, temperature, glucose and oxygen (a confirmed photo of a device display arrives
+here too, `docs/photo-design.md`). Each reading is stored as an ordinary sample under a
 per-person source named "Typed in" (created on first use), so it flows through the same daily
 summaries, trends and rules as a reading from a scale.
 
@@ -435,6 +464,12 @@ summaries, trends and rules as a reading from a scale.
 | `weight_kg` | 20 to 400 kg |
 | `body_fat_pct` | 2 to 75 % |
 | `waist_cm` | 30 to 250 cm |
+| `blood_pressure_sys` | 50 to 300 mmHg |
+| `blood_pressure_dia` | 20 to 200 mmHg |
+| `heart_rate_bpm` | 20 to 250 bpm |
+| `body_temp_c` | 30 to 45 C |
+| `blood_glucose_mmol` | 1 to 40 mmol/L |
+| `spo2_pct` | 50 to 100 % |
 
 - Values are sent in the metric's own unit. `at` defaults to now.
 - Saving or deleting a reading recomputes that day's daily summary and drops the Today cache in
@@ -449,7 +484,7 @@ Checks:
 
 | Check | Message |
 | --- | --- |
-| metricKey | "metricKey must be one of: weight_kg, body_fat_pct, waist_cm." |
+| metricKey | "metricKey must be one of: weight_kg, body_fat_pct, waist_cm, blood_pressure_sys, blood_pressure_dia, heart_rate_bpm, body_temp_c, blood_glucose_mmol, spo2_pct." |
 | value outside the range | "{Metric name} must be between {min} and {max} {unit}." |
 | `at` more than an hour ahead | "at cannot be in the future." |
 | `at` more than 730 days back | "at cannot be more than two years ago." |
@@ -619,8 +654,10 @@ TargetTallyDto = { target: TargetDto, current?, met?: bool | null,
                    week: (bool | null)[7] (oldest first, today last), metDays, knownDays }
 GoalTallyDto = { day, goals: GoalDto[], targets: TargetTallyDto[] }
 
-JournalEntryDto = { id, at, day, kind, text?, tags: string[], portion?, source, messageId? }
-CreateJournalEntryRequest = { kind, text?, tags?, portion?, at? }
+JournalEntryDto = { id, at, day, kind, text?, tags: string[], portion?, source, messageId?,
+                    nutrition? }
+CreateJournalEntryRequest = { kind, text?, tags?, portion?, at?, nutrition? }
+JournalNutritionDto = { basis: "estimate" | "label", energyKcal?, proteinG?, carbsG?, fatG? }
 JournalTagGroupDto = { kind, tags: [{ tag, label }] }
 
 MedicationIngredientDto = { name, amount?, unit? }
@@ -699,7 +736,8 @@ Notes:
 ## What this package does not do
 
 - It does not count calories or weigh food. The day log holds words, tags and a coarse portion.
-  The nutrition metrics are only what another app logged on the phone.
+  The nutrition metrics are what another app logged on the phone, plus the numbers of a photo the
+  person confirmed (`docs/photo-design.md`); nothing else writes them.
 - It does not advise on medicines. The list is a record and a substance tag only explains a
   reading.
 - It is not a gym tracker: one top set per lift per day, and the estimated best is only for

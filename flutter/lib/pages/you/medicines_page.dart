@@ -251,7 +251,11 @@ class _IngredientRow {
 class MedicationEditor extends StatefulWidget {
   final Medication? item;
 
-  const MedicationEditor({super.key, this.item});
+  /// Starting values for a new item, such as a label a photo read. Nothing
+  /// is saved until the person saves the form.
+  final MedicationDraft? prefill;
+
+  const MedicationEditor({super.key, this.item, this.prefill});
 
   static const String newTitle = 'Add to the list';
   static const String editTitle = 'Edit';
@@ -281,7 +285,11 @@ class MedicationEditor extends StatefulWidget {
   static const String notSure = 'Not sure';
   static const int maxIngredients = 40;
 
-  static Future<bool> open(BuildContext context, {Medication? item}) async {
+  static Future<bool> open(
+    BuildContext context, {
+    Medication? item,
+    MedicationDraft? prefill,
+  }) async {
     final meds = context.read<MedicationsProvider>();
     meds.clearSaveError();
     final saved = await Navigator.of(context).push<bool>(
@@ -289,7 +297,7 @@ class MedicationEditor extends StatefulWidget {
         fullscreenDialog: true,
         builder: (_) => ChangeNotifierProvider.value(
           value: meds,
-          child: MedicationEditor(item: item),
+          child: MedicationEditor(item: item, prefill: prefill),
         ),
       ),
     );
@@ -319,16 +327,20 @@ class _MedicationEditorState extends State<MedicationEditor> {
   void initState() {
     super.initState();
     final item = widget.item;
-    _kind = item?.kind ?? MedicationKind.supplement;
-    _schedule = item?.schedule ?? MedicationSchedule.daily;
-    _generic = item?.generic;
-    _startedOn = item?.startedOn;
-    _stoppedOn = item?.stoppedOn;
-    _brand.text = item?.brand ?? '';
-    _product.text = item?.product ?? '';
-    _dose.text = item?.dose ?? '';
-    _scheduleNote.text = item?.scheduleNote ?? '';
-    for (final i in item?.ingredients ?? const <MedicationIngredient>[]) {
+    final prefill = item == null ? widget.prefill : null;
+    _kind = item?.kind ?? prefill?.kind ?? MedicationKind.supplement;
+    _schedule = item?.schedule ?? prefill?.schedule ?? MedicationSchedule.daily;
+    _generic = item?.generic ?? prefill?.generic;
+    _startedOn = item?.startedOn ?? prefill?.startedOn;
+    _stoppedOn = item?.stoppedOn ?? prefill?.stoppedOn;
+    _brand.text = item?.brand ?? prefill?.brand ?? '';
+    _product.text = item?.product ?? prefill?.product ?? '';
+    _dose.text = item?.dose ?? prefill?.dose ?? '';
+    _scheduleNote.text = item?.scheduleNote ?? prefill?.scheduleNote ?? '';
+    for (final i
+        in item?.ingredients ??
+            prefill?.ingredients ??
+            const <MedicationIngredient>[]) {
       _ingredients.add(
         _IngredientRow(
           name: i.name,

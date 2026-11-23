@@ -5,15 +5,17 @@ namespace SelfKept.Infrastructure.Services.Assistant;
 
 /// <summary>
 /// The meta JSON on a message: what it saved (ids, kinds and tags only), whether that was undone,
-/// the check-in topic it answered, why a reply was replaced, and on a cloud answer the id of its
-/// lookup (and nothing else). Never free text.
+/// the check-in topic it answered, why a reply was replaced, on a cloud answer the id of its
+/// lookup, and on a message sent with a photo the photo's kind (never its description, which is
+/// in the encrypted content). Never free text.
 /// </summary>
 public sealed record AssistantMeta(
   IReadOnlyList<CaptureRefDto>? Captures = null,
   bool? Undone = null,
   string? Topic = null,
   string? Reason = null,
-  Guid? LookupId = null)
+  Guid? LookupId = null,
+  string? Photo = null)
 {
   public const string Journal = "journal";
   public const string Memory = "memory";

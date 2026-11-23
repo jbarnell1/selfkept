@@ -11,10 +11,15 @@ class AssistantStatus {
   final String? model;
   final bool reachable;
 
+  /// Photos are turned on and the model settings are usable. The photo
+  /// button shows only then.
+  final bool photos;
+
   const AssistantStatus({
     this.enabled = false,
     this.model,
     this.reachable = false,
+    this.photos = false,
   });
 
   /// True when the home model is set up and answered just now. Otherwise the
@@ -27,6 +32,7 @@ class AssistantStatus {
       enabled: r.boolean('enabled'),
       model: r.stringOrNull('model'),
       reachable: r.boolean('reachable'),
+      photos: r.boolean('photos'),
     );
   }
 }

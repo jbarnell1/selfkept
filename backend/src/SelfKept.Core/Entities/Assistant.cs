@@ -170,6 +170,26 @@ public static class AssistantAuditActions
   public const string LookupDisabled = "assistant.lookup_disabled";
   public const string LookupSent = "assistant.lookup_sent";
   public const string LookupDeleted = "assistant.lookup_deleted";
+  /// <summary>A photo was read by the home model (docs/photo-design.md). Details: the kind and nothing else.</summary>
+  public const string PhotoAnalyzed = "assistant.photo_analyzed";
+}
+
+/// <summary>What a photo can be (docs/photo-design.md).</summary>
+public static class PhotoKinds
+{
+  public const string Meal = "meal";
+  public const string NutritionLabel = "nutrition_label";
+  public const string MedicineLabel = "medicine_label";
+  public const string DeviceDisplay = "device_display";
+  public const string LabReport = "lab_report";
+  public const string Other = "other";
+
+  public static readonly string[] All = [Meal, NutritionLabel, MedicineLabel, DeviceDisplay, LabReport, Other];
+
+  public static bool IsKnown(string? kind) => kind != null && Array.IndexOf(All, kind) >= 0;
+
+  /// <summary>The 400 message for a kind that is not one of these.</summary>
+  public static string KindMessage => $"kind must be one of: {string.Join(", ", All)}.";
 }
 
 /// <summary>Purposes written to ai_call for assistant work (32 characters at most).</summary>
@@ -185,6 +205,10 @@ public static class AssistantAiPurposes
   public const string LookupApplied = "assistant_lookup_applied";
   /// <summary>The local model rewording an anonymized draft into a general research question.</summary>
   public const string LookupDraft = "assistant_lookup_draft";
+  /// <summary>The home model saying what kind of photo it is looking at (docs/photo-design.md).</summary>
+  public const string PhotoSort = "assistant_photo_sort";
+  /// <summary>The home model reading one photo as its kind.</summary>
+  public const string PhotoRead = "assistant_photo_read";
 }
 
 /// <summary>The states GET /api/assistant/checkin/today reports.</summary>

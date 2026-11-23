@@ -30,11 +30,19 @@ class LabEntryPage extends StatefulWidget {
   /// Replaceable so a test can choose whether scanning is available.
   final TextScanner? scanner;
 
-  /// Candidates already read, as if a scan had just finished. For tests.
-  @visibleForTesting
+  /// Candidates already read, as if a scan had just finished: a photo the
+  /// home model read, or a test.
   final ParseResult? prefill;
 
-  const LabEntryPage({super.key, this.scanner, this.prefill});
+  /// Who drew the panel the [prefill] came from: rythm, manual or other.
+  final String prefillProvider;
+
+  const LabEntryPage({
+    super.key,
+    this.scanner,
+    this.prefill,
+    this.prefillProvider = 'rythm',
+  });
 
   static const String readingText = 'Reading the results...';
   static const String keepLabel = 'Keep these results';
@@ -85,7 +93,7 @@ class _LabEntryPageState extends State<LabEntryPage> {
     final prefill = widget.prefill;
     if (prefill != null) {
       _candidates = prefill.bestByMetric();
-      _provider = 'rythm';
+      _provider = widget.prefillProvider;
     }
     _stage = (_scanner.available && prefill == null)
         ? _Stage.choose
@@ -252,10 +260,12 @@ class _LabEntryPageState extends State<LabEntryPage> {
     showMessage(messenger, 'Kept.');
   }
 
+  /// After a save. Pops true, so a page that opened the review knows the
+  /// panel was kept.
   void _leave() {
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
-      navigator.pop();
+      navigator.pop(true);
     } else {
       GoRouter.maybeOf(context)?.go('/labs');
     }

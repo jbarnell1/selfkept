@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart' show FormData;
+
 import 'package:selfkept/models/user.dart';
 import 'package:selfkept/services/api_client.dart';
 import 'package:selfkept/utils/api_error.dart';
@@ -86,6 +88,14 @@ class FakeApiClient implements ApiClient {
   @override
   Future<T> post<T>(String path, {Object? data, FromBody<T>? fromJson}) =>
       _dispatch('POST', path, data, fromJson);
+
+  @override
+  Future<T> postForm<T>(
+    String path, {
+    required FormData data,
+    Duration? receiveTimeout,
+    FromBody<T>? fromJson,
+  }) => _dispatch('POST', path, data, fromJson);
 
   @override
   Future<T> put<T>(String path, {Object? data, FromBody<T>? fromJson}) =>

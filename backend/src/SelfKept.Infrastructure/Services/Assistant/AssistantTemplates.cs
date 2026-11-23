@@ -44,6 +44,20 @@ public static class AssistantTemplates
       "I held that answer back because it did not pass my checks. Here is what your record says.",
       FactsText(facts));
 
+  /// <summary>When the message came with a photo and the model is off or cannot be reached: what the photo shows.</summary>
+  public static string PhotoUnavailable(string description, bool saved) =>
+    Join(
+      saved ? "Saved to today's log." : null,
+      "The model is not reachable right now, so I cannot say more about the photo. Here is what it shows.",
+      description);
+
+  /// <summary>When the message came with a photo and the guard refused the model's answer: what the photo shows.</summary>
+  public static string PhotoRefused(string description, bool saved) =>
+    Join(
+      saved ? "Saved to today's log." : null,
+      "I held that answer back because it did not pass my checks. Here is what the photo shows.",
+      description);
+
   private static string FactsText(BriefFacts facts)
   {
     var parts = new List<string?> { facts.SleepText };

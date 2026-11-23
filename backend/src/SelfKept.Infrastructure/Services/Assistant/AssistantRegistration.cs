@@ -28,6 +28,7 @@ public static class AssistantRegistration
     services.AddScoped<IMorningBriefService, MorningBriefService>();
     services.AddScoped<INudgeService, NudgeService>();
     services.AddScoped<IModelCheckService, ModelCheckService>();
+    services.AddScoped<IPhotoAnalyzer, PhotoAnalyzer>();
     services.AddHttpClient(NtfySender.HttpClientName)
       .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
     services.AddScoped<INtfySender, NtfySender>();

@@ -57,6 +57,10 @@ record across devices and people that stays at home.
   before it, and a PDF to take to a clinician.
 - **Goals and the things that move them.** Goals with a pace, daily and weekly targets, a
   strength log, medicines and supplements, and a day log.
+- **Photos, read at home.** Show the assistant a meal, a nutrition label, a medicine bottle, a
+  scale or cuff display or a lab report. The model you run reads the photo once, you check what
+  it found and save it, and the photo is not kept. A meal's calories and macros are a rough
+  guess and say so.
 - **Private assistants.** An in-app assistant worded by a model you run (Ollama or any
   OpenAI-compatible server; templates when there is none), and an MCP endpoint at `/mcp` with
   OAuth 2.1 and per-person consent so Open WebUI can answer questions about your data. Every
@@ -113,7 +117,7 @@ Every outbound connection the server can make, all off until you set them up:
 | What | When | Where it goes | What is sent |
 | --- | --- | --- | --- |
 | Oura | The admin enters an Oura API application and a person connects their ring | `cloud.ouraring.com` (sign-in), `api.ouraring.com` | Sign-in and requests for that person's Oura data. Data comes in; no health data is sent out. |
-| Home model | You set `SELFKEPT_AI_ENABLED` and a base URL | The address you set, meant to be Ollama on your own hardware | The figures behind an insight or an assistant reply, to be worded. It goes wherever that URL points, so keep it on a machine of yours. |
+| Home model | You set `SELFKEPT_AI_ENABLED` and a base URL | The address you set, meant to be Ollama on your own hardware | The figures behind an insight or an assistant reply, to be worded. With `SELFKEPT_AI_VISION` on, also a photo a person picks in the assistant, read once and not kept. It goes wherever that URL points, so keep it on a machine of yours. |
 | Cloud lookup | You set `SELFKEPT_LOOKUP_ENABLED` and your own key, and then each person turns it on for themselves | `api.anthropic.com` | One question at a time, exactly the text the person read on screen and sent with a button. By default names, contact details, dates and exact numbers are taken out; the person can choose to add an "About me" summary. |
 | Evening reminder | A person enters their own ntfy topic | The ntfy address they typed | A fixed reminder text. No health values. |
 | Single sign-on | You set an OpenID Connect provider | Your provider | The usual sign-in exchange. |
@@ -125,8 +129,9 @@ Other things to know:
   allowed, and nothing else. Connect a model you run and the data stays in your house. Connect a
   cloud assistant and what it asks for goes to that company.
 - **The phone apps talk to your server only.** There is no push service (no Firebase Cloud
-  Messaging, no Apple push). Lab photos are read on the phone with Google's ML Kit and are not
-  uploaded for recognition. Google documents that the ML Kit SDK itself reports usage metrics to
+  Messaging, no Apple push). Lab photos scanned on the Labs page are read on the phone with Google's ML Kit and are not
+  uploaded for recognition; a photo picked in the assistant goes to your server and the model
+  you run, when the owner has turned photos on. Google documents that the ML Kit SDK itself reports usage metrics to
   Google; this has not been measured or switched off in the Android app yet.
 - **Getting the software** reaches GitHub Container Registry and Docker Hub for the images, and
   GitHub for the release files. Tailscale's coordination servers see device keys and addresses,
@@ -147,6 +152,7 @@ Everything is optional and lives in `.env` next to `compose.yaml`. The ones that
 | `SELFKEPT_PORT`, `SELFKEPT_BIND` | `8080`, `127.0.0.1` | Where the app listens on the host. Loopback keeps it off your LAN. |
 | `SELFKEPT_VERSION` | `latest` | Which release to run. Pin a number to upgrade on purpose. |
 | `SELFKEPT_AI_ENABLED`, `SELFKEPT_AI_BASE_URL`, `SELFKEPT_AI_MODEL` | off | A model you run rewrites insight sentences and words the assistant. |
+| `SELFKEPT_AI_VISION` | off | The assistant takes photos and the model you run reads them. Needs a model that takes images. |
 | `SELFKEPT_OURA_CLIENT_ID`, `SELFKEPT_OURA_CLIENT_SECRET` | empty | Turns Oura on (or enter them in the app). |
 | `SELFKEPT_SSO_AUTHORITY`, `SELFKEPT_SSO_CLIENT_ID`, `SELFKEPT_SSO_CLIENT_SECRET` | empty | Sign in through Pocket ID, Authelia, Authentik or another OpenID Connect provider. |
 | `SELFKEPT_LOOKUP_ENABLED`, `SELFKEPT_LOOKUP_API_KEY` | off | The opt-in cloud lookup described above. |
@@ -190,6 +196,7 @@ run into a Docker volume. The full list is in [selfhost/.env.example](selfhost/.
 | [docs/body-design.md](docs/body-design.md) | Goals, targets, the day log, medicines, strength and Progress |
 | [docs/body-research.md](docs/body-research.md) | The sources behind every guidance figure in the body package |
 | [docs/assistant-design.md](docs/assistant-design.md) | The in-app assistant: chat, capture, the guard, check-in, brief, reminders |
+| [docs/photo-design.md](docs/photo-design.md) | Photos read by the model you run: what a photo can be, what is kept (nothing), the checks |
 | [docs/lookup-design.md](docs/lookup-design.md) | The opt-in cloud lookup: consent, the scrubber, what is sent |
 | [docs/connect-design.md](docs/connect-design.md) | The MCP server, OAuth 2.1 and Oura |
 | [docs/retention-design.md](docs/retention-design.md) | How old heart rate is folded so the database stays small |
@@ -204,7 +211,7 @@ run into a Docker volume. The full list is in [selfhost/.env.example](selfhost/.
 
 ## Project status and roadmap
 
-Pre-release, v0.1.9. It runs one household's data today, so expect rough edges.
+Pre-release, v0.1.10. It runs one household's data today, so expect rough edges.
 
 - **Works:** the server, the web app, and the Android app on a real phone (a Pixel with Health
   Connect).
