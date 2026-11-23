@@ -4,8 +4,11 @@ namespace SelfKept.Core.DTOs;
 
 // The in-app assistant (docs/assistant-design.md). Everything here is the caller's own.
 
-/// <summary>GET /api/assistant/status. Reachable is false whenever Enabled is false.</summary>
-public sealed record AssistantStatusDto(bool Enabled, string? Model, bool Reachable);
+/// <summary>
+/// GET /api/assistant/status. Reachable is false whenever Enabled is false. Photos is true when
+/// the owner turned photos on (Ai:Vision) and the model settings are usable (docs/photo-design.md).
+/// </summary>
+public sealed record AssistantStatusDto(bool Enabled, string? Model, bool Reachable, bool Photos = false);
 
 public sealed record ConversationSummaryDto(
   Guid Id,
@@ -45,7 +48,14 @@ public sealed record ConversationDto(
 
 public sealed record CreateConversationRequest([MaxLength(80)] string? Title);
 
-public sealed record SendMessageRequest([Required, MaxLength(2000)] string Text);
+/// <summary>
+/// POST /api/assistant/conversations/{id}/messages. Text may be empty when a photo goes with it;
+/// it then stands as "What is in this photo?" (docs/photo-design.md).
+/// </summary>
+public sealed record SendMessageRequest([MaxLength(2000)] string? Text, MessagePhotoDto? Photo = null);
+
+/// <summary>What a photo showed, as POST /api/assistant/photos described it. The photo itself never comes back.</summary>
+public sealed record MessagePhotoDto(string? Kind, [MaxLength(300)] string? Description);
 
 /// <summary>SSE event "capture": what the user message saved, sent before the reply starts.</summary>
 public sealed record CaptureEventDto(

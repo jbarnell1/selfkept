@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 
 import '../models/assistant.dart';
 import '../models/assistant_lookup.dart';
+import '../models/journal.dart';
+import '../models/photo.dart';
+import '../services/assistant_service.dart';
 import '../utils/api_error.dart';
 import 'assistant_chat_session.dart';
 
@@ -51,17 +54,52 @@ class AssistantChatProvider extends ChatSession {
       ..addAll(conversation.messages.map(ChatItem.fromMessage));
   }
 
+  /// The `other` photo card waiting for a question, if any: the next
+  /// message goes with what it shows, and may then be empty.
+  ChatItem? get pendingPhoto {
+    for (final item in items.reversed) {
+      final photo = item.photo;
+      if (photo != null &&
+          photo.stage == PhotoStage.ready &&
+          photo.shownKind == PhotoKind.other) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  /// True while the home model is looking at a photo. One at a time.
+  bool get photoReading =>
+      items.any((i) => i.photo?.stage == PhotoStage.reading);
+
   @override
-  Future<bool> send(String text) async {
-    final words = text.trim();
-    if (words.isEmpty || !canSend) return false;
+  Future<bool> send(String text) {
+    final pending = pendingPhoto;
+    final result = pending?.photo?.result;
+    final note = result == null
+        ? null
+        : PhotoNote(kind: PhotoKind.other, description: result.description);
+    return _send(text.trim(), photo: note, photoItem: pending);
+  }
+
+  Future<bool> _send(
+    String words, {
+    PhotoNote? photo,
+    ChatItem? photoItem,
+  }) async {
+    if ((words.isEmpty && photo == null) || !canSend) return false;
     sendError = null;
     final user = ChatItem(
       key: nextKey(),
       role: MessageRole.user,
       text: words,
       origin: MessageOrigin.code,
+      sentPhoto: photo,
     );
+    // The card gives way to the message; it comes back if the server
+    // refuses before saving anything.
+    final photoAt = photoItem == null ? -1 : items.indexOf(photoItem);
+    if (photoAt >= 0) items.removeAt(photoAt);
     final reply = ChatItem(
       key: nextKey(),
       role: MessageRole.assistant,
@@ -83,9 +121,10 @@ class AssistantChatProvider extends ChatSession {
     }
 
     _reply = service
-        .send(conversationId, words)
+        .send(conversationId, words, photo: photo)
         .listen(
           (event) {
+            if (!started) photoItem?.photo?.bytes = null;
             started = true;
             switch (event) {
               case CaptureEvent():
@@ -118,14 +157,19 @@ class AssistantChatProvider extends ChatSession {
               items
                 ..remove(user)
                 ..remove(reply);
+              if (photoAt >= 0) {
+                items.insert(photoAt.clamp(0, items.length), photoItem!);
+              }
               sendError = describeError(e);
               end(false);
               return;
             }
+            photoItem?.photo?.bytes = null;
             reply.state = ChatItemState.dropped;
             end(true);
           },
           onDone: () {
+            photoItem?.photo?.bytes = null;
             if (!finished) reply.state = ChatItemState.dropped;
             end(true);
           },
@@ -150,7 +194,130 @@ class AssistantChatProvider extends ChatSession {
       ..remove(reply)
       ..remove(user);
     notify();
-    return send(user.text);
+    return _send(user.text, photo: user.sentPhoto);
+  }
+
+  /// Puts a picked photo in the thread and asks the home model to read it.
+  Future<void> readPhoto(Uint8List bytes, {PhotoKind? kind}) async {
+    if (photoReading) return;
+    final item = ChatItem(
+      key: nextKey(),
+      role: MessageRole.user,
+      photo: PhotoRead(bytes: bytes, asked: kind),
+    );
+    items.add(item);
+    await _read(item);
+  }
+
+  /// "Not right?": the same picture, read again as [kind].
+  Future<void> rereadPhoto(ChatItem item, PhotoKind kind) async {
+    final photo = item.photo;
+    if (photo == null || photo.bytes == null) return;
+    photo.asked = kind;
+    await _read(item);
+  }
+
+  /// "Try again" after a failed read, with the kind asked last time.
+  Future<void> retryPhoto(ChatItem item) => _read(item);
+
+  Future<void> _read(ChatItem item) async {
+    final photo = item.photo;
+    final bytes = photo?.bytes;
+    if (photo == null || bytes == null) return;
+    final attempt = ++photo.attempt;
+    photo
+      ..stage = PhotoStage.reading
+      ..error = null
+      ..saveError = null;
+    notify();
+    if (bytes.length > AssistantService.maxPhotoBytes) {
+      // The server refuses it anyway; saying so here spares a long upload.
+      photo
+        ..error = 'The photo is larger than 6 MB.'
+        ..stage = PhotoStage.failed;
+      notify();
+      return;
+    }
+    try {
+      final result = await service.analyzePhoto(bytes, kind: photo.asked);
+      if (attempt != photo.attempt || photo.bytes == null) return;
+      photo
+        ..result = result
+        ..stage = PhotoStage.ready;
+    } catch (e) {
+      if (attempt != photo.attempt || photo.bytes == null) return;
+      debugPrint('The photo was not read: $e');
+      photo
+        ..error = describeError(e)
+        ..stage = PhotoStage.failed;
+    }
+    notify();
+  }
+
+  /// Discard: the card goes and the picture leaves memory.
+  void discardPhoto(ChatItem item) {
+    final photo = item.photo;
+    if (photo == null) return;
+    photo
+      ..bytes = null
+      ..attempt += 1;
+    items.remove(item);
+    notify();
+  }
+
+  /// Marks a save as on its way, or clears it with the server's reason.
+  void photoSaving(ChatItem item, {required bool saving, String? error}) {
+    final photo = item.photo;
+    if (photo == null) return;
+    photo
+      ..saving = saving
+      ..saveError = error;
+    notify();
+  }
+
+  /// The proposal was saved. The card turns into [line]; [entryId], for a
+  /// day log entry, is what Undo removes.
+  void photoSaved(
+    ChatItem item, {
+    required String line,
+    JournalKind? kind,
+    String? entryId,
+  }) {
+    final photo = item.photo;
+    if (photo == null) return;
+    photo
+      ..bytes = null
+      ..saving = false
+      ..saveError = null
+      ..stage = PhotoStage.saved
+      ..savedLine = line
+      ..savedKind = kind
+      ..savedEntryId = entryId;
+    notify();
+  }
+
+  /// Undo on a saved photo: [remove] deletes the entry; true when it did.
+  Future<bool> undoPhoto(
+    ChatItem item,
+    Future<bool> Function(String entryId) remove, {
+    String? Function()? why,
+  }) async {
+    final photo = item.photo;
+    final id = photo?.savedEntryId;
+    if (photo == null || id == null || photo.undoing || photo.undone) {
+      return false;
+    }
+    photo
+      ..undoing = true
+      ..undoError = null;
+    notify();
+    final ok = await remove(id);
+    photo
+      ..undoing = false
+      ..undone = ok
+      ..undoError = ok ? null : why?.call();
+    notify();
+    return ok;
   }
 
   /// Adds a cloud answer the lookup sheet brought back, and the home

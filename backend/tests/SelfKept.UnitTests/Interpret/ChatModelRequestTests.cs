@@ -113,6 +113,116 @@ public class ChatModelRequestTests
     OpenAiCompatibleChatModel.SplitHeader(header).Should().BeNull();
   }
 
+  [Fact]
+  public async Task BuildRequest_TextOnlyTurns_AreStillPlainStrings()
+  {
+    using var request = Model(new AiOptions()).BuildRequest(Turns, new ChatOptions(0.4, 400), stream: false);
+
+    var messages = (await BodyAsync(request)).GetProperty("messages");
+    messages.EnumerateArray().Should().OnlyContain(m => m.GetProperty("content").ValueKind == JsonValueKind.String);
+    messages[1].GetProperty("content").GetString().Should().Be("Say hello.");
+    (await BodyAsync(request)).TryGetProperty("response_format", out _).Should().BeFalse();
+  }
+
+  [Fact]
+  public async Task BuildRequest_TurnWithAPhoto_IsSentAsATextPartAndADataUrl()
+  {
+    byte[] photo = [0xFF, 0xD8, 0xFF, 0x01, 0x02];
+    IReadOnlyList<ChatTurn> turns =
+    [
+      new(ChatTurn.System, "Answer with JSON only."),
+      new(ChatTurn.User, "Here is the photo.", [new ChatImage("image/jpeg", photo)]),
+    ];
+
+    using var request = Model(new AiOptions()).BuildRequest(turns, new ChatOptions(0.1, 200, JsonMode: true, Vision: true), stream: false);
+
+    var messages = (await BodyAsync(request)).GetProperty("messages");
+    messages[0].GetProperty("content").GetString().Should().Be("Answer with JSON only.");
+    var parts = messages[1].GetProperty("content");
+    parts.GetArrayLength().Should().Be(2);
+    parts[0].GetProperty("type").GetString().Should().Be("text");
+    parts[0].GetProperty("text").GetString().Should().Be("Here is the photo.");
+    parts[1].GetProperty("type").GetString().Should().Be("image_url");
+    parts[1].GetProperty("image_url").GetProperty("url").GetString().Should().Be("data:image/jpeg;base64," + Convert.ToBase64String(photo));
+  }
+
+  [Fact]
+  public async Task BuildRequest_PhotoCall_StillHasAStatedLength()
+  {
+    IReadOnlyList<ChatTurn> turns = [new(ChatTurn.User, "Here is the photo.", [new ChatImage("image/png", new byte[200_000])])];
+
+    using var request = Model(new AiOptions()).BuildRequest(turns, new ChatOptions(0.1, 200, JsonMode: true, Vision: true), stream: false);
+
+    var bytes = await request.Content!.ReadAsByteArrayAsync();
+    request.Content.Should().BeOfType<ByteArrayContent>();
+    request.Content.Headers.ContentLength.Should().Be(bytes.Length);
+    bytes.Length.Should().BeGreaterThan(200_000);
+  }
+
+  [Fact]
+  public async Task BuildRequest_JsonMode_AsksForAJsonObject()
+  {
+    using var request = Model(new AiOptions()).BuildRequest(Turns, new ChatOptions(0.1, 200, JsonMode: true), stream: false);
+
+    (await BodyAsync(request)).GetProperty("response_format").GetProperty("type").GetString().Should().Be("json_object");
+  }
+
+  [Fact]
+  public async Task BuildRequest_VisionModelSet_GoesOnlyWithPhotoCalls()
+  {
+    var model = Model(new AiOptions { VisionModel = " qwen-vl " });
+
+    using var photo = model.BuildRequest(Turns, new ChatOptions(0.1, 200, Vision: true), stream: false);
+    using var text = model.BuildRequest(Turns, new ChatOptions(0.1, 200), stream: false);
+
+    (await BodyAsync(photo)).GetProperty("model").GetString().Should().Be("qwen-vl");
+    (await BodyAsync(text)).GetProperty("model").GetString().Should().Be("test-model");
+  }
+
+  [Fact]
+  public async Task BuildRequest_VisionModelEmpty_PhotoCallsUseTheModel()
+  {
+    using var request = Model(new AiOptions()).BuildRequest(Turns, new ChatOptions(0.1, 200, Vision: true), stream: false);
+
+    (await BodyAsync(request)).GetProperty("model").GetString().Should().Be("test-model");
+  }
+
+  [Fact]
+  public void BuildRequest_PhotoCall_SendsTheInteractiveHeader()
+  {
+    using var request = Model(new AiOptions { InteractiveHeader = "X-GPU-Priority: interactive" })
+      .BuildRequest(Turns, new ChatOptions(0.1, 200, JsonMode: true, Vision: true), stream: false);
+
+    request.Headers.GetValues("X-GPU-Priority").Should().Equal("interactive");
+  }
+
+  [Fact]
+  public void TimeoutFor_PhotoCall_UsesTheVisionTimeout()
+  {
+    var model = Model(new AiOptions { TimeoutSeconds = 20, VisionTimeoutSeconds = 90 });
+
+    model.TimeoutFor(new ChatOptions(Vision: true)).Should().Be(TimeSpan.FromSeconds(90));
+    model.TimeoutFor(new ChatOptions()).Should().Be(TimeSpan.FromSeconds(20));
+  }
+
+  [Theory]
+  [InlineData(true, true, true)]
+  [InlineData(false, true, false)]
+  [InlineData(true, false, false)]
+  public void VisionEnabled_NeedsVisionAndAUsableModel(bool vision, bool enabled, bool expected)
+  {
+    var options = new AiOptions { Vision = vision, Model = "test-model" };
+    options.Enabled = enabled;
+
+    new OpenAiCompatibleChatModel(new Factory(), Options.Create(options)).VisionEnabled.Should().Be(expected);
+  }
+
+  [Fact]
+  public void ChatImage_ToString_NeverShowsTheBytes()
+  {
+    new ChatImage("image/jpeg", [1, 2, 3]).ToString().Should().Be("image/jpeg, 3 bytes");
+  }
+
   [RequiresModelFact]
   public async Task CompleteAsync_ThinkingModelWithReasoningOff_AnswersInsideASmallLimit()
   {

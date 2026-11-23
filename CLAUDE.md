@@ -26,6 +26,7 @@ Self-hosted household health app. C# .NET 10 API, Flutter 3.44 clients (iOS, And
 | In-app assistant: chat, capture, guard, check-in, brief, playbook, nudges, API | `docs/assistant-design.md` |
 | Body and goals: goals, targets, tally, day log, medicines, strength, measurements, Progress | `docs/body-design.md`, `docs/body-research.md` |
 | Cloud lookup: the opt-in question to a cloud model, consent, scrubber, API | `docs/lookup-design.md` |
+| Photos read by the home model: kinds, privacy, settings, checks, journal numbers, API | `docs/photo-design.md` |
 | Lab review, draw conditions, trials, link catalogue, cross-reference rules, household overview | `docs/labs-design.md`, `docs/cross-reference.md` |
 | Backend conventions | `.claude/rules/backend.md` |
 | Flutter conventions | `.claude/rules/flutter.md` |

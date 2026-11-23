@@ -126,8 +126,8 @@ Full shapes, checks and defaults: `docs/body-design.md`, "API". Migrations 0013 
 | DELETE | `/targets/{id}` | | 204; 404 "No such target." | own |
 | GET | `/journal?from&to&personId` | | `JournalEntryDto[]` newest first; default the last 14 days | checkins |
 | GET | `/journal/tags` | | `JournalTagGroupDto[]`, the built-in tag chips by kind | none (catalogue) |
-| POST | `/journal` | `CreateJournalEntryRequest` | `JournalEntryDto` | own |
-| DELETE | `/journal/{id}` | | 204; 404 "No such journal entry." | own |
+| POST | `/journal` | `CreateJournalEntryRequest`, optionally with `nutrition` (`docs/photo-design.md`) | `JournalEntryDto`; with `nutrition` the source is `photo` and each number is also a sample under the person's "Photo" source | own |
+| DELETE | `/journal/{id}` | | 204, an entry's numbers and their samples go with it and the day is recomputed; 404 "No such journal entry." | own |
 | GET | `/medications?personId` | | `MedicationDto[]`, current items first | labs |
 | POST | `/medications` | `SaveMedicationRequest` | `MedicationDto` | own |
 | PUT | `/medications/{id}` | `SaveMedicationRequest` | `MedicationDto`; 404 "No such item." | own |
@@ -136,12 +136,13 @@ Full shapes, checks and defaults: `docs/body-design.md`, "API". Migrations 0013 
 | POST | `/strength` | `SaveStrengthSetRequest` | `StrengthSetDto`; the same lift on the same day replaces it | own |
 | DELETE | `/strength/{id}` | | 204; 404 "No such set." | own |
 | GET | `/body/measurements?metricKey` | | `MeasurementDto[]`, the caller's own typed readings, newest first; `metricKey` required | own only |
-| POST | `/body/measurements` | `{ metricKey, value, at? }` | `MeasurementDto`; stored as an ordinary sample | own |
+| POST | `/body/measurements` | `{ metricKey, value, at? }`; `weight_kg`, `body_fat_pct`, `waist_cm`, `blood_pressure_sys`, `blood_pressure_dia`, `heart_rate_bpm`, `body_temp_c`, `blood_glucose_mmol`, `spo2_pct` | `MeasurementDto`; stored as an ordinary sample | own |
 | DELETE | `/body/measurements/{metricKey}/{id}` | | 204; 404 "No such measurement." | own |
 | GET | `/progress?personId` | | `ProgressDto`: goals, tally, body snapshot, series, strength, suggestions | body; `strength` empty unless activity too, `suggestions` empty for anyone but the person |
 
 Someone else's typed measurements are read through the usual sample and summary endpoints under
-`body`.
+the metric's own category (`body` or `vitals`). A day log entry's numbers come with the entry,
+under `checkins`; their samples are read like any other intake sample, under `body`.
 
 ## Assistant
 
@@ -151,12 +152,13 @@ household.
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
-| GET | `/assistant/status` | | `{ enabled, model?, reachable }` |
+| GET | `/assistant/status` | | `{ enabled, model?, reachable, photos }`; `photos` is true when `Ai:Vision` is on and the model settings are usable |
 | GET | `/assistant/conversations` | | `ConversationSummaryDto[]`, up to 50, most recently updated first |
 | POST | `/assistant/conversations` | `{ title? }` (max 80) or empty | `ConversationSummaryDto` |
 | GET | `/assistant/conversations/{id}` | | `ConversationDto` with every message, oldest first; 404 "No such conversation." |
 | DELETE | `/assistant/conversations/{id}` | | 204; day log entries it saved stay. 404 "No such conversation." |
-| POST | `/assistant/conversations/{id}/messages` | `{ text }` (1 to 2000) | `text/event-stream`, see below. Errors before the stream starts are problem details; 404 "No such conversation." |
+| POST | `/assistant/conversations/{id}/messages` | `{ text, photo? }` (text 1 to 2000, or empty with `photo`; `photo` is `{ kind, description }`, description at most 300) | `text/event-stream`, see below. Errors before the stream starts are problem details; 404 "No such conversation." |
+| POST | `/assistant/photos` | `multipart/form-data`: `image` (JPEG, PNG or WebP, at most 6 MB), `kind?`, `note?` (at most 300) | `PhotoAnalysisDto`, a proposal; nothing is saved. 400, 409 photos off, 422 unreadable, 503 model not answering. See `docs/photo-design.md` |
 | DELETE | `/assistant/messages/{messageId}/captures` | | `{ messageId, removedEntries, removedMemories, removedCheckins }`: Undo for what one message saved. 404 "No such message." |
 | POST | `/assistant/checkin` | `{ answer?, leave? }` or empty | `CheckinTurnDto`: starts, continues, resumes or leaves today's evening check-in |
 | GET | `/assistant/checkin/today` | | `{ day, status, conversationId?, topic?, question?, missing, done, skipped }` |

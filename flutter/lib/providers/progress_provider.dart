@@ -157,6 +157,33 @@ class ProgressProvider extends ChangeNotifier with SafeNotifier {
     DateTime? at,
   }) => _act(() => _body.addMeasurement(measure, value, at: at));
 
+  /// Readings confirmed from a photo of a display, each in its metric's own
+  /// unit, saved one at a time. Returns how many went in; when one is
+  /// refused the rest are not sent and [actionError] says why. The route is
+  /// always the caller's own, whoever is being viewed.
+  Future<int> addReadings(
+    List<({String metricKey, double value})> readings,
+  ) async {
+    if (_saving) return 0;
+    _saving = true;
+    _actionError = null;
+    notify();
+    var saved = 0;
+    try {
+      for (final r in readings) {
+        await _body.addReading(r.metricKey, r.value);
+        saved++;
+      }
+    } catch (e) {
+      _actionError = describeError(e);
+    }
+    if (saved > 0) await _reloadQuietly();
+    _saving = false;
+    notify();
+    if (saved > 0) _changes.changed(this);
+    return saved;
+  }
+
   /// Undoes or removes a typed reading.
   Future<bool> deleteMeasurement(BodyMeasure measure, String id) async =>
       await _act<bool>(() async {

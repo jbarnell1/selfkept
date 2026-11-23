@@ -110,6 +110,9 @@ All optional, in `.env`:
 | `SELFKEPT_AI_REASONING_EFFORT` | empty | `none` tells a thinking model to answer without thinking first. See below. |
 | `SELFKEPT_AI_INTERACTIVE_HEADER` | empty | One `Name: value` header for a gateway that queues by priority, sent with calls a person is waiting on. |
 | `SELFKEPT_AI_TIMEOUT_SECONDS` | `20` | How long the model may stay silent before the templated text is used. |
+| `SELFKEPT_AI_VISION` | `false` | Photos in the assistant: the model reads a meal, a label, a device display or a lab report. Needs a model that takes images. See below. |
+| `SELFKEPT_AI_VISION_MODEL` | empty | A different model for photos, on the same host. Empty means `SELFKEPT_AI_MODEL`. |
+| `SELFKEPT_AI_VISION_TIMEOUT_SECONDS` | `90` | The longest one photo call may take. A cold model loads first. |
 | `SELFKEPT_OURA_CLIENT_ID`, `SELFKEPT_OURA_CLIENT_SECRET` | empty | Turns on Oura. See below. |
 | `SELFKEPT_RETENTION_MONTHS` | empty (the admin's choice in the app, 12) | Months of heart rate kept reading by reading. See "How much disk it uses". |
 
@@ -153,6 +156,12 @@ templated text is used. Add `SELFKEPT_AI_REASONING_EFFORT=none` for those: the m
 at once. Leave it out for a server that does not know the field. The model may also run on
 another machine of yours: point `SELFKEPT_AI_BASE_URL` at it. What you write to the assistant
 then travels to that machine, so use an address only your own machines can reach.
+
+Photos (`docs/photo-design.md`) are off until you add `SELFKEPT_AI_VISION=true`. The model must
+take images (qwen3.5 does; a text-only model answers every photo with an error). Set
+`SELFKEPT_AI_VISION_MODEL` when photos should go to a different model on the same host. A photo
+goes from the phone to the server and from there to that model host, is read once and is never
+written to disk, the database or a log. Nothing from a photo is saved until the person confirms it.
 
 ## Oura (optional)
 

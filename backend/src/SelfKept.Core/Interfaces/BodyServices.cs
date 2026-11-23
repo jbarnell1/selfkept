@@ -56,7 +56,8 @@ public sealed record JournalDraft(
   string? Portion,
   DateTime? At,
   string Source,
-  Guid? MessageId);
+  Guid? MessageId,
+  JournalNutritionDto? Nutrition = null);
 
 public interface IJournalService
 {
@@ -68,7 +69,7 @@ public interface IJournalService
   /// <summary>Newest first. Null when the viewer may not see the target's check-ins.</summary>
   Task<IReadOnlyList<JournalEntryDto>?> ListAsync(Guid viewerPersonId, Guid targetPersonId, DateOnly? from, DateOnly? to, CancellationToken ct = default);
 
-  /// <summary>False when the entry is not the caller's.</summary>
+  /// <summary>False when the entry is not the caller's. An entry's numbers go with it and the day is recomputed.</summary>
   Task<bool> DeleteAsync(Actor actor, Guid entryId, CancellationToken ct = default);
 
   /// <summary>Removes everything saved from one assistant message. Returns how many entries went.</summary>

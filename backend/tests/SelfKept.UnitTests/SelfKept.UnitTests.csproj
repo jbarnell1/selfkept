@@ -24,6 +24,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The two photos the opt-in live photo test sends to a model you run (PhotoAnalyzerLiveTests). -->
+    <None Include="Fixtures\photos\*.jpg" CopyToOutputDirectory="PreserveNewest" LinkBase="Fixtures\photos" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\SelfKept.Core\SelfKept.Core.csproj" />
     <ProjectReference Include="..\..\src\SelfKept.Infrastructure\SelfKept.Infrastructure.csproj" />
   </ItemGroup>

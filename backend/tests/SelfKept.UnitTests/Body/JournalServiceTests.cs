@@ -7,6 +7,7 @@ using SelfKept.Infrastructure.Services;
 using SelfKept.Infrastructure.Services.Body;
 using SelfKept.Infrastructure.Services.Collect;
 using Xunit;
+using SelfKept.Core.Enums;
 
 namespace SelfKept.UnitTests.Body;
 
@@ -246,5 +247,145 @@ public class JournalServiceTests : BodyTestBase
 
     groups.Select(g => g.Kind).Should().Equal(JournalKinds.Food, JournalKinds.Drink, JournalKinds.Symptom, JournalKinds.Training, JournalKinds.Sleep);
     groups[0].Tags.Should().Contain(new JournalTagDto(JournalTags.LateMeal, "Late meal"));
+  }
+
+  // --- numbers from a photo ---
+
+  private static CreateJournalEntryRequest PhotoFood(JournalNutritionDto nutrition, string kind = JournalKinds.Food) =>
+    new(kind, "Granola with milk", [JournalTags.WholeGrains], null, null, nutrition);
+
+  private static JournalNutritionDto Label(double? kcal = 460, double? protein = 6, double? carbs = 74, double? fat = 16) =>
+    new(NutritionBases.Label, kcal, protein, carbs, fat);
+
+  [Fact]
+  public async Task Create_WithNutrition_IsAPhotoEntryWithItsNumbers()
+  {
+    var entry = await Journal.CreateAsync(OwnerActor, PhotoFood(Label()));
+
+    entry.Source.Should().Be(JournalSources.Photo);
+    entry.Nutrition.Should().Be(new JournalNutritionDto(NutritionBases.Label, 460, 6, 74, 16));
+    var row = await Context.JournalEntries.AsNoTracking().SingleAsync();
+    (row.NutritionBasis, row.EnergyKcal, row.ProteinG).Should().Be((NutritionBases.Label, 460m, 6m));
+  }
+
+  [Fact]
+  public async Task Create_WithNutrition_WritesSamplesUnderThePhotoSourceAndTheDaysTotals()
+  {
+    var entry = await Journal.CreateAsync(OwnerActor, PhotoFood(Label(fat: null)));
+
+    var source = await Context.Sources.AsNoTracking().SingleAsync();
+    (source.PersonId, source.Kind, source.DeviceName, source.SampleCount).Should().Be((Owner.Id, SourceKinds.Manual, SourceKinds.PhotoDeviceName, 3));
+    var samples = await Context.Samples.AsNoTracking().OrderBy(s => s.MetricKey).ToListAsync();
+    samples.Select(s => (s.MetricKey, s.Value, s.SourceUid)).Should().Equal(
+      (MetricKeys.CarbsG, 74.0, NutritionSamples.SourceUid(entry.Id, MetricKeys.CarbsG)),
+      (MetricKeys.EnergyIntakeKcal, 460.0, NutritionSamples.SourceUid(entry.Id, MetricKeys.EnergyIntakeKcal)),
+      (MetricKeys.ProteinG, 6.0, NutritionSamples.SourceUid(entry.Id, MetricKeys.ProteinG)));
+    var summaries = await Context.DailySummaries.AsNoTracking().ToListAsync();
+    summaries.Should().OnlyContain(d => d.Day == Today && d.PersonId == Owner.Id);
+    summaries.Single(d => d.MetricKey == MetricKeys.ProteinG).Value.Should().Be(6);
+  }
+
+  [Fact]
+  public async Task Create_TwoPhotoEntries_AddUpOnTheDay()
+  {
+    await Journal.CreateAsync(OwnerActor, PhotoFood(Label(protein: 6)));
+    await Journal.CreateAsync(OwnerActor, PhotoFood(new JournalNutritionDto(NutritionBases.Estimate, null, 35.04, null, null)));
+
+    (await Context.DailySummaries.AsNoTracking().SingleAsync(d => d.MetricKey == MetricKeys.ProteinG)).Value.Should().BeApproximately(41, 1e-9);
+    (await Context.Sources.CountAsync()).Should().Be(1);
+  }
+
+  [Fact]
+  public async Task Create_WithNutrition_AuditsTheBasisButNoNumber()
+  {
+    await Journal.CreateAsync(OwnerActor, PhotoFood(Label()));
+
+    RecordingAudit.DetailsJson(Audit.Events.Single()).Should().Be("""{"kind":"food","tagCount":1,"source":"photo","basis":"label"}""");
+  }
+
+  [Fact]
+  public async Task Create_NutritionOnASymptom_IsRefused()
+  {
+    await ShouldBeRefusedAsync(() => Journal.CreateAsync(OwnerActor, PhotoFood(Label(), JournalKinds.Symptom)), "Only food and drink have numbers.");
+  }
+
+  [Fact]
+  public async Task Create_NutritionWithoutANumber_IsRefused()
+  {
+    await ShouldBeRefusedAsync(() => Journal.CreateAsync(OwnerActor, PhotoFood(new JournalNutritionDto(NutritionBases.Estimate, null, null, null, null))),
+      "Give at least one number, or leave nutrition out.");
+  }
+
+  [Fact]
+  public async Task Create_NutritionWithoutABasis_IsRefused()
+  {
+    await ShouldBeRefusedAsync(() => Journal.CreateAsync(OwnerActor, PhotoFood(new JournalNutritionDto(null, 300, null, null, null))),
+      "basis must be one of: estimate, label.");
+  }
+
+  [Fact]
+  public async Task Create_NumbersOutsideTheirRange_AreRefused()
+  {
+    await ShouldBeRefusedAsync(() => Journal.CreateAsync(OwnerActor, PhotoFood(Label(kcal: 5001))), "Energy must be between 0 and 5000 kcal.");
+    await ShouldBeRefusedAsync(() => Journal.CreateAsync(OwnerActor, PhotoFood(Label(protein: 401))), "Protein must be between 0 and 400 g.");
+    await ShouldBeRefusedAsync(() => Journal.CreateAsync(OwnerActor, PhotoFood(Label(carbs: -1))), "Carbohydrate must be between 0 and 1000 g.");
+    await ShouldBeRefusedAsync(() => Journal.CreateAsync(OwnerActor, PhotoFood(Label(fat: 500.5))), "Fat must be between 0 and 500 g.");
+    (await Context.JournalEntries.CountAsync()).Should().Be(0);
+    (await Context.Samples.CountAsync()).Should().Be(0);
+  }
+
+  [Fact]
+  public async Task Delete_PhotoEntry_RemovesItsSamplesAndRecomputesTheDay()
+  {
+    var keep = await Journal.CreateAsync(OwnerActor, PhotoFood(Label(protein: 10)));
+    var gone = await Journal.CreateAsync(OwnerActor, PhotoFood(Label(protein: 6)));
+
+    (await Journal.DeleteAsync(OwnerActor, gone.Id)).Should().BeTrue();
+
+    (await Context.Samples.AsNoTracking().Where(s => s.SourceUid.Contains(gone.Id.ToString("N"))).CountAsync()).Should().Be(0);
+    (await Context.Samples.AsNoTracking().CountAsync()).Should().Be(4);
+    (await Context.DailySummaries.AsNoTracking().SingleAsync(d => d.MetricKey == MetricKeys.ProteinG)).Value.Should().Be(10);
+    (await Context.Sources.AsNoTracking().SingleAsync()).SampleCount.Should().Be(4);
+    keep.Should().NotBeNull();
+  }
+
+  [Fact]
+  public async Task Delete_LastPhotoEntryOfTheDay_LeavesNoTotals()
+  {
+    var entry = await Journal.CreateAsync(OwnerActor, PhotoFood(Label()));
+
+    await Journal.DeleteAsync(OwnerActor, entry.Id);
+
+    (await Context.DailySummaries.AsNoTracking().CountAsync()).Should().Be(0);
+  }
+
+  [Fact]
+  public async Task Delete_SomeoneElsesPhotoEntry_KeepsItsSamples()
+  {
+    var entry = await Journal.CreateAsync(OwnerActor, PhotoFood(Label()));
+
+    (await Journal.DeleteAsync(MemberActor, entry.Id)).Should().BeFalse();
+
+    (await Context.Samples.CountAsync()).Should().Be(4);
+  }
+
+  [Fact]
+  public async Task List_MemberWithoutTheCheckinsGrant_SeesNoEntryAndNoNumbers()
+  {
+    await Journal.CreateAsync(OwnerActor, PhotoFood(Label()));
+    await ShareEverythingButAsync(ShareCategory.Checkins);
+
+    (await Journal.ListAsync(Member.Id, Owner.Id, null, null)).Should().BeNull();
+  }
+
+  [Fact]
+  public async Task List_MemberWithTheCheckinsGrant_SeesTheNumbersWithTheEntry()
+  {
+    await Journal.CreateAsync(OwnerActor, PhotoFood(Label()));
+    await ShareAsync(ShareCategory.Checkins);
+
+    var entries = await Journal.ListAsync(Member.Id, Owner.Id, null, null);
+
+    entries.Should().ContainSingle().Which.Nutrition.Should().Be(new JournalNutritionDto(NutritionBases.Label, 460, 6, 74, 16));
   }
 }

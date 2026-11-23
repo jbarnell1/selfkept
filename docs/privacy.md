@@ -42,9 +42,24 @@ Nothing, unless you cause it:
   error it reports it to your own server (the error text, a stack trace, the app version, the
   platform and the screen it was on; no health values), where it goes into the server log and
   the admin's Recent problems list. Nothing else receives it.
-- **No cloud AI.** Insights are computed on your server. The MCP server is for an assistant you
-  run yourself, such as Open WebUI; it is a separate authenticated endpoint and it serves your
-  server's data to a client each person allows, nothing more.
+- **No cloud AI unless you send a question yourself.** Insights are computed on your server. The
+  MCP server is for an assistant you run yourself, such as Open WebUI; it is a separate
+  authenticated endpoint and it serves your server's data to a client each person allows, nothing
+  more (connect a cloud assistant to it and what that assistant asks for goes to its company).
+  The one exception is the cloud lookup, which is off until the owner sets
+  `SELFKEPT_LOOKUP_ENABLED` and a key and each person then turns it on for themselves: it sends
+  one question, exactly the text the person read and sent, to Anthropic's API
+  (`docs/lookup-design.md`).
+- **Connections you set up.** Each is off until you configure it. Oura: the server signs in at
+  `cloud.ouraring.com` and pulls that person's data from `api.ouraring.com`. A home model: the
+  figures behind a sentence go to the address in `SELFKEPT_AI_BASE_URL`, so keep that on a
+  machine of yours. With `SELFKEPT_AI_VISION` on, a photo a person picks in the assistant goes
+  to that same address, is read once and is not stored anywhere (`docs/photo-design.md`). The evening reminder: a fixed text with no health values goes to the ntfy
+  address the person typed. Single sign-on: the server talks to your own provider. An assistant
+  that names itself with a metadata address: the server fetches that one public document.
+- **One thing not yet checked on Android.** Lab photos are read on the phone with Google's ML Kit
+  and are not uploaded for recognition, but Google documents that the ML Kit SDK reports usage
+  metrics of its own to Google. That has not been measured or switched off in the app yet.
 - **No update checks.** The server does not contact the project to ask about new versions. You
   upgrade by running the installer again, or with `docker compose pull`.
 - **Exports are yours.** When you build an export (a later package: a file download, or a share

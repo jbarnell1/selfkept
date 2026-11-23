@@ -256,7 +256,9 @@ public interface ITrendService
 }
 
 /// <param name="Background">True when nobody is waiting on the answer, so it may queue behind calls a person is waiting on.</param>
-public sealed record ChatOptions(double Temperature = 0.3, int MaxTokens = 300, bool Background = false);
+/// <param name="JsonMode">Ask the server for a JSON object only (response_format json_object).</param>
+/// <param name="Vision">A photo call: it goes to Ai:VisionModel when one is set and may take Ai:VisionTimeoutSeconds.</param>
+public sealed record ChatOptions(double Temperature = 0.3, int MaxTokens = 300, bool Background = false, bool JsonMode = false, bool Vision = false);
 
 public sealed record ChatCompletion(string Content, int? PromptTokens, int? CompletionTokens);
 
@@ -268,6 +270,10 @@ public interface IChatModel
 {
   bool Enabled { get; }
   string ModelName { get; }
+
+  /// <summary>Whether the owner turned photos on (Ai:Vision) and the model settings are usable. False unless an implementation says so.</summary>
+  bool VisionEnabled => false;
+
   Task<ChatCompletion> CompleteAsync(string system, string user, ChatOptions options, CancellationToken ct = default);
 
   /// <summary>
@@ -294,8 +300,11 @@ public interface IChatModel
   Task<bool> PingAsync(CancellationToken ct = default) => Task.FromResult(Enabled);
 }
 
-/// <summary>One turn of a conversation sent to the model: system, user or assistant.</summary>
-public sealed record ChatTurn(string Role, string Content)
+/// <summary>
+/// One turn of a conversation sent to the model: system, user or assistant. A user turn may carry
+/// photos; they are held in memory for the call only and never logged or stored.
+/// </summary>
+public sealed record ChatTurn(string Role, string Content, IReadOnlyList<ChatImage>? Images = null)
 {
   public const string System = "system";
   public const string User = "user";
@@ -310,6 +319,13 @@ public sealed record ChatTurn(string Role, string Content)
     var user = string.Join("\n", rest.Select(t => (t.Role == Assistant ? "Assistant: " : "User: ") + t.Content));
     return (system, user);
   }
+}
+
+/// <summary>A photo sent with a turn: its media type (image/jpeg, image/png, image/webp) and its bytes.</summary>
+public sealed record ChatImage(string MediaType, byte[] Bytes)
+{
+  /// <summary>Never the bytes: a turn may end up in a log line or an exception message.</summary>
+  public override string ToString() => $"{MediaType}, {Bytes.Length} bytes";
 }
 
 /// <summary>Asks the model to reword templated facts, validates the answer, falls back to the template.</summary>

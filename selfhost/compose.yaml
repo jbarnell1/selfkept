@@ -118,6 +118,12 @@ services:
       Ai__ReasoningEffort: ${SELFKEPT_AI_REASONING_EFFORT:-}
       Ai__InteractiveHeader: ${SELFKEPT_AI_INTERACTIVE_HEADER:-}
       Ai__TimeoutSeconds: ${SELFKEPT_AI_TIMEOUT_SECONDS:-20}
+      # Photos in the assistant (docs/photo-design.md). Off by default: the model must take
+      # images. The photo goes to this same model host, is read once and is never kept. An empty
+      # vision model means Ai__Model; the timeout is longer because a cold model loads first.
+      Ai__Vision: ${SELFKEPT_AI_VISION:-false}
+      Ai__VisionModel: ${SELFKEPT_AI_VISION_MODEL:-}
+      Ai__VisionTimeoutSeconds: ${SELFKEPT_AI_VISION_TIMEOUT_SECONDS:-90}
       # Cloud lookup (docs/lookup-design.md). Off by default. When on, a person who turned it on
       # for themselves can send one question they read and confirmed to Anthropic's API, with
       # web search. The key is your own, from the Anthropic console; it can live in the secrets
