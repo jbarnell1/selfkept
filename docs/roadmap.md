@@ -1,7 +1,7 @@
 # Roadmap and handoff
 
-Status: v0.1.9 is the latest release; v0.1.10 (photos read by the home model, see "Photos") is built
-and waits in `release/0.1.10`. With v0.1.8, v0.1.9 lets the home model be a thinking model on
+Status: v0.1.10 is the latest release. It adds photos read by the home model (see "Photos").
+With v0.1.8, v0.1.9 lets the home model be a thinking model on
 another machine of yours, behind a gateway (see "Home model settings"). v0.1.7 added the opt-in cloud lookup, a one-time ask for
 Health Connect kinds added since a phone was connected, and an evening check-in fix (see
 "Cloud lookup and the permission ask"). v0.1.6 added sample retention and the connected
@@ -54,7 +54,7 @@ Released in v0.1.7.
 Not yet checked: a real call to the provider (it needs the owner's own key), the Health Connect
 permission sheet on an upgraded phone, and the lookup on a phone.
 
-### Photos (v0.1.10, not released yet)
+### Photos (v0.1.10)
 
 A person picks or takes a photo in the assistant; the home model reads it once and the app shows
 a proposal to check and save (`docs/photo-design.md`). Off until `SELFKEPT_AI_VISION=true`.
